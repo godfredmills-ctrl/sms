@@ -314,22 +314,24 @@ function NavEntry({
 // Theme
 // -----------------------------------------------------------------------------
 
+/**
+ * Light is the default and the OS setting is not followed, so the choice here
+ * is a plain two-way switch. A "System" option would be misleading — it would
+ * simply mean light.
+ */
 function ThemeToggle() {
-  const [theme, setTheme] = useState<"light" | "dark" | "system">("system");
+  const [theme, setTheme] = useState<"light" | "dark">("light");
 
   useEffect(() => {
-    const stored = window.localStorage.getItem("theme") as typeof theme | null;
-    if (stored) setTheme(stored);
+    // Anything other than an explicit "dark" (including a "system" value left
+    // over from before) resolves to light.
+    setTheme(window.localStorage.getItem("theme") === "dark" ? "dark" : "light");
   }, []);
 
-  function apply(next: typeof theme) {
+  function apply(next: "light" | "dark") {
     setTheme(next);
     window.localStorage.setItem("theme", next);
-    if (next === "system") {
-      document.documentElement.removeAttribute("data-theme");
-    } else {
-      document.documentElement.setAttribute("data-theme", next);
-    }
+    document.documentElement.setAttribute("data-theme", next);
   }
 
   return (
@@ -341,7 +343,6 @@ function ThemeToggle() {
       {(
         [
           { value: "light", icon: Sun, label: "Light" },
-          { value: "system", icon: Icons.Monitor, label: "System" },
           { value: "dark", icon: Moon, label: "Dark" },
         ] as const
       ).map((option) => (

@@ -63,36 +63,15 @@
   color-scheme: light;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --bg: #0d1117;
-    --bg-elevated: #161b22;
-    --bg-subtle: #1c232c;
-    --bg-inset: #11161d;
-    --border: #262d36;
-    --border-strong: #39424e;
-    --text: #e8ebef;
-    --text-muted: #9aa4b1;
-    --text-subtle: #6f7986;
-    --primary: var(--color-brand-400);
-    --primary-hover: var(--color-brand-300);
-    --primary-soft: #0d2b21;
-    --primary-text: #04170f;
-    --ring: var(--color-brand-400);
-
-    --success: #4cc38a;
-    --success-soft: #0e2c22;
-    --warning: #e0b341;
-    --warning-soft: #2f2510;
-    --danger: #f07171;
-    --danger-soft: #331717;
-    --info: #6aa6e8;
-    --info-soft: #12233a;
-
-    color-scheme: dark;
-  }
-}
-
+/*
+ * Dark mode is opt-in, not automatic.
+ *
+ * There is deliberately no `prefers-color-scheme: dark` block: a school
+ * office is a shared, bright environment and staff should get the same
+ * light interface on every machine regardless of how that particular
+ * laptop's OS is configured. Dark applies only when a user chooses it,
+ * which stamps data-theme="dark" on the root element.
+ */
 :root[data-theme="dark"] {
   --bg: #0d1117;
   --bg-elevated: #161b22;
@@ -166,17 +145,7 @@
   --viz-surface: var(--bg-elevated);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root:where(:not([data-theme="light"])) .viz-root {
-    --series-1: #3987e5;
-    --series-2: #d95926;
-    --series-3: #199e70;
-    --series-4: #c98500;
-    --viz-grid: #2c2c2a;
-    --viz-axis: #383835;
-  }
-}
-
+/* Chart steps for the dark surface, applied only on explicit opt-in. */
 :root[data-theme="dark"] .viz-root {
   --series-1: #3987e5;
   --series-2: #d95926;

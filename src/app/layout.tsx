@@ -32,15 +32,15 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
-  themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#128257" },
-    { media: "(prefers-color-scheme: dark)", color: "#0d1117" },
-  ],
+  // Single colour: the interface is light regardless of the OS setting, so a
+  // dark variant here would only mismatch the page it frames.
+  themeColor: "#128257",
 };
 
 /**
- * Applied before first paint so a user who chose dark mode never sees a flash
- * of the light theme.
+ * Applied before first paint so a user who explicitly chose dark never sees a
+ * flash of light first. With nothing stored, no attribute is set and the
+ * light palette on bare `:root` applies — the OS setting is not consulted.
  */
 const THEME_SCRIPT = `(function(){try{var t=localStorage.getItem('theme');if(t==='dark'||t==='light'){document.documentElement.setAttribute('data-theme',t);}}catch(e){}})();`;
 
