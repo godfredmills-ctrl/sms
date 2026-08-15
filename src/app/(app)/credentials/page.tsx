@@ -21,6 +21,7 @@ import { db } from "@/lib/db";
 import { formatDate, humanise } from "@/lib/utils";
 
 import { createTemplateAction, revokeCredentialAction } from "./actions";
+import { EmailCredentialButton } from "./email-button";
 import { CertificateForm, TranscriptForm } from "./issue-forms";
 
 export const metadata: Metadata = { title: "Transcripts & Certificates" };
@@ -247,6 +248,9 @@ export default async function CredentialsPage() {
                     ) : (
                       <Badge tone="neutral">Unofficial</Badge>
                     )}
+                    {!transcript.revokedAt ? (
+                      <EmailCredentialButton kind="transcript" id={transcript.id} />
+                    ) : null}
                     {!transcript.revokedAt && canTranscript ? (
                       <form action={revokeCredentialAction}>
                         <input type="hidden" name="kind" value="transcript" />
@@ -290,6 +294,9 @@ export default async function CredentialsPage() {
                     </div>
                     <Badge tone="neutral">{humanise(certificate.kind)}</Badge>
                     {certificate.revokedAt ? <Badge tone="danger">Revoked</Badge> : null}
+                    {!certificate.revokedAt ? (
+                      <EmailCredentialButton kind="certificate" id={certificate.id} />
+                    ) : null}
                     {!certificate.revokedAt && canCertificate ? (
                       <form action={revokeCredentialAction}>
                         <input type="hidden" name="kind" value="certificate" />

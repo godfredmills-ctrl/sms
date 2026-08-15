@@ -326,6 +326,11 @@ export const GUARDIAN_NAVIGATION: NavGroup[] = [
     items: [
       { label: "Announcements", href: "/portal/guardian/announcements", icon: "Megaphone" },
       { label: "Messages", href: "/messages", icon: "MessageSquare" },
+      {
+        label: "Certificates",
+        href: "/portal/guardian/credentials",
+        icon: "Award",
+      },
       { label: "Documents", href: "/portal/guardian/documents", icon: "FolderOpen" },
       { label: "Calendar", href: "/portal/guardian/calendar", icon: "Calendar" },
     ],
@@ -340,6 +345,7 @@ export const STUDENT_NAVIGATION: NavGroup[] = [
       { label: "My Courses", href: "/portal/student/courses", icon: "MonitorPlay" },
       { label: "Assignments", href: "/portal/student/assignments", icon: "ClipboardList" },
       { label: "Results", href: "/portal/student/results", icon: "FileText" },
+      { label: "Certificates", href: "/portal/student/credentials", icon: "Award" },
       { label: "Timetable", href: "/portal/student/timetable", icon: "Calendar" },
       { label: "Attendance", href: "/portal/student/attendance", icon: "CalendarCheck" },
     ],

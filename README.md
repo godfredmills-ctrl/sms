@@ -345,7 +345,8 @@ grading scales, integrations), users and roles with a 90-permission catalogue,
 audit trail, global search, account and notification preferences.
 
 **Portals** — separate student and parent portals, each scoped to what that
-person is entitled to see.
+person is entitled to see, including downloading their own certificates and
+transcripts as PDFs.
 
 **Platform** — PWA (installable, offline shell, push notifications), AI insights
 throughout (management brief, teaching effectiveness, student progress, at-risk

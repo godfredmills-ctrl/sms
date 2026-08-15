@@ -7,7 +7,12 @@ import { generateCode } from "@/lib/crypto";
 import { db } from "@/lib/db";
 import { buildTranscriptData } from "@/lib/grading";
 
-export type CredentialState = { ok?: boolean; error?: string; id?: string };
+export type CredentialState = {
+  ok?: boolean;
+  error?: string;
+  id?: string;
+  message?: string;
+};
 
 /**
  * Issues a transcript.
@@ -153,6 +158,136 @@ export async function issueCertificateAction(
 
   revalidatePath("/credentials");
   return { ok: true, id: certificate.id };
+}
+
+/**
+ * Emails a credential to the family as a PDF attachment.
+ *
+ * Sent to guardians flagged as recipients of reports, which is the school's
+ * own record of who is entitled to academic information about the child — the
+ * same rule the portal uses, so a document cannot reach someone by email that
+ * they would be refused on screen.
+ */
+export async function emailCredentialAction(
+  _previous: CredentialState,
+  formData: FormData,
+): Promise<CredentialState> {
+  let user;
+  try {
+    user = await authorize([
+      "assessment.certificate.issue",
+      "assessment.transcript.generate",
+    ]);
+  } catch (error) {
+    return { error: (error as Error).message };
+  }
+
+  const kind = String(formData.get("kind") ?? "");
+  const id = String(formData.get("id") ?? "");
+  if (!id || (kind !== "certificate" && kind !== "transcript")) {
+    return { error: "Missing document." };
+  }
+
+  const { db: prisma } = await import("@/lib/db");
+  const { renderCredentialPdf } = await import("@/lib/credential-pdf");
+  const { sendEmail } = await import("@/lib/messaging/providers");
+
+  const record =
+    kind === "certificate"
+      ? await prisma.issuedCertificate.findUnique({
+          where: { id },
+          select: {
+            studentId: true,
+            serialNumber: true,
+            title: true,
+            revokedAt: true,
+          },
+        })
+      : await prisma.transcript.findUnique({
+          where: { id },
+          select: {
+            studentId: true,
+            serialNumber: true,
+            purpose: true,
+            revokedAt: true,
+          },
+        });
+
+  if (!record) return { error: "That document no longer exists." };
+  if (record.revokedAt) {
+    return { error: "That document has been withdrawn and cannot be sent." };
+  }
+  if (!record.studentId) {
+    return {
+      error: "This document is not linked to a student, so there is no family to send it to.",
+    };
+  }
+
+  const recipients = await prisma.studentGuardian.findMany({
+    where: { studentId: record.studentId, receivesReports: true },
+    select: { guardian: { select: { firstName: true, email: true } } },
+  });
+
+  const addresses = recipients
+    .map((link) => link.guardian)
+    .filter((guardian): guardian is { firstName: string; email: string } =>
+      Boolean(guardian.email),
+    );
+
+  if (!addresses.length) {
+    return {
+      error:
+        "No guardian on this student's record has both an email address and permission to receive reports.",
+    };
+  }
+
+  let pdf: Buffer;
+  try {
+    pdf = await renderCredentialPdf(kind, id);
+  } catch (error) {
+    return { error: `Could not produce the PDF: ${(error as Error).message}` };
+  }
+
+  const label =
+    kind === "certificate"
+      ? ((record as { title: string }).title ?? "Certificate")
+      : `Academic transcript`;
+
+  let sent = 0;
+  for (const guardian of addresses) {
+    const result = await sendEmail({
+      to: guardian.email,
+      subject: `${label} — ${record.serialNumber}`,
+      html: `<p>Dear ${guardian.firstName},</p>
+<p>Please find attached the ${label.toLowerCase()} issued by the school, reference ${record.serialNumber}.</p>
+<p>The document carries a verification code so that any university or employer receiving it can confirm it is genuine.</p>`,
+      attachments: [
+        {
+          filename: `${record.serialNumber.replace(/\//g, "-")}.pdf`,
+          content: pdf,
+          contentType: "application/pdf",
+        },
+      ],
+    });
+    if (result.ok) sent += 1;
+  }
+
+  await db.auditLog.create({
+    data: {
+      userId: user.id,
+      actorLabel: user.fullName,
+      action: `assessment.${kind}.email`,
+      entity: kind === "certificate" ? "IssuedCertificate" : "Transcript",
+      entityId: id,
+      summary: `Emailed ${record.serialNumber} to ${sent} guardian(s)`,
+    },
+  });
+
+  revalidatePath("/credentials");
+
+  return sent
+    ? { ok: true, message: `Sent to ${sent} guardian${sent === 1 ? "" : "s"}.` }
+    : { error: "The email provider rejected every address." };
 }
 
 /**

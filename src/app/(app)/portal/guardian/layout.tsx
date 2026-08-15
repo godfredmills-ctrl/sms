@@ -7,6 +7,7 @@ const TABS: Tab[] = [
   { href: "/portal/guardian", label: "Overview" },
   { href: "/portal/guardian/children", label: "Children" },
   { href: "/portal/guardian/results", label: "Results" },
+  { href: "/portal/guardian/credentials", label: "Certificates" },
   { href: "/portal/guardian/attendance", label: "Attendance" },
   { href: "/portal/guardian/fees", label: "Fee account" },
   { href: "/portal/guardian/payments", label: "Payments" },

@@ -1,18 +1,16 @@
 import { NextResponse } from "next/server";
 
-import { authorize } from "@/lib/auth";
+import { requireUser } from "@/lib/auth";
+import { credentialFilename, renderCredentialPdf } from "@/lib/credential-pdf";
+import { canAccessCredential } from "@/lib/credentials";
 import { db } from "@/lib/db";
-import { renderTablePdf, renderTemplatePdf } from "@/lib/pdf";
-import { readStoredFile, storeFile } from "@/lib/storage";
-import { formatDate, fullName, toNumber } from "@/lib/utils";
 
 /**
- * Generates a certificate or transcript as a real PDF.
+ * Downloads a certificate or transcript as a PDF.
  *
- * The file is generated once and stored, then served from storage afterwards.
- * A credential is a fixed record of what was awarded: re-rendering it on every
- * download would let a later template edit silently change a document a family
- * already holds a printed copy of.
+ * The rendering itself lives in `credential-pdf.ts`, shared with the email
+ * action, so a family cannot receive a document by email that differs from the
+ * one they download here.
  */
 export const dynamic = "force-dynamic";
 
@@ -22,216 +20,66 @@ export async function GET(
 ) {
   const { kind, id } = await params;
 
-  let user;
-  try {
-    user = await authorize(
-      kind === "transcript"
-        ? "assessment.transcript.generate"
-        : "assessment.certificate.issue",
+  if (kind !== "certificate" && kind !== "transcript") {
+    return NextResponse.json({ error: "Unknown credential type." }, { status: 400 });
+  }
+
+  const user = await requireUser();
+
+  // The owning student is read first so access is judged against the document
+  // itself rather than a permission alone — that is what lets a family
+  // download their own without being granted everyone else's.
+  const owner =
+    kind === "certificate"
+      ? await db.issuedCertificate.findUnique({
+          where: { id },
+          select: { studentId: true, revokedAt: true },
+        })
+      : await db.transcript.findUnique({
+          where: { id },
+          select: { studentId: true, revokedAt: true },
+        });
+
+  if (!owner) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
+  const access = await canAccessCredential(user, kind, owner.studentId);
+  if (!access.allowed) {
+    return NextResponse.json({ error: access.reason }, { status: 403 });
+  }
+
+  // A withdrawn document stays visible to staff — they may need to see what
+  // was issued — but is not handed back to the family as if it still stood.
+  if (owner.revokedAt && access.via !== "staff") {
+    return NextResponse.json(
+      { error: "This document has been withdrawn by the school." },
+      { status: 410 },
     );
+  }
+
+  // Only staff may force a re-render. A family re-downloading must always get
+  // the document that was issued to them, not a fresh one off a changed
+  // template.
+  const regenerate =
+    access.via === "staff" &&
+    new URL(request.url).searchParams.get("regenerate") === "1";
+
+  try {
+    const [bytes, filename] = await Promise.all([
+      renderCredentialPdf(kind, id, { regenerate, storedById: user.id }),
+      credentialFilename(kind, id),
+    ]);
+
+    return new NextResponse(new Uint8Array(bytes), {
+      headers: {
+        "Content-Type": "application/pdf",
+        "Content-Disposition": `inline; filename="${filename}"`,
+        // Never cached by a shared proxy: these are personal documents.
+        "Cache-Control": "private, no-store",
+      },
+    });
   } catch (error) {
-    return NextResponse.json({ error: (error as Error).message }, { status: 403 });
+    return NextResponse.json({ error: (error as Error).message }, { status: 500 });
   }
-
-  const regenerate = new URL(request.url).searchParams.get("regenerate") === "1";
-
-  if (kind === "certificate") {
-    return certificate(id, user.id, regenerate);
-  }
-  if (kind === "transcript") {
-    return transcript(id, user.id, regenerate);
-  }
-
-  return NextResponse.json({ error: "Unknown credential type." }, { status: 400 });
-}
-
-function pdfResponse(bytes: Buffer, filename: string) {
-  return new NextResponse(new Uint8Array(bytes), {
-    headers: {
-      "Content-Type": "application/pdf",
-      "Content-Disposition": `inline; filename="${filename}"`,
-      "Cache-Control": "private, no-store",
-    },
-  });
-}
-
-async function certificate(id: string, userId: string, regenerate: boolean) {
-  const record = await db.issuedCertificate.findUnique({
-    where: { id },
-    include: {
-      template: true,
-      student: {
-        select: {
-          firstName: true,
-          lastName: true,
-          otherNames: true,
-          admissionNo: true,
-          dateOfBirth: true,
-          enrollments: {
-            where: { status: "ACTIVE" },
-            take: 1,
-            select: {
-              classSection: {
-                select: { name: true, classLevel: { select: { name: true } } },
-              },
-            },
-          },
-        },
-      },
-    },
-  });
-
-  if (!record) {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
-  }
-
-  if (record.fileId && !regenerate) {
-    const asset = await db.fileAsset.findUnique({
-      where: { id: record.fileId },
-      select: { storageKey: true },
-    });
-    if (asset) {
-      const bytes = await readStoredFile(asset.storageKey);
-      return pdfResponse(bytes, `${record.serialNumber.replace(/\//g, "-")}.pdf`);
-    }
-  }
-
-  const school = await db.school.findFirst({
-    select: {
-      name: true,
-      motto: true,
-      addressLine1: true,
-      city: true,
-      logoUrl: true,
-    },
-  });
-
-  const section = record.student?.enrollments[0]?.classSection;
-
-  const bytes = await renderTemplatePdf({
-    layout: record.template.layout,
-    pageSize: record.template.pageSize,
-    orientation: record.template.orientation,
-    context: {
-      student: {
-        fullName: record.student ? fullName(record.student) : record.recipientName,
-        firstName: record.student?.firstName ?? record.recipientName.split(" ")[0],
-        lastName: record.student?.lastName ?? "",
-        admissionNo: record.student?.admissionNo ?? "",
-        dateOfBirth: formatDate(record.student?.dateOfBirth),
-        className: section ? `${section.classLevel.name} ${section.name}` : "",
-      },
-      school: {
-        name: school?.name ?? "",
-        motto: school?.motto ?? "",
-        address: [school?.addressLine1, school?.city].filter(Boolean).join(", "),
-        logoUrl: school?.logoUrl ?? "",
-      },
-      document: {
-        title: record.title,
-        serialNumber: record.serialNumber,
-        issuedOn: formatDate(record.issuedOn),
-        awardedFor: record.awardedFor ?? "",
-        verifyCode: record.verifyCode,
-        signedBy: record.signedBy ?? "",
-        signatoryTitle: record.signatoryTitle ?? "",
-      },
-    },
-  });
-
-  const stored = await storeFile({
-    buffer: bytes,
-    originalName: `${record.serialNumber.replace(/\//g, "-")}.pdf`,
-    mimeType: "application/pdf",
-    folder: "certificates",
-    uploadedById: userId,
-    // System-generated, so it bypasses the upload allow-list.
-    trusted: true,
-  });
-
-  await db.issuedCertificate.update({
-    where: { id },
-    data: { fileId: stored.id },
-  });
-
-  return pdfResponse(bytes, stored.originalName);
-}
-
-async function transcript(id: string, userId: string, regenerate: boolean) {
-  const record = await db.transcript.findUnique({
-    where: { id },
-    include: {
-      student: {
-        select: {
-          firstName: true,
-          lastName: true,
-          otherNames: true,
-          admissionNo: true,
-          dateOfBirth: true,
-        },
-      },
-      lines: { orderBy: [{ academicYear: "asc" }, { termName: "asc" }] },
-    },
-  });
-
-  if (!record) {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
-  }
-
-  if (record.fileId && !regenerate) {
-    const asset = await db.fileAsset.findUnique({
-      where: { id: record.fileId },
-      select: { storageKey: true },
-    });
-    if (asset) {
-      const bytes = await readStoredFile(asset.storageKey);
-      return pdfResponse(bytes, `${record.serialNumber.replace(/\//g, "-")}.pdf`);
-    }
-  }
-
-  const school = await db.school.findFirst({
-    select: { name: true, addressLine1: true, city: true },
-  });
-
-  const bytes = await renderTablePdf({
-    title: `${school?.name ?? "School"} — Academic Transcript`,
-    subtitle: [
-      fullName(record.student),
-      record.student.admissionNo,
-      record.purpose ? `Issued for: ${record.purpose}` : null,
-      `Serial ${record.serialNumber}`,
-      `Issued ${formatDate(record.issuedAt)}`,
-    ]
-      .filter(Boolean)
-      .join("  ·  "),
-    headers: ["Year", "Term", "Subject", "Score", "Grade", "Point", "Credits"],
-    rows: record.lines.map((line) => [
-      line.academicYear,
-      line.termName,
-      line.subjectName,
-      toNumber(line.score)?.toFixed(1) ?? "—",
-      line.grade ?? "—",
-      toNumber(line.point)?.toFixed(2) ?? "—",
-      toNumber(line.credits)?.toFixed(1) ?? "—",
-    ]),
-    footer: `Cumulative GPA ${toNumber(record.cumulativeGpa)?.toFixed(2) ?? "—"}${
-      record.classification ? ` · ${record.classification}` : ""
-    } · Verify at /verify/${record.verifyCode} · This document is void if altered.`,
-  });
-
-  const stored = await storeFile({
-    buffer: bytes,
-    originalName: `${record.serialNumber.replace(/\//g, "-")}.pdf`,
-    mimeType: "application/pdf",
-    folder: "transcripts",
-    uploadedById: userId,
-    trusted: true,
-  });
-
-  await db.transcript.update({
-    where: { id },
-    data: { fileId: stored.id },
-  });
-
-  return pdfResponse(bytes, stored.originalName);
 }
