@@ -77,6 +77,17 @@ the same school every time.
    CRON_SECRET=<long random string>
    ```
 
+   > **Do not set `NODE_ENV`.** Railway and the build set it themselves. Setting
+   > it by hand — especially as `NODE_ENV="production"`, where a raw editor keeps
+   > the quotes as part of the value — makes Next.js reject it. Combined with a
+   > warm build cache written under a different `NODE_ENV`, the build then fails
+   > with `<Html> should not be imported outside of pages/_document` while
+   > prerendering `/404`, an error that points nowhere near the real cause.
+   >
+   > `scripts/build.mjs` normalises the value before Next sees it, so this is
+   > handled — but the variable is still better removed. Values in
+   > `.env.example` are unquoted for the same reason.
+
 4. **Deploy.** `scripts/start.mjs` applies pending migrations and then starts the
    server. A database problem is logged loudly but does **not** stop the server
    from listening — otherwise the platform reports only "service unavailable"

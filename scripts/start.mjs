@@ -16,6 +16,10 @@
 import { spawn, spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
+import { normaliseNodeEnv } from "./env.mjs";
+
+normaliseNodeEnv({ fallback: "production" });
+
 const line = "─".repeat(72);
 
 function banner(title) {
