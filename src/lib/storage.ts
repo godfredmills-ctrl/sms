@@ -121,6 +121,13 @@ function s3(): S3Client {
     // R2, MinIO and B2 all expect the bucket in the path rather than in the
     // hostname. AWS itself accepts path style too, so this is safe everywhere.
     forcePathStyle: true,
+    // The SDK otherwise attaches a CRC32 trailer to every upload. AWS accepts
+    // it; several S3-compatible providers reject the request outright, and the
+    // error names the checksum rather than the cause. Integrity is covered by
+    // the SHA-256 stored on the FileAsset row, so nothing is lost by asking for
+    // checksums only where the protocol actually requires them.
+    requestChecksumCalculation: "WHEN_REQUIRED",
+    responseChecksumValidation: "WHEN_REQUIRED",
     credentials: {
       accessKeyId: env.storage.s3AccessKeyId,
       secretAccessKey: env.storage.s3SecretAccessKey,
@@ -239,7 +246,6 @@ export async function storeFile(input: {
         Key: storageKey,
         Body: input.buffer,
         ContentType: input.mimeType,
-        ChecksumSHA256: Buffer.from(checksum, "hex").toString("base64"),
         Metadata: {
           // Kept for anyone inspecting the bucket directly; the database is
           // still the source of truth for the display name.
