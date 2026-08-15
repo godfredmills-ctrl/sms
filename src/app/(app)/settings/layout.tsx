@@ -1,15 +1,14 @@
 import type { ReactNode } from "react";
 
+import { TabNav, type Tab } from "@/components/tab-nav";
 import { requirePermission, userCan } from "@/lib/auth";
-
-import { SettingsNav, type SettingsTab } from "./settings-nav";
 
 export default async function SettingsLayout({ children }: { children: ReactNode }) {
   const user = await requirePermission("settings.read");
 
   // Tabs are derived from permissions rather than hidden behind a redirect, so
   // a bursar never sees a "Custom fields" tab that would only bounce them.
-  const tabs: SettingsTab[] = [
+  const tabs: Tab[] = [
     { href: "/settings/school", label: "School profile" },
     ...(userCan(user, "settings.option.manage")
       ? [{ href: "/settings/options", label: "Dropdown options" }]
@@ -27,7 +26,7 @@ export default async function SettingsLayout({ children }: { children: ReactNode
 
   return (
     <>
-      <SettingsNav tabs={tabs} />
+      <TabNav tabs={tabs} />
       {children}
     </>
   );
