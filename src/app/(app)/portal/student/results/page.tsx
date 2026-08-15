@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Award, FileText, TrendingUp } from "lucide-react";
+import { Award, Download, FileText, TrendingUp } from "lucide-react";
 
 import { TrendChart } from "@/components/charts";
 import {
@@ -138,6 +138,15 @@ export default async function StudentResultsPage() {
                     {report.overallGrade ? (
                       <Badge tone="success">{report.overallGrade}</Badge>
                     ) : null}
+                    <a
+                      href={`/api/report-cards/${report.id}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-[var(--border-strong)] px-3 text-xs font-medium hover:bg-[var(--bg-subtle)]"
+                    >
+                      <Download className="size-3.5" />
+                      PDF
+                    </a>
                     <Link
                       href={`/reports/cards/${report.id}`}
                       className="inline-flex h-8 items-center rounded-lg border border-[var(--border-strong)] px-3 text-xs font-medium hover:bg-[var(--bg-subtle)]"

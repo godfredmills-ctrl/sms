@@ -9,6 +9,7 @@ import { percentOf } from "@/lib/money";
 import { toNumber } from "@/lib/utils";
 
 import { publishReportCardsAction } from "./actions";
+import { EmailCardsPanel } from "./email-panel";
 import { ReportCardsTable, type ReportCardRow } from "./cards-table";
 import { GeneratePanel } from "./generate-panel";
 
@@ -215,6 +216,23 @@ export default async function ReportCardsPage() {
                   Each family is notified about their own child only.
                 </p>
               </form>
+            </Card>
+          ) : null}
+
+          {canApprove && currentTerm ? (
+            <Card>
+              <CardHeader
+                title="Email a class"
+                description="Sends each published report card home as a PDF attachment."
+              />
+              <EmailCardsPanel
+                termId={currentTerm.id}
+                sections={sections.map((section) => ({
+                  value: section.id,
+                  label: `${section.classLevel.name} ${section.name}`,
+                  description: `${section._count.enrollments} students`,
+                }))}
+              />
             </Card>
           ) : null}
 

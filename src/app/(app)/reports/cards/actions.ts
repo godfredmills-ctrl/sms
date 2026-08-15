@@ -157,6 +157,135 @@ export async function approveReportCardAction(reportCardId: string) {
  * it is a single deliberate act per class rather than a side effect of
  * generating.
  */
+export type EmailCardsState = {
+  ok?: boolean;
+  error?: string;
+  message?: string;
+  sent?: number;
+  skipped?: string[];
+};
+
+/**
+ * Emails a class's published report cards home, each as its own PDF.
+ *
+ * Sent one family at a time rather than as a bulk mailshot with everything
+ * attached — the whole point is that a parent receives their own child's
+ * report and nobody else's. Only published cards go out, and only to guardians
+ * flagged as recipients of academic reports, so the email route grants nothing
+ * the portal would refuse.
+ */
+export async function emailReportCardsAction(
+  _previous: EmailCardsState,
+  formData: FormData,
+): Promise<EmailCardsState> {
+  let user;
+  try {
+    user = await authorize("assessment.report.approve");
+  } catch (error) {
+    return { error: (error as Error).message };
+  }
+
+  const classSectionId = String(formData.get("classSectionId") ?? "");
+  const termId = String(formData.get("termId") ?? "");
+  if (!classSectionId || !termId) return { error: "Choose a class and a term." };
+
+  const { buildReportCardPdf } = await import("@/lib/report-card-pdf");
+  const { sendEmail } = await import("@/lib/messaging/providers");
+
+  const cards = await db.reportCard.findMany({
+    where: { classSectionId, termId, status: "PUBLISHED" },
+    select: {
+      id: true,
+      student: {
+        select: {
+          firstName: true,
+          lastName: true,
+          admissionNo: true,
+          guardians: {
+            where: { receivesReports: true },
+            select: { guardian: { select: { firstName: true, email: true } } },
+          },
+        },
+      },
+      term: { select: { name: true } },
+      academicYear: { select: { name: true } },
+    },
+  });
+
+  if (!cards.length) {
+    return {
+      error:
+        "No published report cards for that class and term. Publish them first — a draft is not something to email home.",
+    };
+  }
+
+  let sent = 0;
+  const skipped: string[] = [];
+
+  for (const card of cards) {
+    const addresses = card.student.guardians
+      .map((link) => link.guardian)
+      .filter((guardian): guardian is { firstName: string; email: string } =>
+        Boolean(guardian.email),
+      );
+
+    if (!addresses.length) {
+      skipped.push(`${card.student.firstName} ${card.student.lastName} — no email`);
+      continue;
+    }
+
+    let pdf: Buffer | null;
+    try {
+      pdf = await buildReportCardPdf(card.id);
+    } catch {
+      pdf = null;
+    }
+
+    if (!pdf) {
+      skipped.push(`${card.student.firstName} ${card.student.lastName} — render failed`);
+      continue;
+    }
+
+    for (const guardian of addresses) {
+      const result = await sendEmail({
+        to: guardian.email,
+        subject: `${card.term.name} report card — ${card.student.firstName} ${card.student.lastName}`,
+        html: `<p>Dear ${guardian.firstName},</p>
+<p>Please find attached the ${card.term.name} report card for ${card.student.firstName} ${card.student.lastName} (${card.student.admissionNo}), ${card.academicYear.name}.</p>
+<p>You can also view it any time in the parent portal.</p>`,
+        attachments: [
+          {
+            filename: `${card.student.admissionNo.replace(/\//g, "-")}-${card.term.name
+              .toLowerCase()
+              .replace(/\s+/g, "-")}.pdf`,
+            content: pdf,
+            contentType: "application/pdf",
+          },
+        ],
+      });
+      if (result.ok) sent += 1;
+    }
+  }
+
+  await db.auditLog.create({
+    data: {
+      userId: user.id,
+      actorLabel: user.fullName,
+      action: "assessment.report.email",
+      summary: `Emailed ${cards.length} report cards to ${sent} guardian(s)`,
+    },
+  });
+
+  return {
+    ok: true,
+    sent,
+    skipped: skipped.slice(0, 20),
+    message: `Sent ${sent} email${sent === 1 ? "" : "s"} across ${cards.length} report card${
+      cards.length === 1 ? "" : "s"
+    }.`,
+  };
+}
+
 export async function publishReportCardsAction(formData: FormData) {
   const user = await authorize("assessment.report.approve");
 

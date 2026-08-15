@@ -318,7 +318,8 @@ spreadsheet import, staff records and profiles, the guardian register.
 
 **Academics** — class levels and sections, subjects and the curriculum map,
 academic years and terms with locking, a timetable grid that detects teacher
-clashes across every class, attendance registers, the gradebook, report cards.
+clashes across every class, attendance registers, the gradebook, and report
+cards that generate as PDFs and can be emailed home a class at a time.
 
 **Finance** — fee categories and structures, bulk billing with a dry run,
 invoices and printable documents, payment recording, receipts, discounts and

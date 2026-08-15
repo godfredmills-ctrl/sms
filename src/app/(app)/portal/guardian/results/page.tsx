@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Award, FileText } from "lucide-react";
+import { Award, Download, FileText } from "lucide-react";
 
 import {
   Alert,
@@ -98,6 +98,15 @@ export default async function GuardianResultsPage() {
                         {ordinal(report.positionInClass)} of {report.classSize}
                       </Badge>
                     ) : null}
+                    <a
+                      href={`/api/report-cards/${report.id}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-[var(--border-strong)] px-3 text-xs font-medium hover:bg-[var(--bg-subtle)]"
+                    >
+                      <Download className="size-3.5" />
+                      PDF
+                    </a>
                     <Link
                       href={`/reports/cards/${report.id}`}
                       className="inline-flex h-8 items-center rounded-lg border border-[var(--border-strong)] px-3 text-xs font-medium hover:bg-[var(--bg-subtle)]"

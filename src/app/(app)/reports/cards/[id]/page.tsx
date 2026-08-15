@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { CheckCircle2 } from "lucide-react";
+import { CheckCircle2, Download } from "lucide-react";
 
 import { Badge, Button, Card, CardHeader, StatusBadge } from "@/components/ui";
 import { PrintButton } from "@/components/print-button";
@@ -162,6 +162,16 @@ export default async function ReportCardPage({
                 </Button>
               </form>
             ) : null}
+
+            <a
+              href={`/api/report-cards/${card.id}`}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-[var(--border-strong)] px-3 text-sm font-medium hover:bg-[var(--bg-subtle)]"
+            >
+              <Download className="size-4" />
+              PDF
+            </a>
 
             <PrintButton />
           </div>

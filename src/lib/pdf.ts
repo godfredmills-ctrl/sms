@@ -262,6 +262,282 @@ function drawElement(
   });
 }
 
+export type ReportCardPdf = {
+  school: { name: string; address?: string; motto?: string };
+  heading: string;
+  student: {
+    name: string;
+    admissionNo: string;
+    className: string;
+    gender?: string;
+  };
+  meta: Array<{ label: string; value: string }>;
+  subjects: Array<{
+    subject: string;
+    ca: string;
+    exam: string;
+    total: string;
+    grade: string;
+    position: string;
+    classAverage: string;
+    remark: string;
+  }>;
+  summary: Array<{ label: string; value: string }>;
+  remarks: Array<{ label: string; body: string; signatory?: string }>;
+  footer?: string;
+};
+
+/**
+ * A terminal report card.
+ *
+ * Built as its own renderer rather than through the template model: a report
+ * card is mostly a table with a fixed set of summary boxes, and expressing that
+ * as thirty absolutely-positioned elements would be miserable to maintain and
+ * would break the moment a school taught one more subject than the layout had
+ * rows for.
+ */
+export async function renderReportCardPdf(input: ReportCardPdf): Promise<Buffer> {
+  const pdf = await PDFDocument.create();
+  const regular = await pdf.embedFont(StandardFonts.Helvetica);
+  const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
+  const italic = await pdf.embedFont(StandardFonts.HelveticaOblique);
+
+  const [width, height] = PAGE_SIZES.A4;
+  const margin = 40;
+  const usable = width - margin * 2;
+
+  const ink = rgb(0.06, 0.09, 0.16);
+  const muted = rgb(0.39, 0.45, 0.55);
+  const faint = rgb(0.85, 0.88, 0.91);
+
+  let page = pdf.addPage([width, height]);
+  let y = height - margin;
+
+  function line(colour = faint, thickness = 0.5) {
+    page.drawRectangle({ x: margin, y, width: usable, height: thickness, color: colour });
+    y -= 10;
+  }
+
+  // --- Masthead ------------------------------------------------------------
+  page.drawText(input.school.name, {
+    x: margin,
+    y,
+    size: 15,
+    font: bold,
+    color: ink,
+  });
+  y -= 14;
+
+  if (input.school.address) {
+    page.drawText(input.school.address, { x: margin, y, size: 8, font: regular, color: muted });
+    y -= 10;
+  }
+  if (input.school.motto) {
+    page.drawText(input.school.motto, { x: margin, y, size: 8, font: italic, color: muted });
+    y -= 10;
+  }
+
+  y -= 4;
+  const headingWidth = bold.widthOfTextAtSize(input.heading, 11);
+  page.drawText(input.heading, {
+    x: margin + (usable - headingWidth) / 2,
+    y,
+    size: 11,
+    font: bold,
+    color: ink,
+  });
+  y -= 12;
+  line(rgb(0.17, 0.4, 0.81), 1.2);
+
+  // --- Student block -------------------------------------------------------
+  const pairs = [
+    { label: "Name", value: input.student.name },
+    { label: "Admission no.", value: input.student.admissionNo },
+    { label: "Class", value: input.student.className },
+    ...input.meta,
+  ];
+
+  const columnWidth = usable / 2;
+  pairs.forEach((pair, index) => {
+    const column = index % 2;
+    const rowY = y - Math.floor(index / 2) * 13;
+
+    page.drawText(`${pair.label}:`, {
+      x: margin + column * columnWidth,
+      y: rowY,
+      size: 8,
+      font: regular,
+      color: muted,
+    });
+    page.drawText(pair.value, {
+      x: margin + column * columnWidth + 72,
+      y: rowY,
+      size: 9,
+      font: bold,
+      color: ink,
+    });
+  });
+
+  y -= Math.ceil(pairs.length / 2) * 13 + 8;
+  line();
+
+  // --- Subjects ------------------------------------------------------------
+  // Proportional widths: the subject name gets the room, the numbers do not
+  // need it, and the remark takes whatever is left.
+  const weights = [0.24, 0.08, 0.08, 0.09, 0.08, 0.09, 0.1, 0.24];
+  const columns = weights.map((weight) => weight * usable);
+  const offsets = columns.map((_, index) =>
+    columns.slice(0, index).reduce((sum, value) => sum + value, 0),
+  );
+
+  const headers = [
+    "Subject",
+    "CA",
+    "Exam",
+    "Total",
+    "Grade",
+    "Position",
+    "Class avg",
+    "Remark",
+  ];
+
+  function subjectHeader() {
+    headers.forEach((header, index) => {
+      page.drawText(header, {
+        x: margin + offsets[index],
+        y,
+        size: 7.5,
+        font: bold,
+        color: muted,
+      });
+    });
+    y -= 5;
+    line();
+  }
+
+  subjectHeader();
+
+  for (const row of input.subjects) {
+    if (y < margin + 150) {
+      page = pdf.addPage([width, height]);
+      y = height - margin;
+      subjectHeader();
+    }
+
+    const cells = [
+      row.subject,
+      row.ca,
+      row.exam,
+      row.total,
+      row.grade,
+      row.position,
+      row.classAverage,
+      row.remark,
+    ];
+
+    cells.forEach((cell, index) => {
+      const maxWidth = columns[index] - 4;
+      let value = cell;
+      // Truncate rather than overlap the next column: a report card with two
+      // subjects printed on top of each other is worse than an ellipsis.
+      while (regular.widthOfTextAtSize(value, 8.5) > maxWidth && value.length > 1) {
+        value = value.slice(0, -1);
+      }
+      if (value !== cell && value.length > 1) value = `${value.slice(0, -1)}…`;
+
+      page.drawText(value, {
+        x: margin + offsets[index],
+        y,
+        size: 8.5,
+        font: index === 0 ? bold : regular,
+        color: ink,
+      });
+    });
+
+    y -= 13;
+  }
+
+  y -= 2;
+  line();
+
+  // --- Summary -------------------------------------------------------------
+  if (input.summary.length) {
+    const boxWidth = usable / Math.min(4, input.summary.length);
+
+    input.summary.forEach((entry, index) => {
+      const column = index % 4;
+      const rowY = y - Math.floor(index / 4) * 28;
+
+      page.drawText(entry.label.toUpperCase(), {
+        x: margin + column * boxWidth,
+        y: rowY,
+        size: 6.5,
+        font: regular,
+        color: muted,
+      });
+      page.drawText(entry.value, {
+        x: margin + column * boxWidth,
+        y: rowY - 12,
+        size: 13,
+        font: bold,
+        color: ink,
+      });
+    });
+
+    y -= Math.ceil(input.summary.length / 4) * 28 + 6;
+    line();
+  }
+
+  // --- Remarks -------------------------------------------------------------
+  for (const remark of input.remarks) {
+    if (!remark.body) continue;
+
+    if (y < margin + 60) {
+      page = pdf.addPage([width, height]);
+      y = height - margin;
+    }
+
+    page.drawText(remark.label.toUpperCase(), {
+      x: margin,
+      y,
+      size: 6.5,
+      font: regular,
+      color: muted,
+    });
+    y -= 11;
+
+    for (const wrapped of wrap(remark.body, regular, 9, usable)) {
+      page.drawText(wrapped, { x: margin, y, size: 9, font: regular, color: ink });
+      y -= 12;
+    }
+
+    if (remark.signatory) {
+      page.drawText(`— ${remark.signatory}`, {
+        x: margin,
+        y,
+        size: 8,
+        font: italic,
+        color: muted,
+      });
+      y -= 12;
+    }
+
+    y -= 6;
+  }
+
+  if (input.footer) {
+    page.drawText(input.footer, {
+      x: margin,
+      y: margin - 14,
+      size: 7,
+      font: regular,
+      color: muted,
+    });
+  }
+
+  return Buffer.from(await pdf.save());
+}
+
 /**
  * A plain tabular PDF, used for a transcript's results table where the
  * template model's single-string binding cannot carry rows.
