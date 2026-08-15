@@ -158,9 +158,20 @@ function seedInBackground() {
 // -----------------------------------------------------------------------------
 
 const port = process.env.PORT ?? "3000";
-// Bind all interfaces explicitly — a container that binds loopback only will
-// build, boot, log nothing unusual, and still fail every health check.
-const hostname = process.env.HOSTNAME ?? "0.0.0.0";
+
+/**
+ * Bind address.
+ *
+ * Deliberately NOT read from HOSTNAME: Docker sets that to the container id,
+ * so `-H $HOSTNAME` binds one hostname-resolved address rather than every
+ * interface. The container then listens, logs a healthy-looking startup, and
+ * still fails every health check because the platform's proxy reaches it on a
+ * different address.
+ *
+ * 0.0.0.0 is Next's own default and what hosted platforms expect. HOST is
+ * honoured for the rare case of pinning to a specific interface on purpose.
+ */
+const hostname = process.env.HOST || "0.0.0.0";
 
 console.log(`  Serving on http://${hostname}:${port}\n`);
 
