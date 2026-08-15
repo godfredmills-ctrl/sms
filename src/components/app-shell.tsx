@@ -4,10 +4,22 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import * as Icons from "lucide-react";
-import { Bell, ChevronDown, LogOut, Menu, Moon, Search, Sun, X } from "lucide-react";
+import {
+  Bell,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  LifeBuoy,
+  LogOut,
+  Menu,
+  Moon,
+  Search,
+  Sun,
+  X,
+} from "lucide-react";
 
 import { cn } from "@/lib/utils";
-import type { NavGroup } from "@/lib/navigation";
+import type { NavGroup, NavItem } from "@/lib/navigation";
 import { Avatar, Badge } from "@/components/ui";
 
 type ShellUser = {
@@ -19,9 +31,21 @@ type ShellUser = {
   portal: "STAFF" | "STUDENT" | "GUARDIAN";
 };
 
+/** Resolves a Lucide icon by name, falling back to a neutral dot. */
+function iconFor(name: string | undefined) {
+  return (
+    (Icons[name as keyof typeof Icons] as React.ComponentType<{
+      className?: string;
+    }>) ?? Icons.Circle
+  );
+}
+
 /**
- * The application frame: a persistent sidebar on desktop, a slide-over on
- * mobile, and a header carrying search, notifications and the account menu.
+ * The application frame.
+ *
+ * The sidebar collapses to an icon rail. Collapsed, hovering an item reveals
+ * its label as a tooltip, or its submenu as a flyout — so nothing becomes
+ * unreachable, which is the usual failure of icon-only navigation.
  */
 export function AppShell({
   user,
@@ -41,14 +65,24 @@ export function AppShell({
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
 
-  // Any navigation closes the mobile drawer.
+  useEffect(() => {
+    setCollapsed(window.localStorage.getItem("sidebar:collapsed") === "1");
+  }, []);
+
+  function toggleCollapsed() {
+    setCollapsed((value) => {
+      window.localStorage.setItem("sidebar:collapsed", value ? "0" : "1");
+      return !value;
+    });
+  }
+
   useEffect(() => {
     setMobileOpen(false);
     setAccountOpen(false);
   }, [pathname]);
 
-  // Lock body scroll behind the drawer.
   useEffect(() => {
     document.body.style.overflow = mobileOpen ? "hidden" : "";
     return () => {
@@ -56,61 +90,151 @@ export function AppShell({
     };
   }, [mobileOpen]);
 
+  // The rail is always full width on mobile; collapsing is a desktop affordance.
+  const width = collapsed ? "lg:w-[72px]" : "lg:w-64";
+
   return (
     <div className="min-h-dvh">
-      {/* ---------------------------------------------------------------- */}
-      {/* Sidebar                                                           */}
-      {/* ---------------------------------------------------------------- */}
       <aside
         className={cn(
-          "sidebar fixed inset-y-0 left-0 z-50 flex w-64 flex-col",
-          "transition-transform duration-200 lg:translate-x-0",
+          "sidebar fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r",
+          width,
+          "transition-[width,transform] duration-200 lg:translate-x-0",
           mobileOpen ? "translate-x-0" : "-translate-x-full",
         )}
       >
-        <div className="flex h-16 shrink-0 items-center gap-2.5 border-b px-4">
-          {schoolLogo ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={schoolLogo}
-              alt=""
-              className="size-9 rounded-lg bg-white/10 object-contain p-1"
-            />
-          ) : (
-            <span className="flex size-9 items-center justify-center rounded-lg bg-white/15 text-sm font-bold ring-1 ring-white/25">
-              {schoolName.slice(0, 2).toUpperCase()}
-            </span>
+        {/* ---------------------------------------------------------------- */}
+        {/* Brand                                                             */}
+        {/* ---------------------------------------------------------------- */}
+        <div
+          className={cn(
+            "flex h-16 shrink-0 items-center gap-2.5 border-b px-4",
+            collapsed && "lg:justify-center lg:px-2",
           )}
-          <span className="min-w-0 flex-1 truncate text-sm font-semibold">
-            {schoolName}
-          </span>
+        >
+          <Link href="/" className="flex min-w-0 items-center gap-2.5">
+            {schoolLogo ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={schoolLogo}
+                alt=""
+                className="size-9 shrink-0 rounded-lg object-contain"
+              />
+            ) : (
+              <span
+                className="flex size-9 shrink-0 items-center justify-center rounded-lg text-sm font-bold text-white"
+                style={{ background: "var(--sidebar-active-bg)" }}
+              >
+                {schoolName.slice(0, 2).toUpperCase()}
+              </span>
+            )}
+            <span
+              className={cn(
+                "min-w-0 truncate text-sm font-semibold",
+                collapsed && "lg:hidden",
+              )}
+            >
+              {schoolName}
+            </span>
+          </Link>
+
+          {/* Desktop collapse control */}
+          <button
+            type="button"
+            onClick={toggleCollapsed}
+            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            className={cn(
+              "ml-auto hidden size-6 items-center justify-center rounded-full border",
+              "text-[var(--sidebar-muted)] hover:bg-[var(--sidebar-hover)] hover:text-[var(--sidebar-text)]",
+              collapsed ? "lg:hidden" : "lg:flex",
+            )}
+          >
+            <ChevronLeft className="size-3.5" />
+          </button>
+
           <button
             type="button"
             onClick={() => setMobileOpen(false)}
-            className="rounded p-1 text-white/70 hover:bg-white/10 hover:text-white lg:hidden"
+            className="ml-auto rounded p-1 text-[var(--sidebar-muted)] hover:bg-[var(--sidebar-hover)] lg:hidden"
             aria-label="Close menu"
           >
             <X className="size-4" />
           </button>
         </div>
 
-        <nav className="flex-1 overflow-y-auto px-3 py-4">
+        {/* Expand control, only meaningful once collapsed */}
+        {collapsed ? (
+          <div className="hidden justify-center py-2 lg:flex">
+            <button
+              type="button"
+              onClick={toggleCollapsed}
+              aria-label="Expand sidebar"
+              className="flex size-7 items-center justify-center rounded-full border text-[var(--sidebar-muted)] hover:bg-[var(--sidebar-hover)] hover:text-[var(--sidebar-text)]"
+            >
+              <ChevronRight className="size-3.5" />
+            </button>
+          </div>
+        ) : null}
+
+        {/* ---------------------------------------------------------------- */}
+        {/* Navigation                                                        */}
+        {/* ---------------------------------------------------------------- */}
+        <nav className="flex-1 overflow-y-auto px-3 py-3 scrollbar-none">
           {navigation.map((group) => (
-            <div key={group.label} className="mb-5 last:mb-0">
-              <p className="mb-1.5 px-2 text-[10px] font-semibold tracking-wider text-[var(--sidebar-faint)] uppercase">
+            <div key={group.label} className="mb-4 last:mb-0">
+              {collapsed ? (
+                <div className="mx-auto mb-2 hidden h-px w-6 bg-[var(--sidebar-line)] lg:block" />
+              ) : null}
+              <p
+                className={cn(
+                  "mb-1.5 px-2 text-[10px] font-semibold tracking-wider text-[var(--sidebar-faint)] uppercase",
+                  collapsed && "lg:hidden",
+                )}
+              >
                 {group.label}
               </p>
               <ul className="space-y-0.5">
                 {group.items.map((item) => (
-                  <NavEntry key={item.href} item={item} pathname={pathname} />
+                  <NavEntry
+                    key={item.href}
+                    item={item}
+                    pathname={pathname}
+                    collapsed={collapsed}
+                  />
                 ))}
               </ul>
             </div>
           ))}
         </nav>
 
-        <div className="shrink-0 border-t p-3">
-          <ThemeToggle />
+        {/* ---------------------------------------------------------------- */}
+        {/* Help                                                              */}
+        {/* ---------------------------------------------------------------- */}
+        <div className="shrink-0 p-3">
+          {collapsed ? (
+            <Link
+              href="/help"
+              aria-label="Help centre"
+              className="mx-auto hidden size-10 items-center justify-center rounded-lg bg-[var(--sidebar-hover)] text-[var(--sidebar-text)] lg:flex"
+            >
+              <LifeBuoy className="size-5" />
+            </Link>
+          ) : (
+            <Link
+              href="/help"
+              className="flex items-center gap-3 rounded-xl border p-3 transition-colors hover:bg-[var(--sidebar-hover)]"
+            >
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-[var(--sidebar-hover)]">
+                <LifeBuoy className="size-5" />
+              </span>
+              <span className="min-w-0">
+                <span className="block text-sm font-medium">Need help?</span>
+                <span className="block text-xs text-[var(--sidebar-faint)]">
+                  Go to Help Centre →
+                </span>
+              </span>
+            </Link>
+          )}
         </div>
       </aside>
 
@@ -123,11 +247,11 @@ export function AppShell({
         />
       ) : null}
 
-      {/* ---------------------------------------------------------------- */}
-      {/* Main                                                              */}
-      {/* ---------------------------------------------------------------- */}
-      <div className="lg:pl-64">
-        <header className="app-header sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-[var(--border)] bg-[var(--bg-elevated)]/85 px-4 backdrop-blur-md">
+      {/* ------------------------------------------------------------------ */}
+      {/* Main                                                                */}
+      {/* ------------------------------------------------------------------ */}
+      <div className={cn("transition-[padding] duration-200", collapsed ? "lg:pl-[72px]" : "lg:pl-64")}>
+        <header className="app-header sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-[var(--border)] bg-[var(--bg-elevated)]/85 px-4 backdrop-blur-md">
           <button
             type="button"
             onClick={() => setMobileOpen(true)}
@@ -145,7 +269,9 @@ export function AppShell({
             Search students, staff, invoices…
           </Link>
 
-          <div className="ml-auto flex items-center gap-1.5">
+          <div className="ml-auto flex items-center gap-1">
+            <ThemeToggle />
+
             <Link
               href="/notifications"
               className="relative rounded-md p-2 text-[var(--text-muted)] hover:bg-[var(--bg-subtle)]"
@@ -247,38 +373,85 @@ export function AppShell({
 function NavEntry({
   item,
   pathname,
+  collapsed,
 }: {
-  item: NavGroup["items"][number];
+  item: NavItem;
   pathname: string;
+  collapsed: boolean;
 }) {
   const isActive =
     pathname === item.href ||
     (item.href !== "/dashboard" && pathname.startsWith(`${item.href}/`));
   const [open, setOpen] = useState(isActive);
 
-  const Icon =
-    (Icons[item.icon as keyof typeof Icons] as React.ComponentType<{
-      className?: string;
-    }>) ?? Icons.Circle;
+  const Icon = iconFor(item.icon);
+  const hasChildren = Boolean(item.children?.length);
 
+  // ---- Collapsed rail --------------------------------------------------
+  if (collapsed) {
+    return (
+      <li className="rail-item relative hidden lg:block">
+        <Link
+          href={item.href}
+          data-active={isActive}
+          aria-label={item.label}
+          className="sidebar-link justify-center px-0 py-2.5"
+        >
+          <Icon className="size-5 shrink-0" />
+        </Link>
+
+        <div className="rail-pop">
+          {hasChildren ? (
+            <div className="rail-flyout">
+              <p className="px-2 py-1.5 text-xs font-semibold text-[var(--sidebar-text)]">
+                {item.label}
+              </p>
+              <ul className="nav-tree mt-0.5 ml-3">
+                {item.children?.map((child) => {
+                  const ChildIcon = iconFor(child.icon);
+                  return (
+                    <li key={child.href}>
+                      <Link
+                        href={child.href}
+                        data-active={pathname === child.href}
+                        className="sidebar-link py-1.5 text-[13px]"
+                      >
+                        <ChildIcon className="size-3.5 shrink-0" />
+                        <span className="truncate">{child.label}</span>
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          ) : (
+            <div className="rail-tooltip mt-1.5">{item.label}</div>
+          )}
+        </div>
+      </li>
+    );
+  }
+
+  // ---- Expanded --------------------------------------------------------
   return (
     <li>
       <div className="flex items-center">
         <Link
           href={item.href}
           data-active={isActive}
-          className="sidebar-link flex min-w-0 flex-1 items-center gap-2.5 rounded-lg px-2 py-2 text-sm"
+          className="sidebar-link min-w-0 flex-1"
         >
           <Icon className="size-4 shrink-0" />
           <span className="truncate">{item.label}</span>
         </Link>
-        {item.children?.length ? (
+
+        {hasChildren ? (
           <button
             type="button"
             onClick={() => setOpen((value) => !value)}
             aria-label={open ? `Collapse ${item.label}` : `Expand ${item.label}`}
             aria-expanded={open}
-            className="rounded p-1 text-[var(--sidebar-faint)] hover:bg-white/10 hover:text-white"
+            className="ml-0.5 rounded p-1 text-[var(--sidebar-faint)] hover:bg-[var(--sidebar-hover)] hover:text-[var(--sidebar-text)]"
           >
             <ChevronDown
               className={cn("size-3.5 transition-transform", open && "rotate-180")}
@@ -287,19 +460,23 @@ function NavEntry({
         ) : null}
       </div>
 
-      {item.children?.length && open ? (
-        <ul className="mt-0.5 mb-1 ml-4 space-y-0.5 border-l pl-3">
-          {item.children.map((child) => (
-            <li key={child.href}>
-              <Link
-                href={child.href}
-                data-active={pathname === child.href}
-                className="sidebar-link block rounded px-2 py-1.5 text-[13px]"
-              >
-                {child.label}
-              </Link>
-            </li>
-          ))}
+      {hasChildren && open ? (
+        <ul className="nav-tree mt-0.5 mb-1 space-y-0.5">
+          {item.children?.map((child) => {
+            const ChildIcon = iconFor(child.icon);
+            return (
+              <li key={child.href}>
+                <Link
+                  href={child.href}
+                  data-active={pathname === child.href}
+                  className="sidebar-link py-1.5 text-[13px]"
+                >
+                  <ChildIcon className="size-3.5 shrink-0" />
+                  <span className="truncate">{child.label}</span>
+                </Link>
+              </li>
+            );
+          })}
         </ul>
       ) : null}
     </li>
@@ -311,54 +488,33 @@ function NavEntry({
 // -----------------------------------------------------------------------------
 
 /**
- * Light is the default and the OS setting is not followed, so the choice here
- * is a plain two-way switch. A "System" option would be misleading — it would
- * simply mean light.
+ * Light is the default and the OS setting is not followed, so this is a plain
+ * two-way switch, sitting in the top bar where the sidebar can collapse
+ * without taking it away.
  */
 function ThemeToggle() {
   const [theme, setTheme] = useState<"light" | "dark">("light");
 
   useEffect(() => {
-    // Anything other than an explicit "dark" (including a "system" value left
-    // over from before) resolves to light.
     setTheme(window.localStorage.getItem("theme") === "dark" ? "dark" : "light");
   }, []);
 
-  function apply(next: "light" | "dark") {
+  function toggle() {
+    const next = theme === "dark" ? "light" : "dark";
     setTheme(next);
     window.localStorage.setItem("theme", next);
     document.documentElement.setAttribute("data-theme", next);
   }
 
   return (
-    <div
-      className="flex items-center gap-0.5 rounded-lg bg-white/10 p-0.5"
-      role="group"
-      aria-label="Colour theme"
+    <button
+      type="button"
+      onClick={toggle}
+      aria-label={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
+      title={theme === "dark" ? "Light theme" : "Dark theme"}
+      className="rounded-md p-2 text-[var(--text-muted)] hover:bg-[var(--bg-subtle)] hover:text-[var(--text)]"
     >
-      {(
-        [
-          { value: "light", icon: Sun, label: "Light" },
-          { value: "dark", icon: Moon, label: "Dark" },
-        ] as const
-      ).map((option) => (
-        <button
-          key={option.value}
-          type="button"
-          onClick={() => apply(option.value)}
-          aria-pressed={theme === option.value}
-          title={option.label}
-          className={cn(
-            "flex flex-1 items-center justify-center rounded-md py-1.5 transition-colors",
-            theme === option.value
-              ? "bg-white/90 text-[var(--sidebar-to)] shadow-sm"
-              : "text-white/60 hover:text-white",
-          )}
-        >
-          <option.icon className="size-3.5" />
-          <span className="sr-only">{option.label}</span>
-        </button>
-      ))}
-    </div>
+      {theme === "dark" ? <Sun className="size-4.5" /> : <Moon className="size-4.5" />}
+    </button>
   );
 }

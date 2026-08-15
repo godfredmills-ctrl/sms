@@ -11,7 +11,13 @@ export type NavItem = {
   /** Any one of these grants visibility. Empty means "everyone signed in". */
   permissions?: string[];
   badge?: "unreadNotifications";
-  children?: Array<{ label: string; href: string; permissions?: string[] }>;
+  children?: Array<{
+    label: string;
+    href: string;
+    /** Lucide icon name; submenu rows carry their own icon like the parents. */
+    icon?: string;
+    permissions?: string[];
+  }>;
 };
 
 export type NavGroup = {
@@ -41,12 +47,23 @@ export const STAFF_NAVIGATION: NavGroup[] = [
         icon: "GraduationCap",
         permissions: ["student.read", "student.read.own"],
         children: [
-          { label: "All students", href: "/students" },
-          { label: "Admissions", href: "/students/new", permissions: ["student.create"] },
-          { label: "Guardians", href: "/guardians", permissions: ["student.read"] },
+          { label: "All students", href: "/students", icon: "Users" },
+          {
+            label: "Admissions",
+            href: "/students/new",
+            icon: "UserPlus",
+            permissions: ["student.create"],
+          },
+          {
+            label: "Guardians",
+            href: "/guardians",
+            icon: "Contact",
+            permissions: ["student.read"],
+          },
           {
             label: "Import",
             href: "/students/import",
+            icon: "FileUp",
             permissions: ["student.import"],
           },
         ],
@@ -68,10 +85,20 @@ export const STAFF_NAVIGATION: NavGroup[] = [
         icon: "BookOpen",
         permissions: ["academic.structure.read"],
         children: [
-          { label: "Class sections", href: "/academics/classes" },
-          { label: "Subjects", href: "/academics/subjects" },
-          { label: "Academic years", href: "/academics/years", permissions: ["academic.year.manage"] },
-          { label: "Timetable", href: "/academics/timetable", permissions: ["academic.timetable.read"] },
+          { label: "Class sections", href: "/academics/classes", icon: "School" },
+          { label: "Subjects", href: "/academics/subjects", icon: "BookMarked" },
+          {
+            label: "Academic years",
+            href: "/academics/years",
+            icon: "CalendarRange",
+            permissions: ["academic.year.manage"],
+          },
+          {
+            label: "Timetable",
+            href: "/academics/timetable",
+            icon: "CalendarClock",
+            permissions: ["academic.timetable.read"],
+          },
         ],
       },
       {
@@ -120,12 +147,27 @@ export const STAFF_NAVIGATION: NavGroup[] = [
         icon: "Wallet",
         permissions: ["finance.read"],
         children: [
-          { label: "Overview", href: "/finance" },
-          { label: "Invoices", href: "/finance/invoices" },
-          { label: "Payments", href: "/finance/payments" },
-          { label: "Fee structures", href: "/finance/structures", permissions: ["finance.fee.manage"] },
-          { label: "Discounts", href: "/finance/discounts", permissions: ["finance.discount.manage"] },
-          { label: "Reminders", href: "/finance/reminders", permissions: ["finance.reminder.manage"] },
+          { label: "Overview", href: "/finance", icon: "LayoutDashboard" },
+          { label: "Invoices", href: "/finance/invoices", icon: "FileText" },
+          { label: "Payments", href: "/finance/payments", icon: "Receipt" },
+          {
+            label: "Fee structures",
+            href: "/finance/structures",
+            icon: "Layers",
+            permissions: ["finance.fee.manage"],
+          },
+          {
+            label: "Discounts",
+            href: "/finance/discounts",
+            icon: "TicketPercent",
+            permissions: ["finance.discount.manage"],
+          },
+          {
+            label: "Reminders",
+            href: "/finance/reminders",
+            icon: "BellRing",
+            permissions: ["finance.reminder.manage"],
+          },
         ],
       },
     ],
@@ -201,11 +243,31 @@ export const STAFF_NAVIGATION: NavGroup[] = [
         icon: "Settings",
         permissions: ["settings.read"],
         children: [
-          { label: "School profile", href: "/settings/school" },
-          { label: "Dropdown options", href: "/settings/options", permissions: ["settings.option.manage"] },
-          { label: "Custom fields", href: "/settings/custom-fields", permissions: ["settings.customfield.manage"] },
-          { label: "Grading scales", href: "/settings/grading", permissions: ["assessment.scale.manage"] },
-          { label: "Integrations", href: "/settings/integrations", permissions: ["settings.integration.manage"] },
+          { label: "School profile", href: "/settings/school", icon: "Building2" },
+          {
+            label: "Dropdown options",
+            href: "/settings/options",
+            icon: "ListChecks",
+            permissions: ["settings.option.manage"],
+          },
+          {
+            label: "Custom fields",
+            href: "/settings/custom-fields",
+            icon: "SlidersHorizontal",
+            permissions: ["settings.customfield.manage"],
+          },
+          {
+            label: "Grading scales",
+            href: "/settings/grading",
+            icon: "Gauge",
+            permissions: ["assessment.scale.manage"],
+          },
+          {
+            label: "Integrations",
+            href: "/settings/integrations",
+            icon: "Plug",
+            permissions: ["settings.integration.manage"],
+          },
         ],
       },
       {
