@@ -103,6 +103,20 @@ async function main() {
   console.log("Seeding the demo school…\n");
 
   await assertDatabaseReachable();
+
+  // Boot-time seeding must never destroy data. When this flag is set the seed
+  // runs only against a database with no users, and otherwise exits cleanly.
+  if (process.env.SEED_ONLY_IF_EMPTY === "true") {
+    const existing = await db.user.count();
+    if (existing > 0) {
+      console.log(
+        `  Database already has ${existing} user${existing === 1 ? "" : "s"} — leaving it untouched.\n`,
+      );
+      return;
+    }
+    console.log("  Database is empty; proceeding.\n");
+  }
+
   await reset();
 
   const school = await seedSchool();

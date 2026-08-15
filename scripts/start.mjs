@@ -40,6 +40,9 @@ function fail(title, details) {
 
 banner("Starting School Management System");
 
+/** Gates optional seeding — never seed against a schema that failed to apply. */
+let migrationsOk = false;
+
 if (!process.env.DATABASE_URL) {
   fail("DATABASE_URL is not set — skipping migrations", [
     "The app will start, but every page that touches the database will fail.",
@@ -101,7 +104,53 @@ if (!process.env.DATABASE_URL) {
     ]);
   } else {
     console.log("  Migrations applied.\n");
+    migrationsOk = true;
   }
+}
+
+/**
+ * Optional first-run seeding.
+ *
+ * A managed database is usually reachable only from inside the platform's
+ * private network, which leaves no way to seed a fresh deployment without
+ * exposing it publicly. Setting SEED_ON_BOOT=true lets the container do it
+ * itself.
+ *
+ * Runs asynchronously *after* the server is listening. Seeding a full demo
+ * school takes minutes, and doing it before the port is bound would fail the
+ * platform's health check for the same reason chaining migrations to the start
+ * command did.
+ *
+ * Safe by construction: the seed exits without writing when any user already
+ * exists, so leaving the flag on cannot overwrite a live school. Remove it
+ * once the first deploy has run.
+ */
+function seedInBackground() {
+  if (process.env.SEED_ON_BOOT !== "true") return;
+
+  banner("SEED_ON_BOOT is set — seeding if the database is empty");
+  console.log("  Running behind the server; the site is already accepting requests.\n");
+
+  const seed = spawn(
+    process.execPath,
+    [fileURLToPath(import.meta.resolve("tsx/cli")), "prisma/seed.ts"],
+    {
+      stdio: "inherit",
+      // The guard lives in the seed itself so a manual `npm run db:seed`
+      // keeps its normal, deliberate wipe-and-rebuild behaviour.
+      env: { ...process.env, SEED_ONLY_IF_EMPTY: "true" },
+    },
+  );
+
+  seed.on("exit", (code) => {
+    if (code === 0) {
+      console.log("\n  Seeding step complete. Remove SEED_ON_BOOT when you are done.\n");
+    } else {
+      fail(`Seeding failed (exit code ${code})`, [
+        "The server is unaffected and existing data was not modified.",
+      ]);
+    }
+  });
 }
 
 // -----------------------------------------------------------------------------
@@ -127,6 +176,10 @@ const server = spawn(
   ],
   { stdio: "inherit", env: process.env },
 );
+
+// Seed only once the server is listening, so a long seed cannot fail the
+// platform's health check.
+if (migrationsOk) seedInBackground();
 
 // Forward shutdown signals so deploys drain cleanly instead of being killed.
 for (const signal of ["SIGTERM", "SIGINT"]) {

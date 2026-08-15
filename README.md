@@ -104,8 +104,17 @@ the same school every time.
 
    If a deploy goes wrong, `curl https://<your-domain>/api/health` is the first
    thing to check — it names the problem.
-5. **Seed once** (optional, for a demo instance) from the Railway shell:
-   `npm run db:seed`.
+5. **Seed once** (optional, for a demo instance). A Railway Postgres is only
+   reachable from inside the project's private network, so there is usually no
+   way to run the seed from a laptop. Set `SEED_ON_BOOT=true` on the app service
+   and redeploy — the container seeds itself, then **remove the variable**.
+
+   It is safe to leave on by accident: the seed exits without writing if any
+   user already exists, and it runs *after* the server is listening so a long
+   seed cannot fail the health check.
+
+   If you have enabled the Postgres TCP proxy, `npm run db:seed` from your
+   machine works too, using `DATABASE_PUBLIC_URL` as `DATABASE_URL`.
 6. **Attach a volume** at `/data` and set `STORAGE_LOCAL_DIR=/data/uploads` if you
    want uploaded files to survive redeploys.
 7. **Schedule fee reminders** — add a Railway cron service that runs hourly:
