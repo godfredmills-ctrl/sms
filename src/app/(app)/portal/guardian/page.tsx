@@ -1,6 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { CalendarCheck, FileText, Megaphone, Wallet } from "lucide-react";
+import {
+  CalendarCheck,
+  FileText,
+  GraduationCap,
+  Megaphone,
+  Receipt,
+  Wallet,
+} from "lucide-react";
 
 import {
   Alert,
@@ -178,11 +185,14 @@ export default async function GuardianPortalPage({
         <StatCard
           label="Total billed"
           value={formatMoney(totalBilled, "GHS", { compact: true })}
+          tone="info"
+          icon={<FileText className="size-4" />}
         />
         <StatCard
           label="Paid to date"
           value={formatMoney(totalPaid, "GHS", { compact: true })}
           tone="success"
+          icon={<Receipt className="size-4" />}
           hint={formatPercent(percentOf(totalPaid, totalBilled))}
         />
         <StatCard
@@ -194,6 +204,8 @@ export default async function GuardianPortalPage({
         <StatCard
           label="Children"
           value={links.length}
+          tone="violet"
+          icon={<GraduationCap className="size-4" />}
           hint={links.map((link) => link.student.firstName).join(", ")}
         />
       </div>

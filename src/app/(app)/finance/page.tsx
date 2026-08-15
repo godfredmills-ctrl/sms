@@ -1,5 +1,12 @@
 import type { Metadata } from "next";
-import { FilePlus2, Receipt } from "lucide-react";
+import {
+  AlertTriangle,
+  FilePlus2,
+  FileText,
+  Receipt,
+  TrendingDown,
+  Wallet,
+} from "lucide-react";
 
 import { AiInsightCard, type InsightView } from "@/components/ai-insight";
 import { BarSeriesChart } from "@/components/charts";
@@ -144,22 +151,30 @@ export default async function FinancePage() {
       />
 
       <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <StatCard label="Total billed" value={formatMoney(billed, "GHS", { compact: true })} />
+        <StatCard
+          label="Total billed"
+          value={formatMoney(billed, "GHS", { compact: true })}
+          tone="info"
+          icon={<FileText className="size-4" />}
+        />
         <StatCard
           label="Collected"
           value={formatMoney(collected, "GHS", { compact: true })}
           tone="success"
+          icon={<Wallet className="size-4" />}
           hint={formatPercent(percentOf(collected, billed))}
         />
         <StatCard
           label="Outstanding"
           value={formatMoney(outstanding, "GHS", { compact: true })}
           tone={outstanding > 0 ? "warning" : "success"}
+          icon={<TrendingDown className="size-4" />}
         />
         <StatCard
           label="Overdue invoices"
           value={overdue.length.toLocaleString()}
           tone={overdue.length ? "danger" : "success"}
+          icon={<AlertTriangle className="size-4" />}
           hint={formatMoney(
             overdue.reduce((sum, row) => sum + row.balanceMinor, 0),
             "GHS",

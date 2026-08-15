@@ -2,11 +2,12 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import {
   AlertTriangle,
+  BookOpen,
   CalendarCheck,
   GraduationCap,
+  Megaphone,
   Receipt,
   TrendingDown,
-  Users,
   Wallet,
 } from "lucide-react";
 
@@ -180,14 +181,16 @@ export default async function DashboardPage() {
               label="My classes"
               value={await myClassCount(user.staffId)}
               hint="Subjects taught this term"
-              icon={<Users className="size-4" />}
+              icon={<BookOpen className="size-4" />}
+              tone="violet"
               href="/gradebook"
             />
             <StatCard
               label="Announcements"
               value={await db.announcement.count({ where: { status: "PUBLISHED" } })}
               hint="Published school-wide"
-              icon={<Users className="size-4" />}
+              icon={<Megaphone className="size-4" />}
+              tone="teal"
               href="/communications/announcements"
             />
           </>

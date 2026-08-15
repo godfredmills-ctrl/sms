@@ -63,17 +63,21 @@ export function AppShell({
       {/* ---------------------------------------------------------------- */}
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r border-[var(--border)] bg-[var(--bg-elevated)]",
+          "sidebar fixed inset-y-0 left-0 z-50 flex w-64 flex-col",
           "transition-transform duration-200 lg:translate-x-0",
           mobileOpen ? "translate-x-0" : "-translate-x-full",
         )}
       >
-        <div className="flex h-14 shrink-0 items-center gap-2.5 border-b border-[var(--border)] px-4">
+        <div className="flex h-16 shrink-0 items-center gap-2.5 border-b px-4">
           {schoolLogo ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={schoolLogo} alt="" className="size-8 rounded object-contain" />
+            <img
+              src={schoolLogo}
+              alt=""
+              className="size-9 rounded-lg bg-white/10 object-contain p-1"
+            />
           ) : (
-            <span className="flex size-8 items-center justify-center rounded-lg bg-[var(--primary)] text-sm font-bold text-[var(--primary-text)]">
+            <span className="flex size-9 items-center justify-center rounded-lg bg-white/15 text-sm font-bold ring-1 ring-white/25">
               {schoolName.slice(0, 2).toUpperCase()}
             </span>
           )}
@@ -83,7 +87,7 @@ export function AppShell({
           <button
             type="button"
             onClick={() => setMobileOpen(false)}
-            className="rounded p-1 text-[var(--text-muted)] hover:bg-[var(--bg-subtle)] lg:hidden"
+            className="rounded p-1 text-white/70 hover:bg-white/10 hover:text-white lg:hidden"
             aria-label="Close menu"
           >
             <X className="size-4" />
@@ -93,7 +97,7 @@ export function AppShell({
         <nav className="flex-1 overflow-y-auto px-3 py-4">
           {navigation.map((group) => (
             <div key={group.label} className="mb-5 last:mb-0">
-              <p className="mb-1.5 px-2 text-[10px] font-semibold tracking-wider text-[var(--text-subtle)] uppercase">
+              <p className="mb-1.5 px-2 text-[10px] font-semibold tracking-wider text-[var(--sidebar-faint)] uppercase">
                 {group.label}
               </p>
               <ul className="space-y-0.5">
@@ -105,7 +109,7 @@ export function AppShell({
           ))}
         </nav>
 
-        <div className="shrink-0 border-t border-[var(--border)] p-3">
+        <div className="shrink-0 border-t p-3">
           <ThemeToggle />
         </div>
       </aside>
@@ -262,12 +266,8 @@ function NavEntry({
       <div className="flex items-center">
         <Link
           href={item.href}
-          className={cn(
-            "flex min-w-0 flex-1 items-center gap-2.5 rounded-lg px-2 py-2 text-sm transition-colors",
-            isActive
-              ? "bg-[var(--primary-soft)] font-medium text-[var(--primary)]"
-              : "text-[var(--text-muted)] hover:bg-[var(--bg-subtle)] hover:text-[var(--text)]",
-          )}
+          data-active={isActive}
+          className="sidebar-link flex min-w-0 flex-1 items-center gap-2.5 rounded-lg px-2 py-2 text-sm"
         >
           <Icon className="size-4 shrink-0" />
           <span className="truncate">{item.label}</span>
@@ -278,7 +278,7 @@ function NavEntry({
             onClick={() => setOpen((value) => !value)}
             aria-label={open ? `Collapse ${item.label}` : `Expand ${item.label}`}
             aria-expanded={open}
-            className="rounded p-1 text-[var(--text-subtle)] hover:bg-[var(--bg-subtle)]"
+            className="rounded p-1 text-[var(--sidebar-faint)] hover:bg-white/10 hover:text-white"
           >
             <ChevronDown
               className={cn("size-3.5 transition-transform", open && "rotate-180")}
@@ -288,17 +288,13 @@ function NavEntry({
       </div>
 
       {item.children?.length && open ? (
-        <ul className="mt-0.5 mb-1 ml-4 space-y-0.5 border-l border-[var(--border)] pl-3">
+        <ul className="mt-0.5 mb-1 ml-4 space-y-0.5 border-l pl-3">
           {item.children.map((child) => (
             <li key={child.href}>
               <Link
                 href={child.href}
-                className={cn(
-                  "block rounded px-2 py-1.5 text-[13px] transition-colors",
-                  pathname === child.href
-                    ? "font-medium text-[var(--primary)]"
-                    : "text-[var(--text-muted)] hover:bg-[var(--bg-subtle)] hover:text-[var(--text)]",
-                )}
+                data-active={pathname === child.href}
+                className="sidebar-link block rounded px-2 py-1.5 text-[13px]"
               >
                 {child.label}
               </Link>
@@ -336,7 +332,7 @@ function ThemeToggle() {
 
   return (
     <div
-      className="flex items-center gap-0.5 rounded-lg bg-[var(--bg-subtle)] p-0.5"
+      className="flex items-center gap-0.5 rounded-lg bg-white/10 p-0.5"
       role="group"
       aria-label="Colour theme"
     >
@@ -355,8 +351,8 @@ function ThemeToggle() {
           className={cn(
             "flex flex-1 items-center justify-center rounded-md py-1.5 transition-colors",
             theme === option.value
-              ? "bg-[var(--bg-elevated)] text-[var(--text)] shadow-sm"
-              : "text-[var(--text-subtle)] hover:text-[var(--text)]",
+              ? "bg-white/90 text-[var(--sidebar-to)] shadow-sm"
+              : "text-white/60 hover:text-white",
           )}
         >
           <option.icon className="size-3.5" />

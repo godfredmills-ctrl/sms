@@ -59,6 +59,26 @@
   --danger-soft: #fdecec;
   --info: #1f5fa8;
   --info-soft: #e8f1fc;
+  --violet: #5b3fc4;
+  --violet-soft: #efeafc;
+  --teal: #0f7b8a;
+  --teal-soft: #e2f4f6;
+
+  /* --------------------------------------------------------------------
+     Sidebar
+     Its own palette rather than the page's: the navigation sits on a dark
+     gradient in both themes, so its contrast cannot be derived from the
+     surrounding surface tokens.
+     -------------------------------------------------------------------- */
+  --sidebar-from: #3a53cc;
+  --sidebar-via: #4a48b8;
+  --sidebar-to: #5b45a2;
+  --sidebar-text: #ffffff;
+  --sidebar-muted: rgb(255 255 255 / 0.62);
+  --sidebar-faint: rgb(255 255 255 / 0.42);
+  --sidebar-hover: rgb(255 255 255 / 0.1);
+  --sidebar-active: rgb(255 255 255 / 0.18);
+  --sidebar-line: rgb(255 255 255 / 0.14);
 
   color-scheme: light;
 }
@@ -96,6 +116,15 @@
   --danger-soft: #331717;
   --info: #6aa6e8;
   --info-soft: #12233a;
+  --violet: #a58bf0;
+  --violet-soft: #221a3a;
+  --teal: #4fbecb;
+  --teal-soft: #0d2a2e;
+
+  /* Deeper so the sidebar still separates from a dark page behind it. */
+  --sidebar-from: #26307a;
+  --sidebar-via: #2f2b70;
+  --sidebar-to: #3a2a63;
 
   color-scheme: dark;
 }
@@ -122,6 +151,10 @@
   --color-danger-soft: var(--danger-soft);
   --color-info: var(--info);
   --color-info-soft: var(--info-soft);
+  --color-violet: var(--violet);
+  --color-violet-soft: var(--violet-soft);
+  --color-teal: var(--teal);
+  --color-teal-soft: var(--teal-soft);
 }
 
 /* ==========================================================================
@@ -247,6 +280,94 @@ body {
   .numeric {
     font-variant-numeric: tabular-nums;
     font-feature-settings: "tnum";
+  }
+
+  /* ----------------------------------------------------------------------
+     Sidebar
+     ---------------------------------------------------------------------- */
+
+  .sidebar {
+    background:
+      radial-gradient(
+        120% 80% at 0% 0%,
+        rgb(255 255 255 / 0.12) 0%,
+        transparent 55%
+      ),
+      linear-gradient(
+        168deg,
+        var(--sidebar-from) 0%,
+        var(--sidebar-via) 48%,
+        var(--sidebar-to) 100%
+      );
+    color: var(--sidebar-text);
+  }
+
+  /* The gradient supplies the edge; a border would read as a seam. */
+  .sidebar,
+  .sidebar * {
+    border-color: var(--sidebar-line);
+  }
+
+  .sidebar-link {
+    color: var(--sidebar-muted);
+    transition:
+      background-color 120ms ease,
+      color 120ms ease;
+  }
+
+  .sidebar-link:hover {
+    background: var(--sidebar-hover);
+    color: var(--sidebar-text);
+  }
+
+  .sidebar-link[data-active="true"] {
+    background: var(--sidebar-active);
+    color: var(--sidebar-text);
+    font-weight: 500;
+  }
+
+  /* ----------------------------------------------------------------------
+     KPI tiles
+     Colour is carried by the accent bar and the icon tile. The figure itself
+     stays in ink — a number is read, not decoded, and tinting it costs
+     legibility for no gain.
+     ---------------------------------------------------------------------- */
+
+  .kpi {
+    position: relative;
+    overflow: hidden;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-card);
+    transition: box-shadow 150ms ease, transform 150ms ease;
+  }
+
+  .kpi::before {
+    content: "";
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 3px;
+    background: var(--kpi-accent, var(--primary));
+  }
+
+  /* A wash of the tone, kept faint so text contrast is unaffected. */
+  .kpi::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: var(--kpi-accent, var(--primary));
+    opacity: 0.045;
+    pointer-events: none;
+  }
+
+  a.kpi:hover {
+    box-shadow: 0 6px 20px -8px var(--kpi-accent, var(--primary));
+    transform: translateY(-1px);
+  }
+
+  .kpi-icon {
+    background: var(--kpi-accent, var(--primary));
+    color: #fff;
   }
 }
 

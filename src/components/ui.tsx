@@ -289,7 +289,9 @@ export type Tone =
   | "success"
   | "warning"
   | "danger"
-  | "info";
+  | "info"
+  | "violet"
+  | "teal";
 
 const TONE_STYLES: Record<Tone, string> = {
   neutral: "bg-[var(--bg-subtle)] text-[var(--text-muted)] border-[var(--border)]",
@@ -298,6 +300,20 @@ const TONE_STYLES: Record<Tone, string> = {
   warning: "bg-[var(--warning-soft)] text-[var(--warning)] border-transparent",
   danger: "bg-[var(--danger-soft)] text-[var(--danger)] border-transparent",
   info: "bg-[var(--info-soft)] text-[var(--info)] border-transparent",
+  violet: "bg-[var(--violet-soft)] text-[var(--violet)] border-transparent",
+  teal: "bg-[var(--teal-soft)] text-[var(--teal)] border-transparent",
+};
+
+/** The solid colour a tone contributes to accents and icon tiles. */
+const TONE_ACCENT: Record<Tone, string> = {
+  neutral: "var(--text-subtle)",
+  primary: "var(--primary)",
+  success: "var(--success)",
+  warning: "var(--warning)",
+  danger: "var(--danger)",
+  info: "var(--info)",
+  violet: "var(--violet)",
+  teal: "var(--teal)",
 };
 
 export function Badge({
@@ -556,18 +572,13 @@ export function StatCard({
   href?: string;
 }) {
   const content = (
-    <>
+    <div className="relative z-10">
       <div className="flex items-start justify-between gap-3">
         <p className="text-xs font-medium tracking-wide text-[var(--text-muted)] uppercase">
           {label}
         </p>
         {icon ? (
-          <span
-            className={cn(
-              "flex size-8 shrink-0 items-center justify-center rounded-lg",
-              TONE_STYLES[tone],
-            )}
-          >
+          <span className="kpi-icon flex size-9 shrink-0 items-center justify-center rounded-lg shadow-sm">
             {icon}
           </span>
         ) : null}
@@ -588,18 +599,20 @@ export function StatCard({
         ) : null}
         {hint ? <span className="text-[var(--text-subtle)]">{hint}</span> : null}
       </div>
-    </>
+    </div>
   );
 
-  const className =
-    "card block p-4 transition-colors hover:border-[var(--border-strong)]";
+  // The tone drives the accent bar, the icon tile and the wash via one variable.
+  const style = { "--kpi-accent": TONE_ACCENT[tone] } as React.CSSProperties;
 
   return href ? (
-    <a href={href} className={className}>
+    <a href={href} className="kpi block p-4" style={style}>
       {content}
     </a>
   ) : (
-    <div className={className}>{content}</div>
+    <div className="kpi p-4" style={style}>
+      {content}
+    </div>
   );
 }
 

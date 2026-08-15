@@ -1,5 +1,12 @@
 import type { Metadata } from "next";
-import { FileUp, UserPlus } from "lucide-react";
+import {
+  AlertTriangle,
+  FileUp,
+  GraduationCap,
+  UserPlus,
+  Users,
+  Wallet,
+} from "lucide-react";
 
 import { LinkButton, PageHeader, StatCard } from "@/components/ui";
 import { requirePermission, userCan } from "@/lib/auth";
@@ -166,17 +173,29 @@ export default async function StudentsPage() {
       />
 
       <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <StatCard label="Total records" value={rows.length.toLocaleString()} />
-        <StatCard label="Currently enrolled" value={enrolled.toLocaleString()} tone="success" />
+        <StatCard
+          label="Total records"
+          value={rows.length.toLocaleString()}
+          tone="violet"
+          icon={<Users className="size-4" />}
+        />
+        <StatCard
+          label="Currently enrolled"
+          value={enrolled.toLocaleString()}
+          tone="success"
+          icon={<GraduationCap className="size-4" />}
+        />
         <StatCard
           label="With fee balance"
           value={withBalance.toLocaleString()}
           tone={withBalance ? "warning" : "success"}
+          icon={<Wallet className="size-4" />}
         />
         <StatCard
           label="Attendance below 85%"
           value={atRisk.toLocaleString()}
           tone={atRisk ? "danger" : "success"}
+          icon={<AlertTriangle className="size-4" />}
           hint="Flagged for pastoral follow-up"
         />
       </div>

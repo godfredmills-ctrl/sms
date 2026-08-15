@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { CalendarCheck } from "lucide-react";
+import { CalendarCheck, ClipboardCheck, Users, UserX } from "lucide-react";
 import type { AttendanceStatus } from "@prisma/client";
 
 import { Alert, Card, CardHeader, EmptyState, PageHeader, StatCard } from "@/components/ui";
@@ -99,11 +99,14 @@ export default async function AttendancePage({
           label="Registers submitted"
           value={`${submitted.length}/${sections.length}`}
           tone={submitted.length === sections.length ? "success" : "warning"}
+          icon={<ClipboardCheck className="size-4" />}
           hint="Classes marked today"
         />
         <StatCard
           label="Students marked"
           value={totalRecords.length.toLocaleString()}
+          tone="violet"
+          icon={<Users className="size-4" />}
         />
         <StatCard
           label="Attendance rate"
@@ -119,11 +122,13 @@ export default async function AttendancePage({
                 ? "success"
                 : "warning"
           }
+          icon={<CalendarCheck className="size-4" />}
         />
         <StatCard
           label="Absent today"
           value={(totalRecords.length - presentCount).toLocaleString()}
-          tone={totalRecords.length - presentCount > 0 ? "warning" : "success"}
+          tone={totalRecords.length - presentCount > 0 ? "danger" : "success"}
+          icon={<UserX className="size-4" />}
         />
       </div>
 
