@@ -4,26 +4,76 @@ import { db } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
-/** Railway health check. Confirms the process is up *and* the database answers. */
+/**
+ * Prisma prefixes its errors with blank lines and the failed invocation, so
+ * taking `.split("\n")[0]` yields an empty string. Take the first line that
+ * actually says something.
+ */
+function firstMeaningfulLine(message: string): string {
+  const line = message
+    .split("\n")
+    .map((entry) => entry.trim())
+    .find((entry) => entry.length > 0 && !entry.startsWith("Invalid `"));
+  return line ?? message.trim().slice(0, 200);
+}
+
+/**
+ * Health check.
+ *
+ * Deliberately returns 200 whenever the process is serving traffic, and
+ * reports the database separately in the body.
+ *
+ * Tying the platform's health check to the database means a slow or briefly
+ * unreachable Postgres fails the deploy outright — and the operator is shown
+ * "service unavailable" with no indication of why. Answering 200 with
+ * `database: "unreachable"` plus the driver's own message turns that into a
+ * diagnosis you can read.
+ */
 export async function GET() {
   const startedAt = Date.now();
 
+  if (!process.env.DATABASE_URL) {
+    return NextResponse.json({
+      status: "degraded",
+      database: "not_configured",
+      hint: "DATABASE_URL is not set. On Railway, add a PostgreSQL service and set DATABASE_URL=${{Postgres.DATABASE_URL}} on this service.",
+      timestamp: new Date().toISOString(),
+    });
+  }
+
   try {
     await db.$queryRaw`SELECT 1`;
+
+    // A reachable database that has no tables means migrations have not run.
+    const [{ count }] = await db.$queryRaw<Array<{ count: bigint }>>`
+      SELECT COUNT(*)::bigint AS count
+      FROM information_schema.tables
+      WHERE table_schema = 'public'
+    `;
+
+    const migrated = Number(count) > 0;
+
     return NextResponse.json({
-      status: "ok",
+      status: migrated ? "ok" : "degraded",
       database: "connected",
+      migrations: migrated ? "applied" : "pending",
+      ...(migrated
+        ? {}
+        : {
+            hint: "The database is reachable but has no tables. Check the deploy logs for migration errors, or run `npx prisma migrate deploy`.",
+          }),
+      tables: Number(count),
       latencyMs: Date.now() - startedAt,
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
-    return NextResponse.json(
-      {
-        status: "degraded",
-        database: "unreachable",
-        error: (error as Error).message,
-      },
-      { status: 503 },
-    );
+    return NextResponse.json({
+      status: "degraded",
+      database: "unreachable",
+      error: firstMeaningfulLine((error as Error).message),
+      hint: "Check that the PostgreSQL service is running and DATABASE_URL is correct.",
+      latencyMs: Date.now() - startedAt,
+      timestamp: new Date().toISOString(),
+    });
   }
 }

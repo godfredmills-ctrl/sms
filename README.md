@@ -77,9 +77,22 @@ the same school every time.
    CRON_SECRET=<long random string>
    ```
 
-4. **Deploy.** The start command runs `prisma migrate deploy` before booting, so
-   the schema is applied automatically on every release. `/api/health` is the
-   health check and verifies the database connection, not just the process.
+4. **Deploy.** `scripts/start.mjs` applies pending migrations and then starts the
+   server. A database problem is logged loudly but does **not** stop the server
+   from listening — otherwise the platform reports only "service unavailable"
+   and you learn nothing about the cause.
+
+   `/api/health` returns **200 whenever the process is serving**, and reports the
+   database separately, so a slow Postgres never fails a deploy:
+
+   ```jsonc
+   { "status": "ok",       "database": "connected",   "migrations": "applied" }
+   { "status": "degraded", "database": "unreachable", "error": "…", "hint": "…" }
+   { "status": "degraded", "database": "not_configured", "hint": "…" }
+   ```
+
+   If a deploy goes wrong, `curl https://<your-domain>/api/health` is the first
+   thing to check — it names the problem.
 5. **Seed once** (optional, for a demo instance) from the Railway shell:
    `npm run db:seed`.
 6. **Attach a volume** at `/data` and set `STORAGE_LOCAL_DIR=/data/uploads` if you

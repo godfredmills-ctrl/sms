@@ -9,7 +9,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "prisma generate && next build",
-    "start": "prisma migrate deploy && next start",
+    "start": "node scripts/start.mjs",
     "start:local": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
