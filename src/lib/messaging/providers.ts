@@ -2,6 +2,7 @@ import nodemailer from "nodemailer";
 import webpush from "web-push";
 
 import { env } from "@/lib/env";
+import { messagingSettings } from "@/lib/settings";
 import { normalisePhone } from "@/lib/utils";
 
 /**
@@ -52,14 +53,16 @@ export async function sendEmail(input: {
     return { ok: true, providerMessageId: `mock-email-${Date.now()}` };
   }
 
+  const { emailFrom, replyTo } = await messagingSettings();
+
   try {
     const info = await mailer.sendMail({
-      from: env.email.from,
+      from: emailFrom,
       to: input.to,
       subject: input.subject,
       html: input.html,
       text: input.text ?? stripHtml(input.html),
-      replyTo: input.replyTo,
+      replyTo: input.replyTo ?? (replyTo || undefined),
       attachments: input.attachments,
     });
     return { ok: true, providerMessageId: info.messageId };
@@ -114,7 +117,9 @@ export async function sendSms(input: {
 
   const { segments } = countSegments(input.message);
   const costMinor = segments * SMS_COST_PER_SEGMENT_MINOR;
-  const sender = input.senderId ?? env.sms.senderId;
+  // The school's own sender ID, set in Settings, overrides the deployment
+  // default; the lookup is cached so a 900-recipient blast is still one query.
+  const sender = input.senderId ?? (await messagingSettings()).senderId;
 
   try {
     switch (env.sms.provider) {
