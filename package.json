@@ -1,0 +1,57 @@
+{
+  "name": "sms",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Advanced School Management System for Ghanaian international schools",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "next dev",
+    "build": "prisma generate && next build",
+    "start": "prisma migrate deploy && next start",
+    "start:local": "next start",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit",
+    "postinstall": "prisma generate",
+    "db:generate": "prisma generate",
+    "db:push": "prisma db push",
+    "db:migrate": "prisma migrate dev",
+    "db:deploy": "prisma migrate deploy",
+    "db:reset": "prisma migrate reset --force",
+    "db:seed": "tsx prisma/seed.ts",
+    "db:studio": "prisma studio",
+    "setup": "prisma generate && prisma migrate dev --name init && npm run db:seed"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.117.1",
+    "@prisma/client": "^6.19.0",
+    "date-fns": "^4.1.0",
+    "exceljs": "^4.4.0",
+    "lucide-react": "^0.475.0",
+    "next": "^15.5.0",
+    "nodemailer": "^6.10.0",
+    "pdf-lib": "^1.17.1",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "recharts": "^2.15.0",
+    "web-push": "^3.6.7",
+    "zod": "^3.24.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.0.0",
+    "@types/node": "^22.13.0",
+    "@types/nodemailer": "^6.4.17",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@types/web-push": "^3.6.4",
+    "postcss": "^8.5.0",
+    "prisma": "^6.19.0",
+    "tailwindcss": "^4.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0"
+  }
+}

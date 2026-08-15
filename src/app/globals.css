@@ -1,0 +1,356 @@
+@import "tailwindcss";
+
+/* ==========================================================================
+   Design tokens
+   A calm, high-contrast palette. Deep green reads as institutional without
+   being corporate; the gold accent is reserved for emphasis and awards.
+   ========================================================================== */
+
+@theme {
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, monospace;
+
+  --color-brand-50: #eefbf4;
+  --color-brand-100: #d5f5e3;
+  --color-brand-200: #aeeaca;
+  --color-brand-300: #78d8ab;
+  --color-brand-400: #43bd88;
+  --color-brand-500: #1fa16d;
+  --color-brand-600: #128257;
+  --color-brand-700: #106848;
+  --color-brand-800: #10533b;
+  --color-brand-900: #0e4432;
+  --color-brand-950: #05261c;
+
+  --color-gold-100: #fdf3d7;
+  --color-gold-300: #f5d17c;
+  --color-gold-500: #d9a325;
+  --color-gold-700: #9a6f11;
+
+  --radius-card: 0.875rem;
+}
+
+/* --------------------------------------------------------------------------
+   Semantic surface variables — light is the base, dark overrides only tokens.
+   -------------------------------------------------------------------------- */
+
+:root {
+  --bg: #f6f7f9;
+  --bg-elevated: #ffffff;
+  --bg-subtle: #eef0f3;
+  --bg-inset: #f9fafb;
+  --border: #e2e5ea;
+  --border-strong: #cbd1da;
+  --text: #131a22;
+  --text-muted: #5b6572;
+  --text-subtle: #838c98;
+  --primary: var(--color-brand-600);
+  --primary-hover: var(--color-brand-700);
+  --primary-soft: var(--color-brand-50);
+  --primary-text: #ffffff;
+  --ring: var(--color-brand-500);
+
+  --success: #12805c;
+  --success-soft: #e4f6ee;
+  --warning: #a86404;
+  --warning-soft: #fdf3d7;
+  --danger: #c02626;
+  --danger-soft: #fdecec;
+  --info: #1f5fa8;
+  --info-soft: #e8f1fc;
+
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0d1117;
+    --bg-elevated: #161b22;
+    --bg-subtle: #1c232c;
+    --bg-inset: #11161d;
+    --border: #262d36;
+    --border-strong: #39424e;
+    --text: #e8ebef;
+    --text-muted: #9aa4b1;
+    --text-subtle: #6f7986;
+    --primary: var(--color-brand-400);
+    --primary-hover: var(--color-brand-300);
+    --primary-soft: #0d2b21;
+    --primary-text: #04170f;
+    --ring: var(--color-brand-400);
+
+    --success: #4cc38a;
+    --success-soft: #0e2c22;
+    --warning: #e0b341;
+    --warning-soft: #2f2510;
+    --danger: #f07171;
+    --danger-soft: #331717;
+    --info: #6aa6e8;
+    --info-soft: #12233a;
+
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme="dark"] {
+  --bg: #0d1117;
+  --bg-elevated: #161b22;
+  --bg-subtle: #1c232c;
+  --bg-inset: #11161d;
+  --border: #262d36;
+  --border-strong: #39424e;
+  --text: #e8ebef;
+  --text-muted: #9aa4b1;
+  --text-subtle: #6f7986;
+  --primary: var(--color-brand-400);
+  --primary-hover: var(--color-brand-300);
+  --primary-soft: #0d2b21;
+  --primary-text: #04170f;
+  --ring: var(--color-brand-400);
+
+  --success: #4cc38a;
+  --success-soft: #0e2c22;
+  --warning: #e0b341;
+  --warning-soft: #2f2510;
+  --danger: #f07171;
+  --danger-soft: #331717;
+  --info: #6aa6e8;
+  --info-soft: #12233a;
+
+  color-scheme: dark;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--bg-elevated);
+  --color-subtle: var(--bg-subtle);
+  --color-inset: var(--bg-inset);
+  --color-line: var(--border);
+  --color-line-strong: var(--border-strong);
+  --color-ink: var(--text);
+  --color-muted: var(--text-muted);
+  --color-faint: var(--text-subtle);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-soft: var(--primary-soft);
+  --color-on-primary: var(--primary-text);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-info: var(--info);
+  --color-info-soft: var(--info-soft);
+}
+
+/* ==========================================================================
+   Chart tokens
+   A validated categorical palette (adjacent-pair CVD ΔE 9.1 light / 8.4 dark;
+   normal-vision 22.9 / 19.8) checked against this app's own surfaces. Slots
+   are assigned in fixed order and never cycled. On the light surface, aqua and
+   yellow fall below 3:1 — every chart therefore ships direct value labels and
+   a legend, so identity is never carried by colour alone.
+   ========================================================================== */
+
+.viz-root {
+  --series-1: #2a78d6; /* blue */
+  --series-2: #eb6834; /* orange */
+  --series-3: #1baf7a; /* aqua */
+  --series-4: #eda100; /* yellow */
+  --viz-grid: #e1e0d9;
+  --viz-axis: #c3c2b7;
+  --viz-ink: var(--text);
+  --viz-ink-muted: #898781;
+  --viz-surface: var(--bg-elevated);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:where(:not([data-theme="light"])) .viz-root {
+    --series-1: #3987e5;
+    --series-2: #d95926;
+    --series-3: #199e70;
+    --series-4: #c98500;
+    --viz-grid: #2c2c2a;
+    --viz-axis: #383835;
+  }
+}
+
+:root[data-theme="dark"] .viz-root {
+  --series-1: #3987e5;
+  --series-2: #d95926;
+  --series-3: #199e70;
+  --series-4: #c98500;
+  --viz-grid: #2c2c2a;
+  --viz-axis: #383835;
+}
+
+/* ==========================================================================
+   Base
+   ========================================================================== */
+
+* {
+  border-color: var(--border);
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  -webkit-font-smoothing: antialiased;
+  min-height: 100dvh;
+}
+
+::selection {
+  background: var(--primary-soft);
+  color: var(--text);
+}
+
+:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Thin, unobtrusive scrollbars that respect the theme. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 999px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+
+/* ==========================================================================
+   Component primitives
+   ========================================================================== */
+
+@layer components {
+  .card {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-card);
+  }
+
+  .input-base {
+    width: 100%;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-strong);
+    border-radius: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+    color: var(--text);
+    transition: border-color 120ms ease, box-shadow 120ms ease;
+  }
+
+  .input-base::placeholder {
+    color: var(--text-subtle);
+  }
+
+  .input-base:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 18%, transparent);
+  }
+
+  .input-base:disabled {
+    background: var(--bg-subtle);
+    color: var(--text-subtle);
+    cursor: not-allowed;
+  }
+
+  /* Tabular figures keep money and marks aligned down a column. */
+  .numeric {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+  }
+}
+
+@layer utilities {
+  .scrollbar-none {
+    scrollbar-width: none;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Sits behind the sticky table header so rows scroll cleanly underneath. */
+  .sticky-head {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: var(--bg-subtle);
+  }
+}
+
+/* ==========================================================================
+   Print — report cards, invoices, receipts, transcripts
+   ========================================================================== */
+
+@media print {
+  :root {
+    --bg: #ffffff;
+    --bg-elevated: #ffffff;
+    --bg-subtle: #ffffff;
+    --text: #000000;
+    --text-muted: #333333;
+    --border: #999999;
+    color-scheme: light;
+  }
+
+  body {
+    background: #fff;
+  }
+
+  .no-print,
+  nav,
+  aside,
+  header.app-header {
+    display: none !important;
+  }
+
+  .print-page {
+    break-after: page;
+    page-break-after: always;
+  }
+
+  .print-page:last-child {
+    break-after: auto;
+    page-break-after: auto;
+  }
+
+  .card {
+    border: none;
+    box-shadow: none;
+  }
+
+  @page {
+    size: A4;
+    margin: 14mm;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

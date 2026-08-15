@@ -1,0 +1,2182 @@
+/**
+ * Seeds a complete, realistic demo school.
+ *
+ * Everything is deterministic (fixed PRNG seed) so re-running produces the
+ * same school — useful for screenshots, demos and manual testing.
+ *
+ * Run with: npm run db:seed
+ */
+
+import { PrismaClient, type Prisma } from "@prisma/client";
+
+import { hashPassword } from "../src/lib/crypto";
+import { PERMISSIONS, ROLE_PRESETS } from "../src/lib/rbac";
+
+const db = new PrismaClient();
+
+// -----------------------------------------------------------------------------
+// Deterministic randomness
+// -----------------------------------------------------------------------------
+
+function mulberry32(seed: number) {
+  return () => {
+    seed |= 0;
+    seed = (seed + 0x6d2b79f5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+const random = mulberry32(20260815);
+
+const pick = <T>(items: readonly T[]): T => items[Math.floor(random() * items.length)];
+const between = (min: number, max: number) => Math.floor(random() * (max - min + 1)) + min;
+const chance = (probability: number) => random() < probability;
+
+// -----------------------------------------------------------------------------
+// Reference data
+// -----------------------------------------------------------------------------
+
+const MALE_NAMES = [
+  "Kwame", "Kofi", "Yaw", "Kwabena", "Kwaku", "Kojo", "Kwasi", "Nana", "Elikem",
+  "Selorm", "Mawuli", "Fiifi", "Ekow", "Kobby", "Jojo", "Papa", "Nii", "Tetteh",
+  "Emmanuel", "Michael", "Daniel", "Samuel", "Joshua", "Isaac", "Kelvin", "Bright",
+];
+
+const FEMALE_NAMES = [
+  "Akosua", "Ama", "Abena", "Akua", "Yaa", "Afua", "Adwoa", "Esi", "Efua",
+  "Adjoa", "Maame", "Nana Ama", "Sedinam", "Elorm", "Dzifa", "Akorfa",
+  "Grace", "Comfort", "Priscilla", "Naa", "Adobea", "Serwaa", "Abigail", "Linda",
+];
+
+const SURNAMES = [
+  "Mensah", "Owusu", "Boateng", "Asante", "Agyemang", "Osei", "Appiah", "Frimpong",
+  "Adjei", "Ansah", "Amoah", "Darko", "Kyei", "Nyarko", "Bediako", "Danso",
+  "Quartey", "Lamptey", "Tetteh", "Nortey", "Ababio", "Sarpong", "Yeboah",
+  "Addo", "Ofori", "Gyasi", "Antwi", "Bonsu", "Wiredu", "Acheampong",
+];
+
+const OTHER_NAMES = [
+  "Kwabena", "Nana", "Kojo", "Yaw", "Akua", "Afia", "Selorm", "Enam",
+  "Delali", "Kekeli", "Nii Ayi", "Naa Dei", "", "", "",
+];
+
+const REGIONS = [
+  "Greater Accra", "Ashanti", "Central", "Eastern", "Western", "Volta",
+  "Northern", "Bono", "Upper East",
+];
+
+const OCCUPATIONS = [
+  "Trader", "Teacher", "Nurse", "Civil Servant", "Accountant", "Banker",
+  "Engineer", "Doctor", "Lawyer", "Farmer", "Businesswoman", "Businessman",
+  "Driver", "Seamstress", "Pharmacist", "IT Consultant", "Architect",
+];
+
+const PREVIOUS_SCHOOLS = [
+  "Christ the King International School", "Ridge Church School",
+  "Association International School", "Roman Ridge School",
+  "Morning Star School", "Alpha Beta Christian College",
+  "SOS Hermann Gmeiner International College", "North Ridge Lyceum",
+];
+
+const HOUSES = ["Kente", "Adinkra", "Sankofa", "Gye Nyame"];
+
+const MOMO_PREFIXES = ["24", "54", "55", "59", "20", "50", "26", "27"];
+
+function phone(): string {
+  return `+233${pick(MOMO_PREFIXES)}${String(between(1000000, 9999999)).padStart(7, "0")}`;
+}
+
+function dateYearsAgo(years: number, jitterDays = 300): Date {
+  const date = new Date();
+  date.setFullYear(date.getFullYear() - years);
+  date.setDate(date.getDate() - between(0, jitterDays));
+  return date;
+}
+
+// -----------------------------------------------------------------------------
+// Main
+// -----------------------------------------------------------------------------
+
+async function main() {
+  console.log("Seeding the demo school…\n");
+
+  await assertDatabaseReachable();
+  await reset();
+
+  const school = await seedSchool();
+  const { year, terms } = await seedCalendar(school.id);
+  const { roles } = await seedAccessControl();
+  await seedOptionSets();
+  await seedCustomFields();
+  const gradeScale = await seedGrading();
+  const { levels, sections } = await seedClasses();
+  const subjects = await seedSubjects(levels);
+  const staff = await seedStaff(roles, school.id);
+  const offerings = await seedOfferings(year.id, terms, sections, subjects, staff);
+  const students = await seedStudents(school.id, roles, sections, year.id);
+  await seedAssessments(offerings, terms, students, sections);
+  await seedAttendance(terms, sections, students, staff);
+  const feeCategories = await seedFeeStructures(year.id, terms, levels);
+  await seedBilling(year.id, terms, students, feeCategories);
+  await seedCommunications(roles);
+  await seedElections(sections);
+  await seedDocuments();
+  await seedWebsite(school);
+
+  console.log("\nDone.\n");
+  await printCredentials();
+}
+
+/**
+ * Fails fast on an unreachable database.
+ *
+ * Without this, `reset()` below swallows the connection error once per table
+ * and the script appears to hang instead of telling you the URL is wrong.
+ */
+async function assertDatabaseReachable() {
+  try {
+    await db.$queryRaw`SELECT 1`;
+  } catch (error) {
+    console.error(
+      [
+        "",
+        "Could not reach the database.",
+        "",
+        `  DATABASE_URL = ${process.env.DATABASE_URL ?? "(not set)"}`,
+        "",
+        "Check that the database is running and the URL in .env is correct,",
+        "then run `npm run db:migrate` before seeding.",
+        "",
+        `  ${(error as Error).message.split("\n")[0]}`,
+        "",
+      ].join("\n"),
+    );
+    process.exit(1);
+  }
+}
+
+/** Wipes the demo data so the seed is re-runnable. */
+async function reset() {
+  console.log("  Clearing existing data…");
+  // Ordered so foreign keys never block a delete.
+  const tables: Array<keyof PrismaClient> = [
+    "vote", "ballot", "voterRoll", "candidate", "electionPosition", "election",
+    "quizAnswer", "quizAttempt", "quizOption", "quizQuestion", "quiz",
+    "submissionFile", "submission", "assignment", "lessonProgress",
+    "lessonResource", "lesson", "courseModule", "discussionPost",
+    "discussionThread", "liveSession", "course",
+    "communicationRecipient", "communicationJob", "feeReminder", "reminderRule",
+    "announcementRead", "announcementAttachment", "announcement",
+    "memoRecipient", "memoAttachment", "memo",
+    "directMessage", "conversationMember", "conversation",
+    "notification", "pushSubscription", "notificationPreference",
+    "paymentAllocation", "payment", "installment", "paymentPlan",
+    "invoiceLine", "invoice", "studentDiscount",
+    "feeStructureItem", "feeStructure", "feeCategory",
+    "reportCardLine", "reportCard", "transcriptLine", "transcript",
+    "issuedCertificate", "documentTemplate",
+    "assessmentScore", "assessment",
+    "attendanceRecord", "attendanceSession",
+    "timetableSlot", "subjectOffering", "levelSubject",
+    "promotionRecord", "enrollment",
+    "clinicVisit", "studentMedical", "studentDocument", "disciplinaryRecord",
+    "educationHistory", "familyRelation", "studentGuardian",
+    "documentAccessLog", "documentVersion", "document", "documentFolder",
+    "siteFormSubmission", "sitePost", "siteMedia", "siteMenu", "sitePage", "site",
+    "reportRun", "reportDefinition", "aiInsight", "dataJob",
+    "customFieldValue", "customFieldDef", "optionItem", "optionSet",
+    "gradeBand", "gradeScale", "calendarEvent",
+    "staffLeave", "student", "guardian", "staff",
+    "classSection", "classLevel", "subject",
+    "auditLog", "session", "verificationToken",
+    "userRole", "rolePermission", "role", "permission", "user",
+    "fileAsset", "term", "academicYear", "setting", "campus", "school",
+  ];
+
+  for (const table of tables) {
+    const model = db[table] as unknown as { deleteMany?: () => Promise<unknown> };
+    if (typeof model?.deleteMany === "function") {
+      await model.deleteMany().catch(() => undefined);
+    }
+  }
+}
+
+// -----------------------------------------------------------------------------
+
+async function seedSchool() {
+  console.log("  School profile…");
+
+  const school = await db.school.create({
+    data: {
+      name: "Golden Crest International School",
+      shortName: "Golden Crest",
+      motto: "Knowledge, Character, Service",
+      email: "info@goldencrest.edu.gh",
+      phone: "+233302123456",
+      website: "https://goldencrest.edu.gh",
+      addressLine1: "12 Independence Avenue",
+      city: "Accra",
+      region: "Greater Accra",
+      digitalAddr: "GA-183-4567",
+      postalBox: "P.O. Box CT 1234, Cantonments",
+      currency: "GHS",
+      academicModel: "TERM",
+      curricula: ["GES", "British (IGCSE)", "IB Diploma"],
+      registrationNo: "GES/PRI/2011/0456",
+      branding: { primary: "#128257", accent: "#d9a325" },
+      campuses: {
+        create: [
+          {
+            name: "Main Campus",
+            code: "MAIN",
+            isMain: true,
+            address: "12 Independence Avenue, Accra",
+          },
+          {
+            name: "Early Years Campus",
+            code: "EY",
+            address: "8 Liberation Road, Accra",
+          },
+        ],
+      },
+    },
+    include: { campuses: true },
+  });
+
+  await db.setting.createMany({
+    data: [
+      { group: "finance", key: "invoice.terms", value: "Fees are payable in full before the mid-term break. Part payments are accepted." },
+      { group: "finance", key: "late.grace.days", value: 7 },
+      { group: "academic", key: "ca.weight", value: 40 },
+      { group: "academic", key: "exam.weight", value: 60 },
+      { group: "messaging", key: "quiet.hours", value: { from: 20, to: 7 } },
+    ],
+  });
+
+  return school;
+}
+
+async function seedCalendar(schoolId: string) {
+  console.log("  Academic year and terms…");
+
+  const startYear = new Date().getMonth() >= 8 ? new Date().getFullYear() : new Date().getFullYear() - 1;
+
+  const year = await db.academicYear.create({
+    data: {
+      schoolId,
+      name: `${startYear}/${startYear + 1}`,
+      startDate: new Date(startYear, 8, 1),
+      endDate: new Date(startYear + 1, 6, 31),
+      isCurrent: true,
+      terms: {
+        create: [
+          {
+            name: "Term 1",
+            sequence: 1,
+            startDate: new Date(startYear, 8, 10),
+            endDate: new Date(startYear, 11, 15),
+            resultsDueDate: new Date(startYear, 11, 8),
+          },
+          {
+            name: "Term 2",
+            sequence: 2,
+            startDate: new Date(startYear + 1, 0, 8),
+            endDate: new Date(startYear + 1, 3, 5),
+            isCurrent: true,
+          },
+          {
+            name: "Term 3",
+            sequence: 3,
+            startDate: new Date(startYear + 1, 3, 22),
+            endDate: new Date(startYear + 1, 6, 25),
+          },
+        ],
+      },
+    },
+    include: { terms: { orderBy: { sequence: "asc" } } },
+  });
+
+  await db.calendarEvent.createMany({
+    data: [
+      {
+        academicYearId: year.id,
+        title: "Mid-term break",
+        category: "HOLIDAY",
+        isHoliday: true,
+        startsAt: addDays(new Date(), 12),
+        endsAt: addDays(new Date(), 16),
+      },
+      {
+        academicYearId: year.id,
+        title: "PTA General Meeting",
+        category: "PTA",
+        startsAt: addDays(new Date(), 5),
+        endsAt: addDays(new Date(), 5),
+        location: "School Assembly Hall",
+        audiences: ["STAFF", "GUARDIAN"],
+      },
+      {
+        academicYearId: year.id,
+        title: "Inter-House Athletics",
+        category: "SPORTS",
+        startsAt: addDays(new Date(), 21),
+        endsAt: addDays(new Date(), 22),
+        location: "School Field",
+      },
+      {
+        academicYearId: year.id,
+        title: "End of Term Examinations begin",
+        category: "EXAM",
+        startsAt: addDays(new Date(), 30),
+        endsAt: addDays(new Date(), 40),
+      },
+      {
+        academicYearId: year.id,
+        title: "SRC Elections",
+        category: "GENERAL",
+        startsAt: addDays(new Date(), 9),
+        endsAt: addDays(new Date(), 9),
+        audiences: ["STAFF", "STUDENT"],
+      },
+    ],
+  });
+
+  return { year, terms: year.terms };
+}
+
+async function seedAccessControl() {
+  console.log("  Permissions and roles…");
+
+  await db.permission.createMany({
+    data: PERMISSIONS.map((permission) => ({
+      key: permission.key,
+      module: permission.module,
+      action: permission.action,
+      description: permission.description,
+    })),
+  });
+
+  const allPermissions = await db.permission.findMany();
+  const byKey = new Map(allPermissions.map((permission) => [permission.key, permission.id]));
+
+  const roles: Record<string, string> = {};
+
+  for (const preset of ROLE_PRESETS) {
+    const keys =
+      preset.permissions === "*"
+        ? allPermissions.map((permission) => permission.key)
+        : preset.permissions;
+
+    const role = await db.role.create({
+      data: {
+        key: preset.key,
+        name: preset.name,
+        description: preset.description,
+        portal: preset.portal,
+        rank: preset.rank,
+        isSystem: true,
+        permissions: {
+          create: keys
+            .map((key) => byKey.get(key))
+            .filter((id): id is string => Boolean(id))
+            .map((permissionId) => ({ permissionId })),
+        },
+      },
+    });
+
+    roles[preset.key] = role.id;
+  }
+
+  return { roles };
+}
+
+async function seedOptionSets() {
+  console.log("  Customisable dropdowns…");
+
+  const sets: Array<{
+    key: string;
+    label: string;
+    entity?: "STUDENT" | "STAFF" | "GUARDIAN";
+    items: string[];
+  }> = [
+    { key: "student.house", label: "House", entity: "STUDENT", items: HOUSES },
+    {
+      key: "student.religion",
+      label: "Religion",
+      entity: "STUDENT",
+      items: ["Christianity", "Islam", "Traditional", "Other", "None"],
+    },
+    {
+      key: "student.transport",
+      label: "Transport Mode",
+      entity: "STUDENT",
+      items: ["School Bus", "Private Car", "Walking", "Trotro", "Taxi", "Bicycle"],
+    },
+    {
+      key: "student.living_with",
+      label: "Living With",
+      entity: "STUDENT",
+      items: ["Both Parents", "Mother", "Father", "Guardian", "Relative", "Boarding"],
+    },
+    {
+      key: "student.learning_support",
+      label: "Learning Support Need",
+      entity: "STUDENT",
+      items: ["Dyslexia", "ADHD", "Speech & Language", "Visual Impairment", "Hearing Impairment", "Autism Spectrum"],
+    },
+    {
+      key: "staff.department",
+      label: "Department",
+      entity: "STAFF",
+      items: ["Mathematics", "Science", "Languages", "Humanities", "Creative Arts", "ICT", "Physical Education", "Administration", "Finance", "Health"],
+    },
+    {
+      key: "staff.qualification",
+      label: "Qualification",
+      entity: "STAFF",
+      items: ["Diploma in Education", "B.Ed", "B.Sc", "B.A", "M.Ed", "M.Sc", "MBA", "PhD"],
+    },
+    {
+      key: "guardian.income_band",
+      label: "Income Band",
+      entity: "GUARDIAN",
+      items: ["Below GH₵2,000", "GH₵2,000 – 5,000", "GH₵5,000 – 10,000", "Above GH₵10,000", "Prefer not to say"],
+    },
+    {
+      key: "document.category",
+      label: "Document Category",
+      items: ["Policy", "Circular", "Minutes", "Report", "Contract", "Licence", "Curriculum", "Financial"],
+    },
+    {
+      key: "discipline.category",
+      label: "Disciplinary Category",
+      items: ["Lateness", "Uniform", "Bullying", "Truancy", "Property Damage", "Academic Dishonesty", "Disrespect"],
+    },
+  ];
+
+  for (const set of sets) {
+    await db.optionSet.create({
+      data: {
+        key: set.key,
+        label: set.label,
+        entity: set.entity,
+        isSystem: true,
+        items: {
+          create: set.items.map((label, index) => ({
+            value: label.toUpperCase().replace(/[^A-Z0-9]+/g, "_"),
+            label,
+            sortKey: index,
+            isDefault: index === 0,
+          })),
+        },
+      },
+    });
+  }
+}
+
+async function seedCustomFields() {
+  console.log("  Custom fields…");
+
+  await db.customFieldDef.createMany({
+    data: [
+      {
+        entity: "STUDENT",
+        key: "bus_stop",
+        label: "Bus Stop",
+        type: "TEXT",
+        section: "Transport",
+        helpText: "Where the school bus collects this student.",
+        sortKey: 1,
+      },
+      {
+        entity: "STUDENT",
+        key: "swims",
+        label: "Can swim",
+        type: "BOOLEAN",
+        section: "Additional Information",
+        sortKey: 2,
+      },
+      {
+        entity: "STUDENT",
+        key: "club",
+        label: "Co-curricular Club",
+        type: "SELECT",
+        section: "Additional Information",
+        showInList: true,
+        sortKey: 3,
+      },
+      {
+        entity: "STUDENT",
+        key: "photo_consent",
+        label: "Photography consent",
+        type: "BOOLEAN",
+        section: "Consents",
+        helpText: "May the school use this student's image in publicity?",
+        sortKey: 4,
+      },
+      {
+        entity: "STAFF",
+        key: "teaching_licence",
+        label: "GES Teaching Licence No.",
+        type: "TEXT",
+        section: "Professional",
+        sortKey: 1,
+      },
+      {
+        entity: "GUARDIAN",
+        key: "preferred_contact_time",
+        label: "Best time to call",
+        type: "SELECT",
+        section: "Contact Preferences",
+        sortKey: 1,
+      },
+    ],
+  });
+}
+
+async function seedGrading() {
+  console.log("  Grading scales…");
+
+  const wassce = await db.gradeScale.create({
+    data: {
+      name: "WASSCE Standard",
+      code: "WASSCE",
+      description: "Nine-point scale used for JHS and SHS.",
+      isDefault: true,
+      maxPoint: 9,
+      bands: {
+        create: [
+          { grade: "A1", minScore: 80, maxScore: 100, point: 1, remark: "Excellent", colour: "#12805c", sortKey: 1 },
+          { grade: "B2", minScore: 75, maxScore: 79.99, point: 2, remark: "Very Good", colour: "#1fa16d", sortKey: 2 },
+          { grade: "B3", minScore: 70, maxScore: 74.99, point: 3, remark: "Good", colour: "#43bd88", sortKey: 3 },
+          { grade: "C4", minScore: 65, maxScore: 69.99, point: 4, remark: "Credit", colour: "#78d8ab", sortKey: 4 },
+          { grade: "C5", minScore: 60, maxScore: 64.99, point: 5, remark: "Credit", colour: "#aeeaca", sortKey: 5 },
+          { grade: "C6", minScore: 55, maxScore: 59.99, point: 6, remark: "Credit", colour: "#f5d17c", sortKey: 6 },
+          { grade: "D7", minScore: 50, maxScore: 54.99, point: 7, remark: "Pass", colour: "#eda100", sortKey: 7 },
+          { grade: "E8", minScore: 45, maxScore: 49.99, point: 8, remark: "Weak Pass", colour: "#eb6834", sortKey: 8 },
+          { grade: "F9", minScore: 0, maxScore: 44.99, point: 9, remark: "Fail", colour: "#c02626", isPass: false, sortKey: 9 },
+        ],
+      },
+    },
+  });
+
+  await db.gradeScale.create({
+    data: {
+      name: "Primary (A–E)",
+      code: "PRIMARY",
+      description: "Five-band scale for lower and upper primary.",
+      maxPoint: 5,
+      bands: {
+        create: [
+          { grade: "A", minScore: 80, maxScore: 100, point: 1, remark: "Outstanding", sortKey: 1 },
+          { grade: "B", minScore: 70, maxScore: 79.99, point: 2, remark: "Very Good", sortKey: 2 },
+          { grade: "C", minScore: 60, maxScore: 69.99, point: 3, remark: "Good", sortKey: 3 },
+          { grade: "D", minScore: 50, maxScore: 59.99, point: 4, remark: "Developing", sortKey: 4 },
+          { grade: "E", minScore: 0, maxScore: 49.99, point: 5, remark: "Needs Support", isPass: false, sortKey: 5 },
+        ],
+      },
+    },
+  });
+
+  await db.gradeScale.create({
+    data: {
+      name: "IGCSE",
+      code: "IGCSE",
+      description: "Cambridge IGCSE 9–1 scale.",
+      maxPoint: 9,
+      bands: {
+        create: [
+          { grade: "9", minScore: 90, maxScore: 100, point: 9, remark: "Exceptional", sortKey: 1 },
+          { grade: "8", minScore: 82, maxScore: 89.99, point: 8, remark: "Excellent", sortKey: 2 },
+          { grade: "7", minScore: 75, maxScore: 81.99, point: 7, remark: "Very Good", sortKey: 3 },
+          { grade: "6", minScore: 68, maxScore: 74.99, point: 6, remark: "Good", sortKey: 4 },
+          { grade: "5", minScore: 60, maxScore: 67.99, point: 5, remark: "Strong Pass", sortKey: 5 },
+          { grade: "4", minScore: 50, maxScore: 59.99, point: 4, remark: "Standard Pass", sortKey: 6 },
+          { grade: "3", minScore: 40, maxScore: 49.99, point: 3, remark: "Below Standard", isPass: false, sortKey: 7 },
+          { grade: "2", minScore: 30, maxScore: 39.99, point: 2, remark: "Weak", isPass: false, sortKey: 8 },
+          { grade: "1", minScore: 0, maxScore: 29.99, point: 1, remark: "Very Weak", isPass: false, sortKey: 9 },
+        ],
+      },
+    },
+  });
+
+  return wassce;
+}
+
+async function seedClasses() {
+  console.log("  Class levels and sections…");
+
+  const definitions = [
+    { name: "Nursery 1", code: "N1", stage: "NURSERY", sections: ["A"] },
+    { name: "Nursery 2", code: "N2", stage: "NURSERY", sections: ["A"] },
+    { name: "KG 1", code: "KG1", stage: "KINDERGARTEN", sections: ["A", "B"] },
+    { name: "KG 2", code: "KG2", stage: "KINDERGARTEN", sections: ["A", "B"] },
+    { name: "Basic 1", code: "B1", stage: "PRIMARY", sections: ["A", "B"] },
+    { name: "Basic 2", code: "B2", stage: "PRIMARY", sections: ["A", "B"] },
+    { name: "Basic 3", code: "B3", stage: "PRIMARY", sections: ["A", "B"] },
+    { name: "Basic 4", code: "B4", stage: "PRIMARY", sections: ["A", "B"] },
+    { name: "Basic 5", code: "B5", stage: "PRIMARY", sections: ["A"] },
+    { name: "Basic 6", code: "B6", stage: "PRIMARY", sections: ["A"] },
+    { name: "JHS 1", code: "J1", stage: "JHS", sections: ["A", "B"] },
+    { name: "JHS 2", code: "J2", stage: "JHS", sections: ["A", "B"] },
+    { name: "JHS 3", code: "J3", stage: "JHS", sections: ["A"] },
+  ];
+
+  const levels = [];
+  const sections = [];
+
+  for (const [index, definition] of definitions.entries()) {
+    const level = await db.classLevel.create({
+      data: {
+        name: definition.name,
+        code: definition.code,
+        sequence: index + 1,
+        stage: definition.stage,
+        curriculum: definition.stage === "JHS" ? "GES" : "British",
+      },
+    });
+    levels.push(level);
+
+    for (const suffix of definition.sections) {
+      const section = await db.classSection.create({
+        data: {
+          classLevelId: level.id,
+          name: `${definition.code}${suffix}`,
+          code: `${definition.code}-${suffix}`,
+          capacity: 30,
+          roomName: `Room ${definition.code}${suffix}`,
+        },
+      });
+      sections.push(section);
+    }
+  }
+
+  return { levels, sections };
+}
+
+type LevelRow = Awaited<ReturnType<typeof seedClasses>>["levels"][number];
+type SectionRow = Awaited<ReturnType<typeof seedClasses>>["sections"][number];
+
+async function seedSubjects(levels: LevelRow[]) {
+  console.log("  Subjects…");
+
+  const definitions = [
+    { name: "English Language", code: "ENG", department: "Languages", isCore: true },
+    { name: "Mathematics", code: "MATH", department: "Mathematics", isCore: true },
+    { name: "Integrated Science", code: "SCI", department: "Science", isCore: true },
+    { name: "Social Studies", code: "SOC", department: "Humanities", isCore: true },
+    { name: "Computing / ICT", code: "ICT", department: "ICT" },
+    { name: "Religious & Moral Education", code: "RME", department: "Humanities" },
+    { name: "Ghanaian Language (Twi)", code: "TWI", department: "Languages" },
+    { name: "French", code: "FRE", department: "Languages", isElective: true },
+    { name: "Creative Arts", code: "ART", department: "Creative Arts" },
+    { name: "Physical Education", code: "PE", department: "Physical Education", excludeFromAggregate: true },
+    { name: "Career Technology", code: "CT", department: "ICT" },
+  ];
+
+  const subjects = [];
+  for (const [index, definition] of definitions.entries()) {
+    const subject = await db.subject.create({
+      data: { ...definition, sortKey: index, creditHours: 1 },
+    });
+    subjects.push(subject);
+  }
+
+  // Curriculum map: everything at JHS, a lighter set lower down.
+  const lowerSubjects = subjects.filter((subject) =>
+    ["ENG", "MATH", "SCI", "ART", "PE", "RME"].includes(subject.code),
+  );
+
+  for (const level of levels) {
+    const applicable = level.stage === "JHS" ? subjects : lowerSubjects;
+    await db.levelSubject.createMany({
+      data: applicable.map((subject) => ({
+        classLevelId: level.id,
+        subjectId: subject.id,
+        isCompulsory: !subject.isElective,
+        periodsPerWeek: subject.isCore ? 5 : 2,
+      })),
+    });
+  }
+
+  return subjects;
+}
+
+type SubjectRow = Awaited<ReturnType<typeof seedSubjects>>[number];
+
+async function seedStaff(roles: Record<string, string>, schoolId: string) {
+  console.log("  Staff and user accounts…");
+
+  const campus = await db.campus.findFirst({ where: { schoolId, isMain: true } });
+  const password = await hashPassword(process.env.SEED_ADMIN_PASSWORD ?? "ChangeMe123!");
+
+  const definitions = [
+    { first: "Kofi", last: "Mensah", title: "Mr", role: "super_admin", job: "System Administrator", dept: "Administration", teaching: false, email: process.env.SEED_ADMIN_EMAIL ?? "admin@school.edu.gh" },
+    { first: "Abena", last: "Owusu", title: "Mrs", role: "head_teacher", job: "Head Teacher", dept: "Administration", teaching: false, email: "head@goldencrest.edu.gh" },
+    { first: "Samuel", last: "Boateng", title: "Mr", role: "assistant_head", job: "Assistant Head (Academics)", dept: "Administration", teaching: true, email: "assistanthead@goldencrest.edu.gh" },
+    { first: "Grace", last: "Asante", title: "Ms", role: "bursar", job: "Bursar", dept: "Finance", teaching: false, email: "bursar@goldencrest.edu.gh" },
+    { first: "Yaw", last: "Agyemang", title: "Mr", role: "registrar", job: "Registrar", dept: "Administration", teaching: false, email: "registrar@goldencrest.edu.gh" },
+    { first: "Esi", last: "Appiah", title: "Mrs", role: "form_teacher", job: "Form Teacher — JHS 2A", dept: "Mathematics", teaching: true, email: "teacher@goldencrest.edu.gh" },
+    { first: "Emmanuel", last: "Frimpong", title: "Mr", role: "teacher", job: "Teacher of Science", dept: "Science", teaching: true, email: "e.frimpong@goldencrest.edu.gh" },
+    { first: "Adwoa", last: "Adjei", title: "Ms", role: "teacher", job: "Teacher of English", dept: "Languages", teaching: true, email: "a.adjei@goldencrest.edu.gh" },
+    { first: "Michael", last: "Ansah", title: "Mr", role: "teacher", job: "Teacher of ICT", dept: "ICT", teaching: true, email: "m.ansah@goldencrest.edu.gh" },
+    { first: "Comfort", last: "Amoah", title: "Mrs", role: "teacher", job: "Teacher of Social Studies", dept: "Humanities", teaching: true, email: "c.amoah@goldencrest.edu.gh" },
+    { first: "Priscilla", last: "Darko", title: "Ms", role: "nurse", job: "School Nurse", dept: "Health", teaching: false, email: "nurse@goldencrest.edu.gh" },
+    { first: "Daniel", last: "Kyei", title: "Mr", role: "librarian", job: "Librarian", dept: "Administration", teaching: false, email: "library@goldencrest.edu.gh" },
+    { first: "Linda", last: "Nyarko", title: "Ms", role: "front_desk", job: "School Secretary", dept: "Administration", teaching: false, email: "frontdesk@goldencrest.edu.gh" },
+  ];
+
+  const staff = [];
+
+  for (const [index, definition] of definitions.entries()) {
+    const user = await db.user.create({
+      data: {
+        email: definition.email,
+        phone: phone(),
+        username: definition.email.split("@")[0],
+        passwordHash: password,
+        status: "ACTIVE",
+        firstName: definition.first,
+        lastName: definition.last,
+        portal: "STAFF",
+        emailVerifiedAt: new Date(),
+        roles: { create: { roleId: roles[definition.role] } },
+      },
+    });
+
+    const record = await db.staff.create({
+      data: {
+        userId: user.id,
+        campusId: campus?.id,
+        staffNo: `GCS/STF/${String(index + 1).padStart(3, "0")}`,
+        title: definition.title,
+        firstName: definition.first,
+        lastName: definition.last,
+        gender: ["Mrs", "Ms"].includes(definition.title) ? "FEMALE" : "MALE",
+        dateOfBirth: dateYearsAgo(between(28, 55)),
+        email: definition.email,
+        phone: user.phone,
+        nationality: "Ghanaian",
+        jobTitle: definition.job,
+        department: definition.dept,
+        employmentType: "FULL_TIME",
+        status: "ACTIVE",
+        hireDate: dateYearsAgo(between(1, 12)),
+        isTeaching: definition.teaching,
+        qualifications: [
+          { qualification: pick(["B.Ed", "B.Sc", "M.Ed", "B.A"]), institution: pick(["University of Ghana", "KNUST", "University of Cape Coast", "UEW"]), year: 2000 + between(5, 20) },
+        ],
+        momoNumber: user.phone,
+        momoNetwork: "MTN",
+        emergencyName: `${pick(MALE_NAMES)} ${pick(SURNAMES)}`,
+        emergencyPhone: phone(),
+        emergencyRelation: pick(["Spouse", "Sibling", "Parent"]),
+      },
+    });
+
+    staff.push({ ...record, roleKey: definition.role });
+  }
+
+  return staff;
+}
+
+type StaffRow = Awaited<ReturnType<typeof seedStaff>>[number];
+type TermRow = { id: string; name: string; sequence: number; startDate: Date; endDate: Date };
+
+async function seedOfferings(
+  academicYearId: string,
+  terms: TermRow[],
+  sections: SectionRow[],
+  subjects: SubjectRow[],
+  staff: StaffRow[],
+) {
+  console.log("  Subject offerings and timetable…");
+
+  const teachers = staff.filter((member) => member.isTeaching);
+  const currentTerm = terms.find((term) => term.sequence === 2) ?? terms[0];
+
+  // Assign form teachers round-robin.
+  for (const [index, section] of sections.entries()) {
+    await db.classSection.update({
+      where: { id: section.id },
+      data: { formTeacherId: teachers[index % teachers.length].id },
+    });
+  }
+
+  const offerings = [];
+
+  for (const section of sections) {
+    const levelSubjects = await db.levelSubject.findMany({
+      where: { classLevelId: section.classLevelId },
+      select: { subjectId: true },
+    });
+
+    for (const term of terms) {
+      for (const [index, link] of levelSubjects.entries()) {
+        const subject = subjects.find((entry) => entry.id === link.subjectId);
+        if (!subject) continue;
+
+        // Keep the same teacher on a subject across terms — realistic, and it
+        // makes the teaching-effectiveness analytics meaningful.
+        const teacher = teachers[(section.name.charCodeAt(0) + index) % teachers.length];
+
+        const offering = await db.subjectOffering.create({
+          data: {
+            academicYearId,
+            termId: term.id,
+            subjectId: subject.id,
+            classSectionId: section.id,
+            teacherId: teacher.id,
+            room: section.roomName,
+          },
+        });
+
+        if (term.id === currentTerm.id) offerings.push(offering);
+      }
+    }
+  }
+
+  // A simple timetable for the current term's offerings.
+  const currentOfferings = offerings.slice(0, 60);
+  const periods = [
+    { index: 1, start: "08:00", end: "08:40" },
+    { index: 2, start: "08:40", end: "09:20" },
+    { index: 3, start: "09:20", end: "10:00" },
+    { index: 4, start: "10:20", end: "11:00" },
+    { index: 5, start: "11:00", end: "11:40" },
+  ];
+
+  for (const offering of currentOfferings) {
+    const day = between(1, 5);
+    const period = pick(periods);
+    await db.timetableSlot
+      .create({
+        data: {
+          classSectionId: offering.classSectionId,
+          offeringId: offering.id,
+          dayOfWeek: day,
+          periodIndex: period.index,
+          startTime: period.start,
+          endTime: period.end,
+          room: offering.room,
+        },
+      })
+      .catch(() => undefined); // Slot already taken — fine for demo data.
+  }
+
+  return offerings;
+}
+
+type OfferingRow = Awaited<ReturnType<typeof seedOfferings>>[number];
+
+async function seedStudents(
+  schoolId: string,
+  roles: Record<string, string>,
+  sections: SectionRow[],
+  academicYearId: string,
+) {
+  console.log("  Students, guardians and family records…");
+
+  const campus = await db.campus.findFirst({ where: { schoolId, isMain: true } });
+  const password = await hashPassword("Student123!");
+  const guardianPassword = await hashPassword("Parent123!");
+
+  const students = [];
+  let admissionCounter = 1;
+  let demoGuardianCreated = false;
+  let demoStudentCreated = false;
+
+  for (const section of sections) {
+    const classSize = between(14, 24);
+
+    for (let index = 0; index < classSize; index += 1) {
+      const isFemale = chance(0.5);
+      const firstName = isFemale ? pick(FEMALE_NAMES) : pick(MALE_NAMES);
+      const lastName = pick(SURNAMES);
+      const otherName = pick(OTHER_NAMES);
+      const admissionNo = `GCS/${String(2020 + between(0, 5))}/${String(admissionCounter).padStart(4, "0")}`;
+      admissionCounter += 1;
+
+      // Age tracks the class level so the data reads correctly.
+      const level = sections.indexOf(section);
+      const age = 3 + Math.floor(level / 1.5) + between(0, 1);
+
+      const isBoarder = chance(0.18);
+      const hasSupport = chance(0.08);
+
+      const student = await db.student.create({
+        data: {
+          campusId: campus?.id,
+          admissionNo,
+          firstName,
+          lastName,
+          otherNames: otherName || null,
+          gender: isFemale ? "FEMALE" : "MALE",
+          dateOfBirth: dateYearsAgo(age),
+          placeOfBirth: pick(["Accra", "Kumasi", "Takoradi", "Tema", "Cape Coast"]),
+          status: "ENROLLED",
+          nationality: chance(0.9) ? "Ghanaian" : pick(["Nigerian", "Ivorian", "British", "Lebanese", "Indian"]),
+          birthCertNo: `BC${between(100000, 999999)}`,
+          nhisNumber: chance(0.6) ? String(between(10000000, 99999999)) : null,
+          hometown: pick(["Kumasi", "Cape Coast", "Ho", "Koforidua", "Sunyani", "Tamale"]),
+          homeRegion: pick(REGIONS),
+          religion: chance(0.75) ? "Christianity" : pick(["Islam", "Traditional", "Other"]),
+          firstLanguage: chance(0.5) ? "English" : pick(["Twi", "Ga", "Ewe", "Fante"]),
+          otherLanguages: chance(0.4) ? ["Twi"] : [],
+          residentialAddress: `House ${between(1, 90)}, ${pick(["East Legon", "Adenta", "Spintex", "Dansoman", "Achimota", "Madina", "Tema Community 5"])}`,
+          digitalAddr: `GA-${between(100, 599)}-${between(1000, 9999)}`,
+          city: "Accra",
+          region: "Greater Accra",
+          livingWith: isBoarder ? "BOARDING" : pick(["BOTH_PARENTS", "BOTH_PARENTS", "BOTH_PARENTS", "MOTHER", "FATHER", "GUARDIAN"]),
+          householdSize: between(3, 8),
+          numberOfSiblings: between(0, 4),
+          birthOrder: between(1, 4),
+          parentMaritalStatus: pick(["MARRIED", "MARRIED", "MARRIED", "SEPARATED", "WIDOWED", "SINGLE"]),
+          isSingleParent: chance(0.15),
+          onScholarship: chance(0.08),
+          distanceToSchoolKm: Number((random() * 22 + 0.5).toFixed(1)),
+          transportMode: isBoarder ? null : pick(["SCHOOL_BUS", "PRIVATE", "WALKING", "TROTRO", "TAXI"]),
+          busRoute: chance(0.3) ? `Route ${between(1, 6)}` : null,
+          internetAtHome: chance(0.7),
+          deviceAccess: pick(["NONE", "SHARED", "OWN_PHONE", "OWN_LAPTOP"]),
+          isBoarder,
+          house: pick(HOUSES),
+          dormitory: isBoarder ? pick(["Unity Hall", "Harmony Hall"]) : null,
+          roomNumber: isBoarder ? `${between(1, 20)}` : null,
+          hasSpecialNeeds: hasSupport,
+          learningSupport: hasSupport ? [pick(["Dyslexia", "ADHD", "Speech & Language"])] : [],
+          giftedTalented: chance(0.06) ? [pick(["Mathematics", "Music", "Athletics", "Debating"])] : [],
+          admissionDate: dateYearsAgo(between(0, 4)),
+          admissionType: chance(0.7) ? "NEW" : "TRANSFER",
+          referralSource: pick(["Word of mouth", "Website", "Sibling", "Church", "Advertisement"]),
+        },
+      });
+
+      // --- Medical --------------------------------------------------------
+      const hasAllergy = chance(0.22);
+      await db.studentMedical.create({
+        data: {
+          studentId: student.id,
+          bloodGroup: pick(["O+", "O+", "A+", "B+", "AB+", "O-", "A-"]),
+          genotype: pick(["AA", "AA", "AA", "AS", "AS", "SS"]),
+          heightCm: 90 + age * 6 + between(-5, 5),
+          weightKg: 14 + age * 3 + between(-3, 4),
+          lastCheckup: addDays(new Date(), -between(30, 300)),
+          allergies: hasAllergy
+            ? [
+                {
+                  name: pick(["Peanuts", "Shellfish", "Dust", "Penicillin", "Pollen", "Eggs"]),
+                  severity: pick(["MILD", "MODERATE", "SEVERE", "ANAPHYLAXIS"]),
+                  reaction: pick(["Rash and itching", "Swelling of lips", "Difficulty breathing", "Stomach upset"]),
+                  treatment: pick(["Antihistamine", "EpiPen — call ambulance", "Avoid exposure"]),
+                },
+              ]
+            : [],
+          conditions: chance(0.12)
+            ? [
+                {
+                  condition: pick(["Asthma", "Sickle Cell", "Eczema", "Epilepsy"]),
+                  diagnosedOn: dateYearsAgo(between(1, 6)).toISOString().slice(0, 10),
+                  status: "Managed",
+                  notes: "Reviewed annually by family doctor.",
+                },
+              ]
+            : [],
+          medications: chance(0.1)
+            ? [
+                {
+                  name: "Salbutamol inhaler",
+                  dosage: "2 puffs",
+                  frequency: "As needed",
+                  administerAtSchool: true,
+                },
+              ]
+            : [],
+          immunisations: [
+            { vaccine: "BCG", date: "At birth" },
+            { vaccine: "Measles-Rubella", date: dateYearsAgo(age - 1).toISOString().slice(0, 10) },
+            { vaccine: "Yellow Fever", date: dateYearsAgo(age - 1).toISOString().slice(0, 10) },
+          ],
+          dietaryRestrictions: chance(0.12) ? pick(["No pork", "Vegetarian", "No dairy"]) : null,
+          doctorName: `Dr. ${pick(SURNAMES)}`,
+          doctorPhone: phone(),
+          hospitalName: pick(["Korle Bu Teaching Hospital", "37 Military Hospital", "Nyaho Medical Centre", "Ridge Hospital"]),
+          insuranceProvider: chance(0.5) ? pick(["NHIS", "Acacia Health", "GLICO Healthcare"]) : null,
+          consentToTreat: chance(0.85),
+          emergencyInstructions: hasAllergy
+            ? "Administer antihistamine, call the parent immediately, and if breathing is affected use the EpiPen and call an ambulance."
+            : null,
+        },
+      });
+
+      if (chance(0.25)) {
+        const medical = await db.studentMedical.findUnique({ where: { studentId: student.id } });
+        if (medical) {
+          await db.clinicVisit.create({
+            data: {
+              medicalId: medical.id,
+              visitedAt: addDays(new Date(), -between(1, 60)),
+              complaint: pick(["Headache", "Stomach ache", "Minor cut on knee", "Fever", "Toothache"]),
+              temperature: Number((36 + random() * 2).toFixed(1)),
+              treatment: pick(["Paracetamol administered", "Cleaned and dressed the wound", "Rested in sick bay"]),
+              outcome: pick(["RETURNED_TO_CLASS", "RETURNED_TO_CLASS", "SENT_HOME"]),
+              attendedBy: "Ms Priscilla Darko",
+              guardianNotified: chance(0.6),
+            },
+          });
+        }
+      }
+
+      // --- Guardians ------------------------------------------------------
+      const fatherName = pick(MALE_NAMES);
+      const motherName = pick(FEMALE_NAMES);
+      const hasFather = !chance(0.12);
+      const hasMother = !chance(0.06);
+
+      const guardianLinks: Prisma.StudentGuardianCreateWithoutStudentInput[] = [];
+
+      if (hasFather) {
+        // Give exactly one family a known login so the parent portal is demoable.
+        const isDemo = !demoGuardianCreated && section.name === "J2A" && index === 0;
+        const guardianUser = isDemo
+          ? await db.user.create({
+              data: {
+                email: "parent@goldencrest.edu.gh",
+                phone: phone(),
+                passwordHash: guardianPassword,
+                status: "ACTIVE",
+                firstName: fatherName,
+                lastName,
+                portal: "GUARDIAN",
+                emailVerifiedAt: new Date(),
+                roles: { create: { roleId: roles.guardian } },
+              },
+            })
+          : chance(0.35)
+            ? await db.user.create({
+                data: {
+                  phone: phone(),
+                  passwordHash: guardianPassword,
+                  status: "ACTIVE",
+                  firstName: fatherName,
+                  lastName,
+                  portal: "GUARDIAN",
+                  roles: { create: { roleId: roles.guardian } },
+                },
+              })
+            : null;
+
+        if (isDemo) demoGuardianCreated = true;
+
+        const father = await db.guardian.create({
+          data: {
+            userId: guardianUser?.id,
+            title: "Mr",
+            firstName: fatherName,
+            lastName,
+            gender: "MALE",
+            phone: guardianUser?.phone ?? phone(),
+            email: isDemo ? "parent@goldencrest.edu.gh" : chance(0.6) ? `${fatherName.toLowerCase()}.${lastName.toLowerCase()}@example.com` : null,
+            whatsapp: phone(),
+            address: student.residentialAddress,
+            digitalAddr: student.digitalAddr,
+            city: "Accra",
+            occupation: pick(OCCUPATIONS),
+            employer: pick(["Self-employed", "Ghana Revenue Authority", "MTN Ghana", "Ecobank", "Ministry of Health", "Private practice"]),
+            educationLevel: pick(["SHS", "Diploma", "Degree", "Postgraduate"]),
+            incomeBand: pick(["GH₵2,000 – 5,000", "GH₵5,000 – 10,000", "Above GH₵10,000"]),
+            preferredChannel: pick(["SMS", "SMS", "EMAIL", "PUSH"]),
+            isPtaMember: chance(0.2),
+          },
+        });
+
+        guardianLinks.push({
+          guardian: { connect: { id: father.id } },
+          relation: "FATHER",
+          isPrimary: true,
+          isEmergency: true,
+          isBillPayer: true,
+          billSharePercent: hasMother ? 60 : 100,
+          hasCustody: true,
+          canPickUp: true,
+          receivesReports: true,
+          livesWithStudent: !isBoarder,
+          sortKey: 0,
+        });
+      }
+
+      if (hasMother) {
+        const mother = await db.guardian.create({
+          data: {
+            title: "Mrs",
+            firstName: motherName,
+            lastName,
+            gender: "FEMALE",
+            phone: phone(),
+            email: chance(0.5) ? `${motherName.toLowerCase().replace(/\s+/g, "")}.${lastName.toLowerCase()}@example.com` : null,
+            address: student.residentialAddress,
+            city: "Accra",
+            occupation: pick(OCCUPATIONS),
+            educationLevel: pick(["SHS", "Diploma", "Degree", "Postgraduate"]),
+            preferredChannel: "SMS",
+            isPtaMember: chance(0.25),
+          },
+        });
+
+        guardianLinks.push({
+          guardian: { connect: { id: mother.id } },
+          relation: "MOTHER",
+          isPrimary: !hasFather,
+          isEmergency: true,
+          isBillPayer: !hasFather,
+          billSharePercent: hasFather ? 40 : 100,
+          hasCustody: true,
+          canPickUp: true,
+          receivesReports: true,
+          livesWithStudent: !isBoarder,
+          sortKey: 1,
+        });
+      }
+
+      for (const link of guardianLinks) {
+        await db.studentGuardian.create({
+          data: { ...link, student: { connect: { id: student.id } } },
+        });
+      }
+
+      // --- Family tree ----------------------------------------------------
+      const relations: Prisma.FamilyRelationCreateManyInput[] = [];
+
+      if (chance(0.7)) {
+        relations.push({
+          studentId: student.id,
+          relation: "GRANDFATHER",
+          generation: -2,
+          lineage: "PATERNAL",
+          fullName: `${pick(MALE_NAMES)} ${lastName}`,
+          gender: "MALE",
+          isDeceased: chance(0.4),
+          occupation: pick(["Retired teacher", "Farmer", "Chief", "Retired civil servant"]),
+        });
+      }
+      if (chance(0.6)) {
+        relations.push({
+          studentId: student.id,
+          relation: "GRANDMOTHER",
+          generation: -2,
+          lineage: "MATERNAL",
+          fullName: `${pick(FEMALE_NAMES)} ${pick(SURNAMES)}`,
+          gender: "FEMALE",
+          isDeceased: chance(0.35),
+          occupation: pick(["Trader", "Retired nurse", "Homemaker"]),
+        });
+      }
+      if (chance(0.45)) {
+        relations.push({
+          studentId: student.id,
+          relation: chance(0.5) ? "UNCLE" : "AUNT",
+          generation: -1,
+          lineage: chance(0.5) ? "PATERNAL" : "MATERNAL",
+          fullName: chance(0.5) ? `${pick(MALE_NAMES)} ${lastName}` : `${pick(FEMALE_NAMES)} ${pick(SURNAMES)}`,
+          occupation: pick(OCCUPATIONS),
+          phone: phone(),
+          isAlumnus: chance(0.25),
+        });
+      }
+      const siblingCount = between(0, 2);
+      for (let s = 0; s < siblingCount; s += 1) {
+        relations.push({
+          studentId: student.id,
+          relation: chance(0.5) ? "BROTHER" : "SISTER",
+          generation: 0,
+          fullName: `${chance(0.5) ? pick(MALE_NAMES) : pick(FEMALE_NAMES)} ${lastName}`,
+          dateOfBirth: dateYearsAgo(age + between(-4, 4)),
+        });
+      }
+
+      if (relations.length) {
+        await db.familyRelation.createMany({ data: relations });
+      }
+
+      // --- Education history ----------------------------------------------
+      if (chance(0.55)) {
+        await db.educationHistory.create({
+          data: {
+            studentId: student.id,
+            schoolName: pick(PREVIOUS_SCHOOLS),
+            schoolType: pick(["PRIVATE", "INTERNATIONAL", "PUBLIC"]),
+            country: "Ghana",
+            city: "Accra",
+            curriculum: pick(["GES", "British", "Montessori"]),
+            levelFrom: "KG 1",
+            levelTo: pick(["Basic 2", "Basic 3", "Basic 4"]),
+            startDate: dateYearsAgo(age - 3),
+            endDate: dateYearsAgo(between(1, 3)),
+            reasonForLeaving: pick(["Relocation", "Seeking better facilities", "Parent transfer", "Fee considerations"]),
+            lastAverage: Number((55 + random() * 35).toFixed(1)),
+            lastPosition: `${between(1, 25)} of ${between(25, 40)}`,
+            conduct: pick(["Excellent", "Very good", "Good"]),
+            hasTranscript: chance(0.6),
+            verified: chance(0.5),
+          },
+        });
+      }
+
+      // --- Discipline -------------------------------------------------------
+      if (chance(0.12)) {
+        await db.disciplinaryRecord.create({
+          data: {
+            studentId: student.id,
+            incidentAt: addDays(new Date(), -between(5, 120)),
+            category: pick(["LATENESS", "UNIFORM", "TRUANCY", "DISRESPECT"]),
+            severity: pick(["MINOR", "MINOR", "MODERATE"]),
+            description: pick([
+              "Arrived after the second bell on three consecutive days.",
+              "Out of correct uniform during morning assembly.",
+              "Left the classroom without permission during a lesson.",
+            ]),
+            location: pick(["Assembly ground", "Classroom", "School gate"]),
+            actionTaken: pick(["Verbal warning issued", "Parent contacted", "Break-time detention"]),
+            sanction: pick(["WARNING", "DETENTION"]),
+            reportedBy: "Form teacher",
+            guardianNotified: chance(0.7),
+            status: chance(0.7) ? "RESOLVED" : "OPEN",
+          },
+        });
+      }
+
+      // --- Enrolment and portal account ------------------------------------
+      await db.enrollment.create({
+        data: {
+          studentId: student.id,
+          classSectionId: section.id,
+          academicYearId,
+          status: "ACTIVE",
+          rollNumber: index + 1,
+        },
+      });
+
+      // Older students get a portal login; one gets a known demo account.
+      if (age >= 11 && chance(0.5)) {
+        const isDemo = !demoStudentCreated && section.name === "J2A";
+        const studentUser = await db.user.create({
+          data: {
+            email: isDemo ? "student@goldencrest.edu.gh" : null,
+            username: isDemo ? "student" : admissionNo.replace(/\//g, "").toLowerCase(),
+            passwordHash: password,
+            status: "ACTIVE",
+            firstName,
+            lastName,
+            portal: "STUDENT",
+            roles: { create: { roleId: roles.student } },
+          },
+        });
+        await db.student.update({
+          where: { id: student.id },
+          data: { userId: studentUser.id },
+        });
+        if (isDemo) demoStudentCreated = true;
+      }
+
+      students.push({ ...student, sectionId: section.id });
+    }
+  }
+
+  console.log(`    ${students.length} students created`);
+  return students;
+}
+
+type StudentRow = Awaited<ReturnType<typeof seedStudents>>[number];
+
+async function seedAssessments(
+  offerings: OfferingRow[],
+  terms: TermRow[],
+  students: StudentRow[],
+  sections: SectionRow[],
+) {
+  console.log("  Assessments and marks…");
+
+  const currentTerm = terms.find((term) => term.sequence === 2) ?? terms[0];
+  const studentsBySection = new Map<string, StudentRow[]>();
+  for (const student of students) {
+    studentsBySection.set(student.sectionId, [
+      ...(studentsBySection.get(student.sectionId) ?? []),
+      student,
+    ]);
+  }
+
+  // Give each student a latent ability so their marks correlate across
+  // subjects — otherwise every analysis sees pure noise.
+  const ability = new Map<string, number>();
+  for (const student of students) {
+    ability.set(student.id, 55 + random() * 30);
+  }
+
+  const templates = [
+    { title: "Class Test 1", category: "TEST" as const, weight: 10, max: 20, isExam: false, offsetDays: -45 },
+    { title: "Homework Portfolio", category: "HOMEWORK" as const, weight: 10, max: 20, isExam: false, offsetDays: -30 },
+    { title: "Group Project", category: "PROJECT" as const, weight: 10, max: 20, isExam: false, offsetDays: -20 },
+    { title: "Class Test 2", category: "TEST" as const, weight: 10, max: 20, isExam: false, offsetDays: -10 },
+    { title: "End of Term Examination", category: "EXAM" as const, weight: 60, max: 100, isExam: true, offsetDays: -2 },
+  ];
+
+  let scoreCount = 0;
+
+  for (const offering of offerings) {
+    const classStudents = studentsBySection.get(offering.classSectionId) ?? [];
+    if (!classStudents.length) continue;
+
+    // A per-offering difficulty makes some subjects visibly harder, which is
+    // what the teaching-effectiveness analysis is meant to surface.
+    const difficulty = random() * 16 - 8;
+
+    for (const template of templates) {
+      // The terminal exam has not happened in every class yet.
+      if (template.isExam && chance(0.25)) continue;
+
+      const assessment = await db.assessment.create({
+        data: {
+          offeringId: offering.id,
+          termId: currentTerm.id,
+          title: template.title,
+          category: template.category,
+          maxScore: template.max,
+          weight: template.weight,
+          isExam: template.isExam,
+          conductedOn: addDays(new Date(), template.offsetDays),
+          isPublished: true,
+          publishedAt: addDays(new Date(), template.offsetDays + 2),
+        },
+      });
+
+      const rows: Prisma.AssessmentScoreCreateManyInput[] = [];
+
+      for (const student of classStudents) {
+        const isAbsent = chance(0.03);
+        const base = (ability.get(student.id) ?? 60) - difficulty + (random() * 16 - 8);
+        const percent = Math.max(5, Math.min(99, base));
+
+        rows.push({
+          assessmentId: assessment.id,
+          studentId: student.id,
+          score: isAbsent ? null : Number(((percent / 100) * template.max).toFixed(1)),
+          isAbsent,
+          gradedById: offering.teacherId,
+        });
+      }
+
+      await db.assessmentScore.createMany({ data: rows });
+      scoreCount += rows.length;
+    }
+  }
+
+  console.log(`    ${scoreCount} marks recorded`);
+}
+
+async function seedAttendance(
+  terms: TermRow[],
+  sections: SectionRow[],
+  students: StudentRow[],
+  staff: StaffRow[],
+) {
+  console.log("  Attendance registers…");
+
+  const currentTerm = terms.find((term) => term.sequence === 2) ?? terms[0];
+  const studentsBySection = new Map<string, StudentRow[]>();
+  for (const student of students) {
+    studentsBySection.set(student.sectionId, [
+      ...(studentsBySection.get(student.sectionId) ?? []),
+      student,
+    ]);
+  }
+
+  // Some students are habitually absent — this is what the at-risk scan finds.
+  const reliability = new Map<string, number>();
+  for (const student of students) {
+    reliability.set(student.id, chance(0.07) ? 0.62 + random() * 0.15 : 0.93 + random() * 0.07);
+  }
+
+  const teacher = staff.find((member) => member.isTeaching) ?? staff[0];
+  let sessionCount = 0;
+
+  // The last 25 school days.
+  const days: Date[] = [];
+  const cursor = new Date();
+  while (days.length < 25) {
+    if (cursor.getDay() !== 0 && cursor.getDay() !== 6) {
+      days.push(new Date(cursor));
+    }
+    cursor.setDate(cursor.getDate() - 1);
+  }
+
+  for (const section of sections) {
+    const classStudents = studentsBySection.get(section.id) ?? [];
+    if (!classStudents.length) continue;
+
+    for (const day of days) {
+      const session = await db.attendanceSession.create({
+        data: {
+          termId: currentTerm.id,
+          classSectionId: section.id,
+          date: new Date(Date.UTC(day.getFullYear(), day.getMonth(), day.getDate())),
+          type: "DAILY",
+          takenById: section.formTeacherId ?? teacher.id,
+          takenAt: day,
+          isLocked: true,
+        },
+      });
+      sessionCount += 1;
+
+      await db.attendanceRecord.createMany({
+        data: classStudents.map((student) => {
+          const roll = random();
+          const threshold = reliability.get(student.id) ?? 0.95;
+          const status =
+            roll < threshold
+              ? "PRESENT"
+              : roll < threshold + 0.04
+                ? "LATE"
+                : roll < threshold + 0.06
+                  ? "EXCUSED"
+                  : roll < threshold + 0.07
+                    ? "SICK"
+                    : "ABSENT";
+
+          return {
+            sessionId: session.id,
+            studentId: student.id,
+            status: status as "PRESENT",
+            minutesLate: status === "LATE" ? between(5, 40) : null,
+            reason: status === "SICK" ? "Reported unwell" : status === "EXCUSED" ? "Family commitment" : null,
+          };
+        }),
+      });
+    }
+  }
+
+  console.log(`    ${sessionCount} registers taken`);
+}
+
+async function seedFeeStructures(academicYearId: string, terms: TermRow[], levels: LevelRow[]) {
+  console.log("  Fee categories and structures…");
+
+  const categories = await Promise.all(
+    [
+      { name: "Tuition", code: "TUITION", sortKey: 1 },
+      { name: "Admission Fee", code: "ADMISSION", isRecurring: false, sortKey: 2 },
+      { name: "PTA Levy", code: "PTA", sortKey: 3 },
+      { name: "Examination Fee", code: "EXAM", sortKey: 4 },
+      { name: "Books & Stationery", code: "BOOKS", sortKey: 5 },
+      { name: "ICT Levy", code: "ICT", sortKey: 6 },
+      { name: "Boarding Fee", code: "BOARDING", isMandatory: false, sortKey: 7 },
+      { name: "School Bus", code: "TRANSPORT", isOptional: true, isMandatory: false, sortKey: 8 },
+      { name: "Feeding", code: "FEEDING", sortKey: 9 },
+    ].map((category) => db.feeCategory.create({ data: category })),
+  );
+
+  const byCode = new Map(categories.map((category) => [category.code, category]));
+
+  for (const term of terms) {
+    for (const level of levels) {
+      // Fees scale with the level — nursery is cheaper than JHS.
+      const tier = Math.ceil(level.sequence / 4);
+      const tuition = (900 + tier * 450) * 100;
+
+      for (const boarderType of ["DAY", "BOARDER"] as const) {
+        await db.feeStructure.create({
+          data: {
+            academicYearId,
+            termId: term.id,
+            classLevelId: level.id,
+            name: `${level.name} — ${term.name} (${boarderType === "BOARDER" ? "Boarding" : "Day"})`,
+            boarderType,
+            studentType: "ALL",
+            currency: "GHS",
+            dueDate: addDays(term.startDate, 21),
+            minimumFirstPaymentMinor: Math.round(tuition * 0.5),
+            isPublished: true,
+            notes: "Part payments accepted. At least 50% is due before mid-term.",
+            items: {
+              create: [
+                { categoryId: byCode.get("TUITION")!.id, amountMinor: tuition, sortKey: 1 },
+                { categoryId: byCode.get("PTA")!.id, amountMinor: 5000, sortKey: 2 },
+                { categoryId: byCode.get("EXAM")!.id, amountMinor: 8000, sortKey: 3 },
+                { categoryId: byCode.get("BOOKS")!.id, amountMinor: 25000, sortKey: 4 },
+                { categoryId: byCode.get("ICT")!.id, amountMinor: 12000, sortKey: 5 },
+                { categoryId: byCode.get("FEEDING")!.id, amountMinor: 45000, sortKey: 6 },
+                ...(boarderType === "BOARDER"
+                  ? [{ categoryId: byCode.get("BOARDING")!.id, amountMinor: 180000, sortKey: 7 }]
+                  : []),
+              ],
+            },
+          },
+        });
+      }
+    }
+  }
+
+  return categories;
+}
+
+type FeeCategoryRow = Awaited<ReturnType<typeof seedFeeStructures>>[number];
+
+async function seedBilling(
+  academicYearId: string,
+  terms: TermRow[],
+  students: StudentRow[],
+  categories: FeeCategoryRow[],
+) {
+  console.log("  Invoices and payments…");
+
+  const currentTerm = terms.find((term) => term.sequence === 2) ?? terms[0];
+  const byCode = new Map(categories.map((category) => [category.code, category]));
+  const bursar = await db.staff.findFirst({ where: { jobTitle: "Bursar" } });
+
+  let invoiceNumber = 1;
+  let receiptNumber = 1;
+  const year = new Date().getFullYear();
+
+  for (const student of students) {
+    const isBoarder = student.isBoarder;
+    const level = await db.enrollment.findFirst({
+      where: { studentId: student.id },
+      select: { classSection: { select: { classLevel: { select: { sequence: true } } } } },
+    });
+    const tier = Math.ceil((level?.classSection.classLevel.sequence ?? 1) / 4);
+    const tuition = (900 + tier * 450) * 100;
+
+    const lines = [
+      { code: "TUITION", amount: tuition },
+      { code: "PTA", amount: 5000 },
+      { code: "EXAM", amount: 8000 },
+      { code: "BOOKS", amount: 25000 },
+      { code: "ICT", amount: 12000 },
+      { code: "FEEDING", amount: 45000 },
+      ...(isBoarder ? [{ code: "BOARDING", amount: 180000 }] : []),
+    ];
+
+    const subtotal = lines.reduce((sum, line) => sum + line.amount, 0);
+    const discount = student.onScholarship ? Math.floor(subtotal * 0.5) : 0;
+    const total = subtotal - discount;
+
+    if (student.onScholarship) {
+      await db.studentDiscount.create({
+        data: {
+          studentId: student.id,
+          name: "Merit Scholarship",
+          type: "PERCENTAGE",
+          value: 50,
+          academicYearId,
+          reason: "Awarded for outstanding academic performance.",
+          isActive: true,
+          approvedBy: "Head Teacher",
+        },
+      });
+    }
+
+    const dueDate = addDays(currentTerm.startDate, 21);
+
+    const invoice = await db.invoice.create({
+      data: {
+        invoiceNo: `INV-${year}-${String(invoiceNumber).padStart(5, "0")}`,
+        studentId: student.id,
+        academicYearId,
+        termId: currentTerm.id,
+        title: `${currentTerm.name} School Fees`,
+        status: "ISSUED",
+        subtotalMinor: subtotal,
+        discountMinor: discount,
+        totalMinor: total,
+        balanceMinor: total,
+        issueDate: currentTerm.startDate,
+        dueDate,
+        terms: "Part payments accepted. Kindly quote the invoice number on all payments.",
+        lines: {
+          create: lines.map((line, index) => ({
+            categoryId: byCode.get(line.code)!.id,
+            description: byCode.get(line.code)!.name,
+            quantity: 1,
+            unitPriceMinor: line.amount,
+            discountMinor: student.onScholarship ? Math.floor(line.amount * 0.5) : 0,
+            amountMinor: student.onScholarship
+              ? line.amount - Math.floor(line.amount * 0.5)
+              : line.amount,
+            sortKey: index,
+          })),
+        },
+      },
+    });
+    invoiceNumber += 1;
+
+    // Payment behaviour: most families pay something, many pay in instalments.
+    const roll = random();
+    const payments: number[] = [];
+
+    if (roll < 0.42) {
+      payments.push(total); // Paid in full
+    } else if (roll < 0.78) {
+      // Part payments — the common case.
+      const first = Math.floor(total * (0.4 + random() * 0.25));
+      payments.push(first);
+      if (chance(0.55)) payments.push(Math.floor((total - first) * (0.5 + random() * 0.4)));
+    } else if (roll < 0.9) {
+      payments.push(Math.floor(total * (0.15 + random() * 0.2))); // Token payment
+    }
+    // The remainder have paid nothing yet.
+
+    let paidSoFar = 0;
+
+    for (const [index, amount] of payments.entries()) {
+      const channel = pick([
+        "MOBILE_MONEY", "MOBILE_MONEY", "MOBILE_MONEY",
+        "BANK_TRANSFER", "CASH", "CARD", "USSD", "CHEQUE",
+      ] as const);
+
+      const payment = await db.payment.create({
+        data: {
+          receiptNo: `RCT-${year}-${String(receiptNumber).padStart(5, "0")}`,
+          reference: `PAY-${year}-${String(receiptNumber).padStart(6, "0")}`,
+          studentId: student.id,
+          amountMinor: amount,
+          currency: "GHS",
+          channel,
+          provider: channel === "CASH" || channel === "CHEQUE" ? "MANUAL" : "PAYSTACK",
+          status: "SUCCESS",
+          momoNetwork: channel === "MOBILE_MONEY" ? pick(["MTN", "TELECEL", "AIRTELTIGO"]) : null,
+          momoNumber: channel === "MOBILE_MONEY" ? phone() : null,
+          cardLast4: channel === "CARD" ? String(between(1000, 9999)) : null,
+          cardBrand: channel === "CARD" ? pick(["visa", "mastercard"]) : null,
+          bankName: channel === "BANK_TRANSFER" ? pick(["Ecobank", "GCB Bank", "Absa", "Stanbic"]) : null,
+          chequeNumber: channel === "CHEQUE" ? String(between(100000, 999999)) : null,
+          payerName: `Parent of ${student.firstName} ${student.lastName}`,
+          paidAt: addDays(dueDate, -between(0, 30) + index * 21),
+          confirmedAt: new Date(),
+          receivedById: bursar?.id,
+          narration: index === 0 ? "First instalment" : `Instalment ${index + 1}`,
+          isReconciled: true,
+          allocations: {
+            create: { invoiceId: invoice.id, amountMinor: amount },
+          },
+        },
+      });
+      receiptNumber += 1;
+      paidSoFar += amount;
+      void payment;
+    }
+
+    const balance = total - paidSoFar;
+    await db.invoice.update({
+      where: { id: invoice.id },
+      data: {
+        paidMinor: paidSoFar,
+        balanceMinor: balance,
+        status:
+          balance === 0
+            ? "PAID"
+            : paidSoFar > 0
+              ? dueDate < new Date()
+                ? "OVERDUE"
+                : "PART_PAID"
+              : dueDate < new Date()
+                ? "OVERDUE"
+                : "ISSUED",
+        paidAt: balance === 0 ? new Date() : null,
+      },
+    });
+
+    // A few families are on a formal payment plan.
+    if (balance > 0 && chance(0.12)) {
+      const instalments = 3;
+      const each = Math.floor(balance / instalments);
+      await db.paymentPlan.create({
+        data: {
+          studentId: student.id,
+          name: `${currentTerm.name} instalment plan`,
+          totalMinor: balance,
+          startDate: new Date(),
+          status: "ACTIVE",
+          approvedBy: "Bursar",
+          installments: {
+            create: Array.from({ length: instalments }, (_, index) => ({
+              sequence: index + 1,
+              amountMinor: index === instalments - 1 ? balance - each * (instalments - 1) : each,
+              invoiceId: invoice.id,
+              dueDate: addDays(new Date(), 30 * (index + 1)),
+            })),
+          },
+        },
+      });
+    }
+  }
+
+  console.log(`    ${invoiceNumber - 1} invoices, ${receiptNumber - 1} receipts`);
+}
+
+async function seedCommunications(roles: Record<string, string>) {
+  console.log("  Announcements, templates and reminder rules…");
+
+  const head = await db.user.findFirst({ where: { email: "head@goldencrest.edu.gh" } });
+
+  await db.messageTemplate.createMany({
+    data: [
+      {
+        key: "fee.reminder.before",
+        name: "Fee reminder — before due date",
+        category: "FEES",
+        channels: ["SMS", "EMAIL"],
+        subject: "School Fees Reminder",
+        body: "Dear {{guardian.firstName}},\n\nThis is a reminder that the fees for {{student.fullName}} ({{student.class}}) are due on {{invoice.dueDate}}. The outstanding balance is {{invoice.balance}}.\n\nPart payments are accepted. Thank you.\n\n{{school.name}}",
+        smsBody: "Dear Parent, fees for {{student.fullName}} ({{student.class}}) are due {{invoice.dueDate}}. Balance: {{invoice.balance}}. Part payment accepted. {{school.name}}",
+        variables: ["student.fullName", "student.class", "invoice.balance", "invoice.dueDate", "guardian.firstName"],
+        isSystem: true,
+      },
+      {
+        key: "fee.reminder.overdue",
+        name: "Fee reminder — overdue",
+        category: "FEES",
+        channels: ["SMS", "EMAIL", "PUSH"],
+        subject: "Outstanding School Fees",
+        body: "Dear {{guardian.firstName}},\n\nOur records show an outstanding balance of {{invoice.balance}} for {{student.fullName}} ({{student.class}}), which was due on {{invoice.dueDate}}.\n\nKindly settle at your earliest convenience or contact the Bursary to arrange a payment plan.\n\n{{school.name}}",
+        smsBody: "Dear Parent, {{student.fullName}} has an overdue fee balance of {{invoice.balance}}. Kindly settle or call {{school.phone}} to arrange a plan. {{school.name}}",
+        variables: ["student.fullName", "invoice.balance", "invoice.dueDate", "school.phone"],
+        isSystem: true,
+      },
+      {
+        key: "attendance.absent",
+        name: "Absence notification",
+        category: "ATTENDANCE",
+        channels: ["SMS", "PUSH"],
+        subject: "Absence from school",
+        body: "Dear {{guardian.firstName}}, {{student.fullName}} was marked absent today, {{date.today}}. Please contact the school office if this is unexpected.",
+        smsBody: "{{student.fullName}} was marked absent on {{date.today}}. Please contact the school if unexpected. {{school.name}}",
+        variables: ["student.fullName", "date.today", "guardian.firstName"],
+        isSystem: true,
+      },
+      {
+        key: "results.published",
+        name: "Results published",
+        category: "ACADEMIC",
+        channels: ["SMS", "EMAIL", "PUSH"],
+        subject: "{{term.name}} results are available",
+        body: "Dear {{guardian.firstName}},\n\nThe {{term.name}} report card for {{student.fullName}} is now available in the parent portal.\n\n{{school.name}}",
+        smsBody: "{{term.name}} results for {{student.fullName}} are now available in the parent portal. {{school.name}}",
+        variables: ["student.fullName", "term.name", "guardian.firstName"],
+        isSystem: true,
+      },
+    ],
+  });
+
+  const beforeTemplate = await db.messageTemplate.findUnique({
+    where: { key: "fee.reminder.before" },
+  });
+  const overdueTemplate = await db.messageTemplate.findUnique({
+    where: { key: "fee.reminder.overdue" },
+  });
+
+  await db.reminderRule.createMany({
+    data: [
+      {
+        name: "7 days before due date",
+        trigger: "BEFORE_DUE",
+        offsetDays: 7,
+        maxReminders: 1,
+        minBalanceMinor: 5000,
+        channels: ["SMS"],
+        audience: "BILL_PAYERS",
+        templateId: beforeTemplate?.id,
+      },
+      {
+        name: "On the due date",
+        trigger: "ON_DUE",
+        maxReminders: 1,
+        minBalanceMinor: 5000,
+        channels: ["SMS", "EMAIL"],
+        audience: "BILL_PAYERS",
+        templateId: beforeTemplate?.id,
+      },
+      {
+        name: "Weekly chase while overdue",
+        trigger: "BALANCE_OUTSTANDING",
+        repeatEveryDays: 7,
+        maxReminders: 4,
+        minBalanceMinor: 10000,
+        channels: ["SMS", "PUSH"],
+        audience: "BILL_PAYERS",
+        templateId: overdueTemplate?.id,
+      },
+    ],
+  });
+
+  await db.announcement.createMany({
+    data: [
+      {
+        title: "Mid-term break dates confirmed",
+        summary: "School closes Friday and reopens the following Wednesday.",
+        body: "Dear parents and students,\n\nThe mid-term break will run from Friday to the following Tuesday. School reopens on Wednesday at the normal time of 7:30am.\n\nBoarding students should be collected by 4:00pm on Friday.\n\nThank you.",
+        category: "GENERAL",
+        priority: "HIGH",
+        status: "PUBLISHED",
+        audiences: ["STAFF", "STUDENT", "GUARDIAN"],
+        channels: ["IN_APP", "SMS", "PUSH"],
+        isPinned: true,
+        publishedAt: addDays(new Date(), -2),
+        authorId: head?.id,
+        viewCount: 184,
+      },
+      {
+        title: "PTA General Meeting",
+        summary: "All parents are invited to the termly PTA meeting.",
+        body: "The Parent–Teacher Association will hold its general meeting in the Assembly Hall. The agenda includes the fee review, the new science laboratory, and the appointment of two new PTA executives.\n\nYour attendance is important.",
+        category: "EVENT",
+        priority: "NORMAL",
+        status: "PUBLISHED",
+        audiences: ["GUARDIAN"],
+        channels: ["IN_APP", "EMAIL", "SMS"],
+        publishedAt: addDays(new Date(), -5),
+        authorId: head?.id,
+        viewCount: 97,
+      },
+      {
+        title: "Inter-House Athletics — house allocations",
+        summary: "Check your house and report to your house master.",
+        body: "The inter-house athletics competition takes place in three weeks. Kente, Adinkra, Sankofa and Gye Nyame houses should report to their house masters for training schedules.\n\nParents are welcome to attend.",
+        category: "SPORTS",
+        priority: "NORMAL",
+        status: "PUBLISHED",
+        audiences: ["STAFF", "STUDENT", "GUARDIAN"],
+        channels: ["IN_APP", "PUSH"],
+        publishedAt: addDays(new Date(), -8),
+        authorId: head?.id,
+        viewCount: 132,
+      },
+      {
+        title: "Staff briefing — results deadline",
+        summary: "All marks must be entered before the deadline.",
+        body: "All teaching staff are reminded that end-of-term marks must be entered into the gradebook before the results deadline. Late entries will delay report card production for the whole class.",
+        category: "GENERAL",
+        priority: "URGENT",
+        status: "PUBLISHED",
+        audiences: ["STAFF"],
+        channels: ["IN_APP", "EMAIL"],
+        publishedAt: addDays(new Date(), -1),
+        authorId: head?.id,
+        viewCount: 21,
+      },
+    ],
+  });
+
+  void roles;
+}
+
+async function seedElections(sections: SectionRow[]) {
+  console.log("  Elections…");
+
+  const candidateStudents = await db.student.findMany({
+    where: { enrollments: { some: { classSection: { name: { startsWith: "J" } } } } },
+    take: 12,
+    select: { id: true, firstName: true, lastName: true, photoUrl: true },
+  });
+
+  if (candidateStudents.length < 6) return;
+
+  const election = await db.election.create({
+    data: {
+      title: "Students' Representative Council Elections",
+      slug: "src-elections",
+      description:
+        "Annual election of the Students' Representative Council. Every JHS student is eligible to vote.",
+      kind: "SRC",
+      status: "OPEN",
+      nominationOpensAt: addDays(new Date(), -20),
+      nominationClosesAt: addDays(new Date(), -8),
+      opensAt: addDays(new Date(), -1),
+      closesAt: addDays(new Date(), 3),
+      eligiblePortals: ["STUDENT"],
+      isSecret: true,
+      showLiveResults: true,
+      allowAbstain: true,
+      instructions:
+        "Select one candidate for each position. Your ballot is secret — the system records that you voted, never how you voted.",
+      positions: {
+        create: [
+          {
+            title: "SRC President",
+            description: "Leads the council and represents students to management.",
+            maxSelections: 1,
+            seats: 1,
+            sortKey: 1,
+            candidates: {
+              create: candidateStudents.slice(0, 3).map((student, index) => ({
+                studentId: student.id,
+                displayName: `${student.firstName} ${student.lastName}`,
+                slogan: pick([
+                  "A voice for every student",
+                  "Together we rise",
+                  "Service before self",
+                ]),
+                manifesto:
+                  "I will push for better sports facilities, a student suggestion box that is actually read, and more study time in the library.",
+                ballotOrder: index + 1,
+                status: "APPROVED",
+                voteCount: between(8, 40),
+              })),
+            },
+          },
+          {
+            title: "SRC Secretary",
+            maxSelections: 1,
+            seats: 1,
+            sortKey: 2,
+            candidates: {
+              create: candidateStudents.slice(3, 6).map((student, index) => ({
+                studentId: student.id,
+                displayName: `${student.firstName} ${student.lastName}`,
+                slogan: pick(["Accurate records, clear minutes", "Organised and accountable"]),
+                ballotOrder: index + 1,
+                status: "APPROVED",
+                voteCount: between(6, 35),
+              })),
+            },
+          },
+          {
+            title: "Sports Prefect",
+            maxSelections: 1,
+            seats: 1,
+            sortKey: 3,
+            candidates: {
+              create: candidateStudents.slice(6, 9).map((student, index) => ({
+                studentId: student.id,
+                displayName: `${student.firstName} ${student.lastName}`,
+                slogan: pick(["More sports, more spirit", "Fitness for all"]),
+                ballotOrder: index + 1,
+                status: "APPROVED",
+                voteCount: between(5, 30),
+              })),
+            },
+          },
+        ],
+      },
+    },
+  });
+
+  // Enrol student voters.
+  const voters = await db.user.findMany({
+    where: { portal: "STUDENT" },
+    select: { id: true },
+  });
+
+  if (voters.length) {
+    await db.voterRoll.createMany({
+      data: voters.map((voter) => ({
+        electionId: election.id,
+        userId: voter.id,
+        hasVoted: chance(0.55),
+        votedAt: chance(0.55) ? addDays(new Date(), -between(0, 1)) : null,
+      })),
+    });
+  }
+
+  void sections;
+}
+
+async function seedDocuments() {
+  console.log("  Document cabinet…");
+
+  const folders = [
+    { name: "Policies", slug: "policies", icon: "Shield", access: "STAFF" as const },
+    { name: "Circulars & Memos", slug: "circulars", icon: "Mail", access: "STAFF" as const },
+    { name: "Board & PTA Minutes", slug: "minutes", icon: "Users", access: "ROLE_RESTRICTED" as const },
+    { name: "Curriculum", slug: "curriculum", icon: "BookOpen", access: "STAFF" as const },
+    { name: "Licences & Registration", slug: "licences", icon: "Award", access: "ROLE_RESTRICTED" as const },
+    { name: "Parent Handbook", slug: "handbook", icon: "Book", access: "SCHOOL_WIDE" as const },
+  ];
+
+  for (const [index, folder] of folders.entries()) {
+    await db.documentFolder.create({
+      data: {
+        name: folder.name,
+        slug: folder.slug,
+        path: `/${folder.slug}`,
+        icon: folder.icon,
+        accessLevel: folder.access,
+        isSystem: true,
+        sortKey: index,
+        description: `${folder.name} for the school.`,
+      },
+    });
+  }
+}
+
+async function seedWebsite(school: { id: string; name: string; motto: string | null }) {
+  console.log("  Public website…");
+
+  const site = await db.site.create({
+    data: {
+      name: school.name,
+      slug: "main",
+      isPublished: true,
+      theme: {
+        primary: "#128257",
+        accent: "#d9a325",
+        font: "system-ui",
+        radius: "0.875rem",
+      },
+      metaTitle: `${school.name} — Knowledge, Character, Service`,
+      metaDescription:
+        "An international school in Accra offering British and GES curricula from Nursery to JHS.",
+      contactInfo: {
+        email: "info@goldencrest.edu.gh",
+        phone: "+233 30 212 3456",
+        address: "12 Independence Avenue, Accra",
+      },
+      socialLinks: {
+        facebook: "https://facebook.com/goldencrestgh",
+        instagram: "https://instagram.com/goldencrestgh",
+      },
+      publishedAt: new Date(),
+      pages: {
+        create: [
+          {
+            title: "Home",
+            slug: "home",
+            isHomePage: true,
+            status: "PUBLISHED",
+            publishedAt: new Date(),
+            blocks: [
+              {
+                id: "hero",
+                type: "hero",
+                props: {
+                  heading: school.name,
+                  subheading: school.motto,
+                  cta: { label: "Apply for admission", href: "/admissions" },
+                },
+              },
+              {
+                id: "stats",
+                type: "stats",
+                props: {
+                  items: [
+                    { label: "Students", value: "480+" },
+                    { label: "Teachers", value: "38" },
+                    { label: "Years of service", value: "14" },
+                    { label: "BECE pass rate", value: "98%" },
+                  ],
+                },
+              },
+              {
+                id: "about",
+                type: "richText",
+                props: {
+                  heading: "A school built on character",
+                  body: "Golden Crest offers a rigorous academic programme within a warm, disciplined community. We run both the GES and British curricula from Nursery through JHS.",
+                },
+              },
+            ],
+          },
+          {
+            title: "Admissions",
+            slug: "admissions",
+            status: "PUBLISHED",
+            publishedAt: new Date(),
+            blocks: [
+              {
+                id: "intro",
+                type: "richText",
+                props: {
+                  heading: "Admissions",
+                  body: "Applications for the next academic year are open. Entrance assessments are held monthly.",
+                },
+              },
+              { id: "form", type: "form", props: { formKey: "admissions-enquiry" } },
+            ],
+          },
+          {
+            title: "Contact",
+            slug: "contact",
+            status: "PUBLISHED",
+            publishedAt: new Date(),
+            blocks: [{ id: "contact", type: "contact", props: {} }],
+          },
+        ],
+      },
+      menus: {
+        create: {
+          location: "HEADER",
+          items: [
+            { label: "Home", url: "/" },
+            { label: "Admissions", url: "/admissions" },
+            { label: "Academics", url: "/academics" },
+            { label: "News", url: "/news" },
+            { label: "Contact", url: "/contact" },
+          ],
+        },
+      },
+      posts: {
+        create: [
+          {
+            title: "Golden Crest wins regional science quiz",
+            slug: "science-quiz-win",
+            excerpt: "Our JHS 3 team took first place in the Greater Accra regional finals.",
+            body: "Our JHS 3 science team beat eleven other schools to take first place in the regional science and maths quiz. Congratulations to the team and their coach.",
+            kind: "NEWS",
+            status: "PUBLISHED",
+            publishedAt: addDays(new Date(), -6),
+            authorName: "School Office",
+          },
+          {
+            title: "New science laboratory opens",
+            slug: "new-science-lab",
+            excerpt: "A fully equipped laboratory for JHS practical work.",
+            body: "The new laboratory was commissioned this term and gives every JHS student weekly practical sessions in physics, chemistry and biology.",
+            kind: "NEWS",
+            status: "PUBLISHED",
+            publishedAt: addDays(new Date(), -20),
+            authorName: "School Office",
+          },
+        ],
+      },
+    },
+  });
+
+  void site;
+}
+
+// -----------------------------------------------------------------------------
+
+function addDays(date: Date, days: number): Date {
+  const copy = new Date(date);
+  copy.setDate(copy.getDate() + days);
+  return copy;
+}
+
+async function printCredentials() {
+  const rows = [
+    ["System Administrator", process.env.SEED_ADMIN_EMAIL ?? "admin@school.edu.gh", process.env.SEED_ADMIN_PASSWORD ?? "ChangeMe123!"],
+    ["Head Teacher", "head@goldencrest.edu.gh", process.env.SEED_ADMIN_PASSWORD ?? "ChangeMe123!"],
+    ["Bursar", "bursar@goldencrest.edu.gh", process.env.SEED_ADMIN_PASSWORD ?? "ChangeMe123!"],
+    ["Form Teacher", "teacher@goldencrest.edu.gh", process.env.SEED_ADMIN_PASSWORD ?? "ChangeMe123!"],
+    ["Registrar", "registrar@goldencrest.edu.gh", process.env.SEED_ADMIN_PASSWORD ?? "ChangeMe123!"],
+    ["School Nurse", "nurse@goldencrest.edu.gh", process.env.SEED_ADMIN_PASSWORD ?? "ChangeMe123!"],
+    ["Parent / Guardian", "parent@goldencrest.edu.gh", "Parent123!"],
+    ["Student", "student@goldencrest.edu.gh", "Student123!"],
+  ];
+
+  console.log("  Sign-in accounts");
+  console.log("  " + "─".repeat(74));
+  for (const [role, email, password] of rows) {
+    console.log(`  ${role.padEnd(24)} ${email.padEnd(34)} ${password}`);
+  }
+  console.log("  " + "─".repeat(74));
+}
+
+main()
+  .catch((error) => {
+    console.error("\nSeed failed:\n", error);
+    process.exit(1);
+  })
+  .finally(async () => {
+    await db.$disconnect();
+  });
