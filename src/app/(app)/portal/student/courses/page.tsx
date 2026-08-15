@@ -1,6 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { CheckCircle2, Circle, MonitorPlay, PlayCircle } from "lucide-react";
+import {
+  CheckCircle2,
+  Circle,
+  FileQuestion,
+  MonitorPlay,
+  PlayCircle,
+} from "lucide-react";
 
 import {
   Badge,
@@ -58,6 +64,24 @@ export default async function StudentCoursesPage() {
                     select: { completedAt: true, percent: true },
                   },
                 },
+              },
+            },
+          },
+          quizzes: {
+            where: { isPublished: true },
+            orderBy: { createdAt: "desc" },
+            select: {
+              id: true,
+              title: true,
+              passMark: true,
+              closesAt: true,
+              timeLimitMinutes: true,
+              _count: { select: { questions: true } },
+              attempts: {
+                where: { studentId: user.studentId },
+                orderBy: { attempt: "desc" },
+                take: 1,
+                select: { status: true, percent: true, passed: true },
               },
             },
           },
@@ -195,6 +219,59 @@ export default async function StudentCoursesPage() {
                   <p className="text-sm text-[var(--text-muted)]">
                     No material published yet.
                   </p>
+                ) : null}
+
+                {course.quizzes.length ? (
+                  <div className="border-t border-[var(--border)] pt-3">
+                    <p className="mb-1.5 text-xs font-semibold tracking-wide uppercase">
+                      Quizzes
+                    </p>
+                    <ul className="space-y-1">
+                      {course.quizzes.map((quiz) => {
+                        const attempt = quiz.attempts[0];
+                        const done = attempt && attempt.status !== "IN_PROGRESS";
+
+                        return (
+                          <li key={quiz.id}>
+                            <Link
+                              href={`/portal/student/quizzes/${quiz.id}`}
+                              className="flex items-center gap-2.5 rounded-lg border border-[var(--border)] px-3 py-2 text-sm transition-colors hover:bg-[var(--bg-subtle)]"
+                            >
+                              <FileQuestion className="size-4 shrink-0 text-[var(--text-subtle)]" />
+                              <span className="min-w-0 flex-1 truncate">
+                                {quiz.title}
+                              </span>
+                              <span className="shrink-0 text-xs text-[var(--text-subtle)]">
+                                {quiz._count.questions} questions
+                                {quiz.timeLimitMinutes
+                                  ? ` · ${quiz.timeLimitMinutes}m`
+                                  : ""}
+                              </span>
+                              {done ? (
+                                <Badge
+                                  tone={
+                                    attempt.status === "SUBMITTED"
+                                      ? "warning"
+                                      : attempt.passed
+                                        ? "success"
+                                        : "danger"
+                                  }
+                                >
+                                  {attempt.status === "SUBMITTED"
+                                    ? "Marking"
+                                    : `${Number(attempt.percent ?? 0).toFixed(0)}%`}
+                                </Badge>
+                              ) : attempt ? (
+                                <Badge tone="info">In progress</Badge>
+                              ) : (
+                                <Badge tone="neutral">Not started</Badge>
+                              )}
+                            </Link>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
                 ) : null}
               </CardBody>
             </Card>

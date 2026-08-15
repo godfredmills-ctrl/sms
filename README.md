@@ -333,7 +333,8 @@ with live results, the custom report builder over seven datasets, Excel export,
 transcripts and certificates with a template designer, public verification.
 
 **Learning** — the VLE: courses, modules, lessons, assignments and marking,
-quizzes, and the student-facing lesson viewer.
+quizzes (authoring, timed sitting, automatic marking, a queue for the essays
+the machine cannot mark), and the student-facing lesson viewer.
 
 **Website** — page builder with a block vocabulary, media library with a
 non-destructive image editor, and a public site at `/site`.
@@ -353,7 +354,5 @@ scan, finance analysis, report-card remarks, report narratives).
 
 - **Certificates and transcripts render as HTML for printing**, not as generated
   PDF files. The browser's print dialogue produces the PDF.
-- **Quizzes can be created and are visible to students, but there is no
-  quiz-taking screen yet** — the attempt and answer models exist.
 - **The report builder has no chart output.** Results are tabular, exportable to
   CSV and Excel; the chart type on a saved report definition is not yet honoured.

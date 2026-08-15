@@ -41,6 +41,7 @@ import {
   gradeSubmissionAction,
   toggleLessonPublishedAction,
 } from "../actions";
+import { createQuizFormAction } from "../quizzes/actions";
 
 export async function generateMetadata({
   params,
@@ -593,7 +594,12 @@ export default async function CoursePage({
                 {course.quizzes.map((quiz) => (
                   <li key={quiz.id} className="px-5 py-2.5">
                     <div className="flex items-center justify-between gap-2">
-                      <span className="min-w-0 truncate text-sm">{quiz.title}</span>
+                      <Link
+                        href={`/lms/quizzes/${quiz.id}`}
+                        className="min-w-0 truncate text-sm hover:text-[var(--primary)]"
+                      >
+                        {quiz.title}
+                      </Link>
                       <StatusBadge status={quiz.isPublished ? "PUBLISHED" : "DRAFT"} />
                     </div>
                     <p className="text-xs text-[var(--text-subtle)]">
@@ -608,6 +614,63 @@ export default async function CoursePage({
                 <p className="text-sm text-[var(--text-muted)]">No quizzes yet.</p>
               </CardBody>
             )}
+
+            {canManage ? (
+              <form
+                action={createQuizFormAction}
+                className="space-y-3 border-t border-[var(--border)] p-5"
+              >
+                <input type="hidden" name="courseId" value={course.id} />
+                <Field label="Quiz title" htmlFor="q-title" required>
+                  <Input id="q-title" name="title" required placeholder="Unit 1 test" />
+                </Field>
+                <div className="grid grid-cols-2 gap-3">
+                  <Field label="Pass mark %" htmlFor="q-pass">
+                    <Input
+                      id="q-pass"
+                      name="passMark"
+                      type="number"
+                      min="0"
+                      max="100"
+                      defaultValue={50}
+                    />
+                  </Field>
+                  <Field label="Minutes" htmlFor="q-time" hint="Blank = no limit">
+                    <Input id="q-time" name="timeLimitMinutes" type="number" min="1" />
+                  </Field>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <Field label="Attempts" htmlFor="q-attempts">
+                    <Input
+                      id="q-attempts"
+                      name="maxAttempts"
+                      type="number"
+                      min="1"
+                      defaultValue={1}
+                    />
+                  </Field>
+                  <Field label="Closes" htmlFor="q-closes">
+                    <Input id="q-closes" name="closesAt" type="datetime-local" />
+                  </Field>
+                </div>
+                <div className="space-y-2">
+                  <CheckboxField
+                    name="shuffleQuestions"
+                    defaultChecked
+                    label="Shuffle questions"
+                  />
+                  <CheckboxField
+                    name="shuffleOptions"
+                    defaultChecked
+                    label="Shuffle options"
+                  />
+                </div>
+                <Button type="submit" variant="outline" size="sm" className="w-full">
+                  <Plus className="size-3.5" />
+                  Create quiz
+                </Button>
+              </form>
+            ) : null}
           </Card>
 
           {course.allowDiscussion ? (
