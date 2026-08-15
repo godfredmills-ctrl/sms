@@ -32,7 +32,9 @@ export const env = {
   ai: {
     enabled: bool("AI_ENABLED", true) && Boolean(str("ANTHROPIC_API_KEY")),
     apiKey: str("ANTHROPIC_API_KEY"),
-    model: str("ANTHROPIC_MODEL", "claude-sonnet-4-5"),
+    // Must match the documented default in .env.example and the README —
+    // setting only the API key should give the model those files promise.
+    model: str("ANTHROPIC_MODEL", "claude-opus-5"),
   },
 
   payments: {
