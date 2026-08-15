@@ -2,12 +2,21 @@ import Anthropic from "@anthropic-ai/sdk";
 
 import { env } from "@/lib/env";
 
+import { capabilitiesFor, parseLooseJson } from "./capabilities";
+
+// Re-exported so callers have a single import for the AI surface.
+export { INSIGHT_SCHEMA, type InsightPayload } from "./schemas";
+
 /**
  * Thin wrapper over the Anthropic SDK.
  *
  * Every AI feature in the system is optional: if no API key is configured the
  * helpers below return `null` rather than throwing, and callers fall back to
  * the plain (non-AI) view. A school with no key still gets a working system.
+ *
+ * Requests are assembled from the configured model's capabilities rather than
+ * assuming the newest surface, so pointing ANTHROPIC_MODEL at an older model
+ * degrades the request instead of failing it.
  */
 
 let cachedClient: Anthropic | null = null;
@@ -40,12 +49,46 @@ export type AiCallOptions = {
   effort?: Effort;
 };
 
+/** Builds the parts of a request that depend on what the model supports. */
+function requestShape(effort: Effort) {
+  const model = env.ai.model;
+  const supports = capabilitiesFor(model);
+
+  return {
+    model,
+    supports,
+    // Adaptive thinking lets the model decide how much reasoning each analysis
+    // needs — a single student summary and a whole-school brief are very
+    // different problems. Older models reject the parameter outright.
+    ...(supports.adaptiveThinking
+      ? { thinking: { type: "adaptive" as const } }
+      : {}),
+    // Safety classifiers can decline a request; falling back keeps the feature
+    // working instead of surfacing an error to a head teacher.
+    ...(supports.fallbacks
+      ? {
+          betas: ["server-side-fallback-2026-07-01"],
+          fallbacks: "default" as const,
+        }
+      : {}),
+    effortConfig: supports.effort ? { effort } : {},
+  };
+}
+
+/** Instruction used when the model cannot be constrained by a schema. */
+function jsonInstruction(schema: Record<string, unknown>): string {
+  return `\n\nRespond with a single JSON object that conforms to this JSON Schema. Output only the JSON — no explanation, no markdown, no code fences.\n\n${JSON.stringify(
+    schema,
+  )}`;
+}
+
 /**
  * Calls Claude and returns a validated object matching `schema`.
  *
- * Uses structured outputs so the response is guaranteed parseable — school
- * staff should never see a half-parsed insight because the model wrapped its
- * JSON in prose.
+ * Uses structured outputs where available so the response is guaranteed
+ * parseable — school staff should never see a half-parsed insight because the
+ * model wrapped its JSON in prose. On models without that feature the schema
+ * is asked for in the prompt and the reply is parsed tolerantly.
  */
 export async function generateStructured<T>(
   options: AiCallOptions,
@@ -54,24 +97,23 @@ export async function generateStructured<T>(
   if (!client) return null;
 
   const { system, prompt, schema, maxTokens = 8000, effort = "high" } = options;
+  const shape = requestShape(effort);
 
   try {
     const response = await client.beta.messages.create({
-      model: env.ai.model,
+      model: shape.model,
       max_tokens: maxTokens,
-      // Adaptive thinking lets the model decide how much reasoning each
-      // analysis needs — a single student summary and a whole-school brief
-      // are very different problems.
-      thinking: { type: "adaptive" },
+      ...(shape.thinking ? { thinking: shape.thinking } : {}),
+      ...(shape.betas ? { betas: shape.betas, fallbacks: shape.fallbacks } : {}),
       output_config: {
-        effort,
-        format: { type: "json_schema", schema },
+        ...shape.effortConfig,
+        ...(shape.supports.structuredOutputs
+          ? { format: { type: "json_schema" as const, schema } }
+          : {}),
       },
-      // Safety classifiers can decline a request; falling back keeps the
-      // feature working instead of surfacing an error to a head teacher.
-      betas: ["server-side-fallback-2026-07-01"],
-      fallbacks: "default",
-      system,
+      system: shape.supports.structuredOutputs
+        ? system
+        : system + jsonInstruction(schema),
       messages: [{ role: "user", content: prompt }],
     });
 
@@ -80,20 +122,31 @@ export async function generateStructured<T>(
       return null;
     }
 
-    const textBlock = response.content.find(
-      (block): block is Anthropic.Beta.BetaTextBlock => block.type === "text",
-    );
-    if (!textBlock) return null;
+    const text = response.content
+      .filter((block): block is Anthropic.Beta.BetaTextBlock => block.type === "text")
+      .map((block) => block.text)
+      .join("");
+
+    if (!text) return null;
+
+    const data = shape.supports.structuredOutputs
+      ? (JSON.parse(text) as T)
+      : parseLooseJson<T>(text);
+
+    if (!data) {
+      console.warn("[ai] could not parse a JSON object from the response");
+      return null;
+    }
 
     return {
-      data: JSON.parse(textBlock.text) as T,
+      data,
       model: response.model,
       inputTokens: response.usage.input_tokens ?? 0,
       outputTokens: response.usage.output_tokens ?? 0,
     };
   } catch (error) {
     // AI is an enhancement, never a hard dependency: log and degrade.
-    console.error("[ai] generation failed", error);
+    logAiFailure(error);
     return null;
   }
 }
@@ -108,14 +161,17 @@ export async function generateText(options: {
   const client = getClient();
   if (!client) return null;
 
+  const shape = requestShape(options.effort ?? "medium");
+
   try {
     const response = await client.beta.messages.create({
-      model: env.ai.model,
+      model: shape.model,
       max_tokens: options.maxTokens ?? 2000,
-      thinking: { type: "adaptive" },
-      output_config: { effort: options.effort ?? "medium" },
-      betas: ["server-side-fallback-2026-07-01"],
-      fallbacks: "default",
+      ...(shape.thinking ? { thinking: shape.thinking } : {}),
+      ...(shape.betas ? { betas: shape.betas, fallbacks: shape.fallbacks } : {}),
+      ...(Object.keys(shape.effortConfig).length
+        ? { output_config: shape.effortConfig }
+        : {}),
       system: options.system,
       messages: [{ role: "user", content: options.prompt }],
     });
@@ -137,93 +193,33 @@ export async function generateText(options: {
       outputTokens: response.usage.output_tokens ?? 0,
     };
   } catch (error) {
-    console.error("[ai] text generation failed", error);
+    logAiFailure(error);
     return null;
   }
 }
 
-// -----------------------------------------------------------------------------
-// Shared schemas
-// -----------------------------------------------------------------------------
-
 /**
- * The shape every analytical insight returns. Keeping one schema across
- * dashboards, teacher analytics and management briefs means the UI can render
- * any insight with a single component.
+ * A 400 from the API is nearly always a configuration problem, and the raw
+ * SDK error buries the message under several hundred lines of headers. Pull
+ * out the part that says what to change.
  */
-export const INSIGHT_SCHEMA = {
-  type: "object",
-  additionalProperties: false,
-  properties: {
-    title: {
-      type: "string",
-      description: "A short, specific headline for this analysis.",
-    },
-    narrative: {
-      type: "string",
-      description:
-        "2-4 short paragraphs of markdown explaining what the data shows and why it matters.",
-    },
-    findings: {
-      type: "array",
-      description: "The concrete observations behind the narrative.",
-      items: {
-        type: "object",
-        additionalProperties: false,
-        properties: {
-          label: { type: "string", description: "Short name for the finding." },
-          detail: {
-            type: "string",
-            description: "One or two sentences, citing the specific numbers.",
-          },
-          severity: {
-            type: "string",
-            enum: ["positive", "neutral", "watch", "concern", "critical"],
-          },
-          metric: {
-            type: "string",
-            description: "The headline figure, e.g. '62% attendance' or '-8.4 marks'.",
-          },
-        },
-        required: ["label", "detail", "severity", "metric"],
-      },
-    },
-    actions: {
-      type: "array",
-      description: "Recommended next steps, most impactful first.",
-      items: {
-        type: "object",
-        additionalProperties: false,
-        properties: {
-          action: { type: "string", description: "What to do, stated imperatively." },
-          rationale: { type: "string", description: "Why this will help." },
-          owner: {
-            type: "string",
-            description:
-              "Who should act: e.g. 'Form teacher', 'Head of Mathematics', 'Bursar'.",
-          },
-          priority: { type: "string", enum: ["low", "medium", "high", "urgent"] },
-        },
-        required: ["action", "rationale", "owner", "priority"],
-      },
-    },
-  },
-  required: ["title", "narrative", "findings", "actions"],
-} as const;
+function logAiFailure(error: unknown) {
+  const candidate = error as {
+    status?: number;
+    error?: { error?: { message?: string } };
+    message?: string;
+  };
 
-export type InsightPayload = {
-  title: string;
-  narrative: string;
-  findings: Array<{
-    label: string;
-    detail: string;
-    severity: "positive" | "neutral" | "watch" | "concern" | "critical";
-    metric: string;
-  }>;
-  actions: Array<{
-    action: string;
-    rationale: string;
-    owner: string;
-    priority: "low" | "medium" | "high" | "urgent";
-  }>;
-};
+  const detail =
+    candidate?.error?.error?.message ?? candidate?.message ?? String(error);
+
+  if (candidate?.status === 400) {
+    console.error(
+      `[ai] request rejected for model "${env.ai.model}": ${detail}\n` +
+        `[ai] If this names an unsupported parameter, unset ANTHROPIC_MODEL to use the default.`,
+    );
+    return;
+  }
+
+  console.error(`[ai] generation failed (${candidate?.status ?? "no status"}): ${detail}`);
+}
