@@ -1,8 +1,41 @@
 import { NextResponse } from "next/server";
 
 import { db } from "@/lib/db";
+import { isS3, s3ConfigProblems } from "@/lib/storage";
 
 export const dynamic = "force-dynamic";
+
+/**
+ * Storage is reported without touching the network.
+ *
+ * A HeadBucket on every health check would add a round trip to a check the
+ * platform runs constantly, and would fail the check when the object store has
+ * a bad minute — which is the same mistake as tying health to the database.
+ * Configuration problems are the ones worth reporting here; connectivity is
+ * verified on the integrations page, on demand.
+ */
+function storageStatus() {
+  if (!isS3()) {
+    const dir = process.env.STORAGE_LOCAL_DIR ?? "./storage/uploads";
+    const ephemeral = !dir.startsWith("/");
+    return {
+      driver: "local",
+      ok: true,
+      ...(ephemeral
+        ? {
+            warning: `Uploads are written to ${dir} inside the container and are lost on every redeploy. Attach a volume and set STORAGE_LOCAL_DIR to its mount path, or switch to STORAGE_DRIVER=s3.`,
+          }
+        : {}),
+    };
+  }
+
+  const problems = s3ConfigProblems();
+  return {
+    driver: "s3",
+    ok: problems.length === 0,
+    ...(problems.length ? { error: problems.join("; ") } : {}),
+  };
+}
 
 /**
  * Prisma prefixes its errors with blank lines and the failed invocation, so
@@ -63,6 +96,7 @@ export async function GET() {
             hint: "The database is reachable but has no tables. Check the deploy logs for migration errors, or run `npx prisma migrate deploy`.",
           }),
       tables: Number(count),
+      storage: storageStatus(),
       latencyMs: Date.now() - startedAt,
       timestamp: new Date().toISOString(),
     });

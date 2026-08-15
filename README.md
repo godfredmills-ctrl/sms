@@ -115,8 +115,34 @@ the same school every time.
 
    If you have enabled the Postgres TCP proxy, `npm run db:seed` from your
    machine works too, using `DATABASE_PUBLIC_URL` as `DATABASE_URL`.
-6. **Attach a volume** at `/data` and set `STORAGE_LOCAL_DIR=/data/uploads` if you
-   want uploaded files to survive redeploys.
+6. **Set up file storage** — uploads written inside the container are lost on
+   every redeploy, so pick one:
+
+   **Object storage (recommended).** Any S3-compatible store works. Cloudflare R2:
+
+   ```
+   STORAGE_DRIVER=s3
+   S3_ENDPOINT=https://<account-id>.r2.cloudflarestorage.com
+   S3_BUCKET=sms
+   S3_REGION=auto
+   S3_ACCESS_KEY_ID=<R2 API token key id>
+   S3_SECRET_ACCESS_KEY=<R2 API token secret>
+   ```
+
+   > `S3_ENDPOINT` must **not** include the bucket name. R2's dashboard shows a
+   > combined `…r2.cloudflarestorage.com/sms` URL; the bucket belongs in
+   > `S3_BUCKET`. Getting this wrong fails with an opaque 403 rather than a 404,
+   > so the app checks for it and says so on the integrations page.
+   >
+   > **Keep the bucket private.** Every file is served through
+   > `/api/files/[id]`, which applies access control per request. A public
+   > bucket bypasses that entirely — medical forms and fee statements sit in the
+   > same bucket as the school logo.
+
+   **Or a volume.** Attach one at `/data` and set `STORAGE_LOCAL_DIR=/data/uploads`.
+
+   `/api/health` reports which driver is active and warns when uploads are
+   ephemeral. Settings → Integrations verifies the bucket for real.
 7. **Schedule fee reminders** — add a Railway cron service that runs hourly:
 
    ```
@@ -325,8 +351,6 @@ scan, finance analysis, report-card remarks, report narratives).
 
 ### Known limits
 
-- **S3 storage is not implemented.** `STORAGE_DRIVER=local` is the only working
-  driver; on Railway, attach a volume and point `STORAGE_LOCAL_DIR` at it.
 - **Certificates and transcripts render as HTML for printing**, not as generated
   PDF files. The browser's print dialogue produces the PDF.
 - **Quizzes can be created and are visible to students, but there is no

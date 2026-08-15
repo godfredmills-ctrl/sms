@@ -82,7 +82,6 @@ export const env = {
     s3Bucket: str("S3_BUCKET"),
     s3AccessKeyId: str("S3_ACCESS_KEY_ID"),
     s3SecretAccessKey: str("S3_SECRET_ACCESS_KEY"),
-    s3PublicUrl: str("S3_PUBLIC_URL"),
   },
 
   cronSecret: str("CRON_SECRET"),

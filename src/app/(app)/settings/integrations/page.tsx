@@ -15,6 +15,7 @@ import { Alert, Badge, Card, CardBody, CardHeader, PageHeader } from "@/componen
 import { requirePermission } from "@/lib/auth";
 import { env } from "@/lib/env";
 import { financeSettings, messagingSettings } from "@/lib/settings";
+import { checkStorage } from "@/lib/storage";
 
 import { FinancePreferences, MessagingPreferences } from "./preference-forms";
 
@@ -34,9 +35,13 @@ type Provider = {
 export default async function IntegrationsPage() {
   await requirePermission("settings.integration.manage");
 
-  const [messaging, finance] = await Promise.all([
+  const [messaging, finance, storage] = await Promise.all([
     messagingSettings(),
     financeSettings(),
+    // Storage is the one integration that can be verified without sending
+    // anything, so it is checked for real rather than inferred from whether
+    // the variables happen to be present.
+    checkStorage(),
   ]);
 
   const providers: Provider[] = [
@@ -106,16 +111,22 @@ export default async function IntegrationsPage() {
     {
       name: "File storage",
       icon: <HardDrive className="size-4" />,
-      configured: env.storage.driver !== "local" || env.storage.localDir.startsWith("/"),
+      // Verified, not assumed: a bucket whose credentials were revoked looks
+      // perfectly configured from the environment alone.
+      configured: storage.ok && (storage.driver === "s3" || env.storage.localDir.startsWith("/")),
       active: env.storage.driver,
-      detail:
-        env.storage.driver === "local"
-          ? `Files are written to ${env.storage.localDir}. Unless that path is a mounted volume, uploads are lost on every redeploy.`
-          : `Objects are stored in ${env.storage.s3Bucket || "an unset bucket"}.`,
+      detail: storage.detail,
       vars:
         env.storage.driver === "local"
-          ? ["STORAGE_LOCAL_DIR"]
-          : ["S3_ENDPOINT", "S3_BUCKET", "S3_ACCESS_KEY_ID", "S3_SECRET_ACCESS_KEY"],
+          ? ["STORAGE_DRIVER", "STORAGE_LOCAL_DIR"]
+          : [
+              "STORAGE_DRIVER",
+              "S3_ENDPOINT",
+              "S3_BUCKET",
+              "S3_REGION",
+              "S3_ACCESS_KEY_ID",
+              "S3_SECRET_ACCESS_KEY",
+            ],
     },
   ];
 
