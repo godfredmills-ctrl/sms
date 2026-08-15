@@ -54,11 +54,30 @@ if (!process.env.DATABASE_URL) {
 } else {
   // Log the host only. The full URL contains the password.
   let target = "(unparseable DATABASE_URL)";
+  let hostname = null;
   try {
     const url = new URL(process.env.DATABASE_URL);
+    hostname = url.hostname;
     target = `${url.hostname}:${url.port || "5432"}${url.pathname}`;
   } catch {
     // Leave the placeholder — a malformed URL is itself the diagnosis.
+  }
+
+  // Pasting .env.example into a host's variables is a common way to start, and
+  // it carries a localhost placeholder that cannot resolve inside a container.
+  // Say so plainly rather than leaving "connection refused" to be interpreted.
+  if (hostname && /^(localhost|127\.0\.0\.1|::1)$/.test(hostname)) {
+    fail("DATABASE_URL points at localhost", [
+      "Inside a container, localhost is the container itself — not your",
+      "database. This is the placeholder value from .env.example.",
+      "",
+      "On Railway: add a PostgreSQL service, then set this on the app service",
+      "so the two stay linked:",
+      "",
+      "    DATABASE_URL=${{Postgres.DATABASE_URL}}",
+      "",
+      "Paste that reference literally — Railway resolves it at deploy time.",
+    ]);
   }
 
   console.log(`  Applying migrations to ${target}`);
