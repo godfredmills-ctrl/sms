@@ -330,7 +330,8 @@ memos with acknowledgement tracking, a direct-message inbox, notifications.
 
 **Operations** — the document cabinet with previews, secret-ballot elections
 with live results, the custom report builder over seven datasets, Excel export,
-transcripts and certificates with a template designer, public verification.
+transcripts and certificates with a template designer, PDF generation and
+public verification.
 
 **Learning** — the VLE: courses, modules, lessons, assignments and marking,
 quizzes (authoring, timed sitting, automatic marking, a queue for the essays
@@ -352,8 +353,11 @@ scan, finance analysis, report-card remarks, report narratives).
 
 ### Known limits
 
-- **Certificates and transcripts render as HTML for printing**, not as generated
-  PDF files. The browser's print dialogue produces the PDF.
+- **Generated PDFs use the standard PDF fonts (Helvetica).** A template that
+  needs a school's own typeface, or a script other than Latin, will fall back.
+  The on-screen version and the print stylesheet use the real fonts.
+- **A certificate's background artwork is embedded; images placed inside the
+  layout are not.** Use the page background for artwork.
 - **Report charts group and sum; they do not aggregate by other functions.**
   A bar or line chart totals each numeric column by the first text column.
   Averages, counts and medians are not offered — build those into the dataset

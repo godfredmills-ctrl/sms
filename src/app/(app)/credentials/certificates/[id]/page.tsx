@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { Download } from "lucide-react";
 
 import { Alert } from "@/components/ui";
 import { PrintButton } from "@/components/print-button";
@@ -53,7 +54,18 @@ export default async function CertificatePage({
             {certificate.serialNumber} · {certificate.template.name}
           </p>
         </div>
-        <PrintButton label="Print certificate" />
+        <div className="no-print flex items-center gap-2">
+          <a
+            href={`/api/credentials/certificate/${certificate.id}`}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-[var(--border-strong)] px-3 text-sm font-medium hover:bg-[var(--bg-subtle)]"
+          >
+            <Download className="size-4" />
+            PDF
+          </a>
+          <PrintButton label="Print certificate" />
+        </div>
       </div>
 
       {certificate.revokedAt ? (

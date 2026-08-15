@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { Download } from "lucide-react";
 
 import { Alert, Badge } from "@/components/ui";
 import { PrintButton } from "@/components/print-button";
@@ -85,7 +86,18 @@ export default async function TranscriptPage({
             {transcript.serialNumber}
           </p>
         </div>
-        <PrintButton label="Print transcript" />
+        <div className="no-print flex items-center gap-2">
+          <a
+            href={`/api/credentials/transcript/${transcript.id}`}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-[var(--border-strong)] px-3 text-sm font-medium hover:bg-[var(--bg-subtle)]"
+          >
+            <Download className="size-4" />
+            PDF
+          </a>
+          <PrintButton label="Print transcript" />
+        </div>
       </div>
 
       {transcript.revokedAt ? (
