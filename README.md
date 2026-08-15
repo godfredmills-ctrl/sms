@@ -197,15 +197,23 @@ clear "switched off" state and nothing else changes.
 ## Architecture
 
 ```
-prisma/schema.prisma     The domain model — ~95 models across every module
+prisma/schema.prisma     The domain model — 113 models across every module
 prisma/seed.ts           Deterministic demo school
 
 src/lib/
   auth.ts                Sessions, sign-in, guards
   rbac.ts                Permission catalogue and role presets
   db.ts                  Prisma client
+  settings.ts            School-editable settings, with env as the fallback
   finance.ts             Billing, part payments, allocation, plans, statements
   grading.ts             CA/exam weighting, report cards, positions, transcripts
+  reporting.ts           Report dataset catalogue (browser-safe)
+  reporting-data.ts      The queries behind it (server-only)
+  excel.ts               Import and export, with formula-injection escaping
+  templates.ts           Certificate and transcript layout model
+  image-transforms.ts    Image edit vocabulary (browser-safe)
+  images.ts              The sharp pipeline behind it (server-only)
+  site-blocks.ts         Website block vocabulary
   storage.ts             Uploads and access-controlled file serving
   payments/              Paystack · Hubtel · mock gateway abstraction
   messaging/             Email · SMS · push · in-app, jobs, templates, reminders
@@ -214,15 +222,18 @@ src/lib/
 src/components/
   ui.tsx                 Design-system primitives
   data-table.tsx         Sorting, filters, tags, search, export, mobile reveal
+  select-search.tsx      Searchable, groupable, multi-select dropdown
   charts.tsx             Validated, accessible chart primitives
   app-shell.tsx          Navigation frame
+  tab-nav.tsx            Section tabs, active state from the pathname
   ai-insight.tsx         Insight renderer
   family-tree.tsx        Generational family tree
 
 src/app/
   (auth)/login           Sign-in
   (app)/                 Authenticated application
-  api/                   Webhooks, cron, files, push, health
+  site/                  The school's public website
+  api/                   Webhooks, cron, files, media, export, push, health
   pay/mock               Simulated checkout for the mock gateway
 ```
 
@@ -234,9 +245,23 @@ src/app/
   *allocated* across invoices, which is what makes part payments, over-payments
   and credit balances behave correctly.
 - **Permissions drive the UI.** The sidebar is derived from the signed-in user's
-  permissions, so a link is never shown that leads to a wall.
+  permissions, so a link is never shown that leads to a wall. Reporting, export
+  and search re-check the permission on the *data*, not just on the feature — a
+  report builder must not become a way around a read permission.
 - **Files are never static paths.** Every read goes through `/api/files/[id]`,
   which applies access control per request.
+- **Destructive-by-default operations aren't.** Bulk billing and spreadsheet
+  import both default to a dry run; retirement is preferred over deletion
+  wherever history would otherwise be lost (dropdown options, custom fields with
+  captured values, discounts, document templates that have issued documents).
+- **Server-only modules are marked.** `reporting-data.ts`, `excel.ts` and
+  `images.ts` carry `import "server-only"`, and their browser-safe halves are
+  separate files. This is not cosmetic: before the split, one client component
+  importing a field label pulled Prisma into the bundle and inflated a page from
+  3.75 kB to 32.8 kB.
+- **Anything user-supplied is rendered as text.** The website builder has no
+  raw-HTML block and never uses `dangerouslySetInnerHTML`; CSV and Excel exports
+  escape leading `=`, `+`, `-` and `@` so a notes field cannot become a formula.
 
 ---
 
@@ -256,32 +281,55 @@ src/app/
 
 ---
 
-## Current status
+## What is in the system
 
-The data model, permissions, and business logic cover every module listed below.
-The **interface** is complete for some and still being built for others.
+Every module below has a working interface on top of the data model.
 
-### Working end to end
+**People** — students (advanced table plus a ten-tab profile covering demographics,
+background, medical history and allergies, guardians, family tree, education
+history, academics, attendance, fees, documents and conduct), admissions,
+spreadsheet import, staff records and profiles, the guardian register.
 
-- Authentication, sessions, role-based access control, audit logging
-- Management dashboard — statistics, charts, AI brief
-- Students — advanced data table, and the full profile (demographics, background,
-  medical history and allergies, guardians, family tree, education history,
-  academics, attendance, fees, documents, conduct)
-- Attendance — class register with same-day guardian notification
-- Fees — invoices, collection analytics, front-desk payment recording, AI analysis
-- Parent portal — children, results, attendance, fee account, **online payment**
-  (mobile money, card, bank transfer, USSD)
-- Payment webhooks, automated fee reminders, scheduled jobs
-- PWA — installable, offline shell, push notifications
+**Academics** — class levels and sections, subjects and the curriculum map,
+academic years and terms with locking, a timetable grid that detects teacher
+clashes across every class, attendance registers, the gradebook, report cards.
 
-### Data layer and logic ready, interface in progress
+**Finance** — fee categories and structures, bulk billing with a dry run,
+invoices and printable documents, payment recording, receipts, discounts and
+scholarships, automated reminder rules, and online payment by mobile money,
+card, bank transfer and USSD.
 
-Gradebook, report cards, transcripts and certificates, communications
-(announcements/email/SMS/memos), document cabinet, elections, custom report
-builder, VLE/LMS, website builder, settings (dropdown options, custom fields,
-grading scales), user and role management, audit trail viewer, staff records.
+**Communication** — announcements, bulk email and SMS with cost estimates,
+memos with acknowledgement tracking, a direct-message inbox, notifications.
 
-Navigating to one of these shows a page explaining what it will do rather than a
-404 — the underlying models, permissions and services are already in place, so
-each is an interface build on top of working foundations.
+**Operations** — the document cabinet with previews, secret-ballot elections
+with live results, the custom report builder over seven datasets, Excel export,
+transcripts and certificates with a template designer, public verification.
+
+**Learning** — the VLE: courses, modules, lessons, assignments and marking,
+quizzes, and the student-facing lesson viewer.
+
+**Website** — page builder with a block vocabulary, media library with a
+non-destructive image editor, and a public site at `/site`.
+
+**System** — settings (school profile, customisable dropdowns, custom fields,
+grading scales, integrations), users and roles with a 90-permission catalogue,
+audit trail, global search, account and notification preferences.
+
+**Portals** — separate student and parent portals, each scoped to what that
+person is entitled to see.
+
+**Platform** — PWA (installable, offline shell, push notifications), AI insights
+throughout (management brief, teaching effectiveness, student progress, at-risk
+scan, finance analysis, report-card remarks, report narratives).
+
+### Known limits
+
+- **S3 storage is not implemented.** `STORAGE_DRIVER=local` is the only working
+  driver; on Railway, attach a volume and point `STORAGE_LOCAL_DIR` at it.
+- **Certificates and transcripts render as HTML for printing**, not as generated
+  PDF files. The browser's print dialogue produces the PDF.
+- **Quizzes can be created and are visible to students, but there is no
+  quiz-taking screen yet** — the attempt and answer models exist.
+- **The report builder has no chart output.** Results are tabular, exportable to
+  CSV and Excel; the chart type on a saved report definition is not yet honoured.
