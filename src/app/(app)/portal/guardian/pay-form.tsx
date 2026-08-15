@@ -5,7 +5,8 @@ import { useFormStatus } from "react-dom";
 import { Building2, CreditCard, Hash, Smartphone } from "lucide-react";
 import type { PaymentChannel } from "@prisma/client";
 
-import { Alert, Button, Field, Input, Select } from "@/components/ui";
+import { Alert, Button, Field, Input } from "@/components/ui";
+import { SearchableSelect } from "@/components/select-search";
 import { cn } from "@/lib/utils";
 import { formatMoney } from "@/lib/money";
 
@@ -80,23 +81,23 @@ export function PayForm({
 
       {wards.length > 1 ? (
         <Field label="Paying for" htmlFor="studentId" required>
-          <Select
+          <SearchableSelect
             id="studentId"
             name="studentId"
+            clearable={false}
             value={studentId}
-            onChange={(event) => {
-              setStudentId(event.target.value);
-              const next = wards.find((entry) => entry.id === event.target.value);
-              if (next) setAmount((next.outstandingMinor / 100).toFixed(2));
+            onChange={(next) => {
+              const id = next as string;
+              setStudentId(id);
+              const ward = wards.find((entry) => entry.id === id);
+              if (ward) setAmount((ward.outstandingMinor / 100).toFixed(2));
             }}
-          >
-            {wards.map((entry) => (
-              <option key={entry.id} value={entry.id}>
-                {entry.name} ({entry.className}) — {formatMoney(entry.outstandingMinor)}{" "}
-                outstanding
-              </option>
-            ))}
-          </Select>
+            options={wards.map((entry) => ({
+              value: entry.id,
+              label: entry.name,
+              description: `${entry.className} · ${formatMoney(entry.outstandingMinor)} outstanding`,
+            }))}
+          />
         </Field>
       ) : (
         <input type="hidden" name="studentId" value={studentId} />

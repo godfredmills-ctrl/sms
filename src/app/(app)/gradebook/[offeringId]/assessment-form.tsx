@@ -4,7 +4,8 @@ import { useActionState, useEffect, useRef } from "react";
 import { useFormStatus } from "react-dom";
 import { Plus } from "lucide-react";
 
-import { Alert, Button, Field, Input, Select } from "@/components/ui";
+import { Alert, Button, Field, Input } from "@/components/ui";
+import { SearchableSelect } from "@/components/select-search";
 
 import { createAssessment, type AssessmentFormState } from "../actions";
 
@@ -57,13 +58,16 @@ export function AssessmentForm({
       </Field>
 
       <Field label="Type" htmlFor="category">
-        <Select id="category" name="category" defaultValue="TEST">
-          {CATEGORIES.map((category) => (
-            <option key={category} value={category}>
-              {category.toLowerCase().replace(/\b\w/g, (char) => char.toUpperCase())}
-            </option>
-          ))}
-        </Select>
+        <SearchableSelect
+          id="category"
+          name="category"
+          clearable={false}
+          defaultValue="TEST"
+          options={CATEGORIES.map((category) => ({
+            value: category,
+            label: category.toLowerCase().replace(/\b\w/g, (char) => char.toUpperCase()),
+          }))}
+        />
       </Field>
 
       <div className="grid grid-cols-2 gap-3">

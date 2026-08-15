@@ -14,9 +14,9 @@ import {
   Field,
   Input,
   LinkButton,
-  Select,
   Textarea,
 } from "@/components/ui";
+import { SearchableSelect } from "@/components/select-search";
 import { formatMoney } from "@/lib/money";
 import { detectMomoNetwork, formatDate } from "@/lib/utils";
 
@@ -108,27 +108,33 @@ export function RecordPaymentForm({
           <CardBody className="space-y-4">
             {state.error ? <Alert tone="danger">{state.error}</Alert> : null}
 
-            <Field label="Student" htmlFor="studentId" required>
-              <Select
+            <Field
+              label="Student"
+              htmlFor="studentId"
+              hint="Type a name, admission number or class to narrow the list."
+              required
+            >
+              <SearchableSelect
                 id="studentId"
                 name="studentId"
+                required
+                placeholder="Select a student…"
+                searchPlaceholder="Name, admission number or class…"
+                emptyText="No student matches"
                 value={studentId}
-                onChange={(event) => {
-                  setStudentId(event.target.value);
+                onChange={(next) => {
+                  setStudentId(next as string);
                   setInvoiceId("");
                 }}
-                required
-              >
-                <option value="">Select a student…</option>
-                {students.map((entry) => (
-                  <option key={entry.id} value={entry.id}>
-                    {entry.label}
-                    {entry.outstandingMinor > 0
-                      ? ` — owes ${formatMoney(entry.outstandingMinor)}`
-                      : " — cleared"}
-                  </option>
-                ))}
-              </Select>
+                options={students.map((entry) => ({
+                  value: entry.id,
+                  label: entry.label,
+                  description:
+                    entry.outstandingMinor > 0
+                      ? `Owes ${formatMoney(entry.outstandingMinor)}`
+                      : "Fees cleared",
+                }))}
+              />
             </Field>
 
             {student && student.invoices.length > 0 ? (
@@ -137,20 +143,18 @@ export function RecordPaymentForm({
                 htmlFor="invoiceId"
                 hint="Leave as automatic to settle the oldest debt first."
               >
-                <Select
+                <SearchableSelect
                   id="invoiceId"
                   name="invoiceId"
+                  placeholder="Automatic — oldest invoice first"
                   value={invoiceId}
-                  onChange={(event) => setInvoiceId(event.target.value)}
-                >
-                  <option value="">Automatic — oldest invoice first</option>
-                  {student.invoices.map((invoice) => (
-                    <option key={invoice.id} value={invoice.id}>
-                      {invoice.invoiceNo} — {formatMoney(invoice.balanceMinor)} due{" "}
-                      {formatDate(invoice.dueDate)}
-                    </option>
-                  ))}
-                </Select>
+                  onChange={(next) => setInvoiceId(next as string)}
+                  options={student.invoices.map((invoice) => ({
+                    value: invoice.id,
+                    label: invoice.invoiceNo,
+                    description: `${formatMoney(invoice.balanceMinor)} due ${formatDate(invoice.dueDate)}`,
+                  }))}
+                />
               </Field>
             ) : null}
 
@@ -172,18 +176,17 @@ export function RecordPaymentForm({
               </Field>
 
               <Field label="Payment method" htmlFor="channel" required>
-                <Select
+                <SearchableSelect
                   id="channel"
                   name="channel"
+                  clearable={false}
                   value={channel}
-                  onChange={(event) => setChannel(event.target.value as PaymentChannel)}
-                >
-                  {CHANNELS.map((entry) => (
-                    <option key={entry.value} value={entry.value}>
-                      {entry.label}
-                    </option>
-                  ))}
-                </Select>
+                  onChange={(next) => setChannel(next as PaymentChannel)}
+                  options={CHANNELS.map((entry) => ({
+                    value: entry.value,
+                    label: entry.label,
+                  }))}
+                />
               </Field>
             </div>
 
@@ -192,17 +195,16 @@ export function RecordPaymentForm({
             {channel === "MOBILE_MONEY" ? (
               <div className="grid gap-4 sm:grid-cols-2">
                 <Field label="Network" htmlFor="momoNetwork">
-                  <Select
+                  <SearchableSelect
                     id="momoNetwork"
                     name="momoNetwork"
+                    clearable={false}
                     defaultValue={detectMomoNetwork(student?.guardianPhone) ?? "MTN"}
-                  >
-                    {MOMO_NETWORKS.map((network) => (
-                      <option key={network} value={network}>
-                        {network}
-                      </option>
-                    ))}
-                  </Select>
+                    options={MOMO_NETWORKS.map((network) => ({
+                      value: network,
+                      label: network,
+                    }))}
+                  />
                 </Field>
                 <Field label="Mobile money number" htmlFor="momoNumber">
                   <Input
