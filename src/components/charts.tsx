@@ -7,7 +7,6 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
-  Cell,
   Legend,
   Line,
   LineChart,
@@ -19,6 +18,7 @@ import {
 import type { TooltipProps } from "recharts";
 
 import { cn } from "@/lib/utils";
+import { formatMoney } from "@/lib/money";
 
 /**
  * Chart primitives.
@@ -34,12 +34,39 @@ import { cn } from "@/lib/utils";
 
 const SERIES = ["var(--series-1)", "var(--series-2)", "var(--series-3)", "var(--series-4)"];
 
+/**
+ * How a series' values are rendered in tooltips and the table view.
+ *
+ * A descriptor rather than a callback: these charts are client components and
+ * most callers are server components, and a function cannot cross that
+ * boundary — React refuses to serialise it.
+ */
+export type SeriesFormat = "number" | "percent" | "money";
+
 export type SeriesDef = {
   key: string;
   label: string;
-  /** Formats the value in tooltips, labels and the table view. */
-  format?: (value: number) => string;
+  format?: SeriesFormat;
+  /** Decimal places for `number` and `percent`. */
+  decimals?: number;
 };
+
+/** `money` values arrive in major units (cedis), as charted. */
+function formatSeriesValue(value: number, series?: SeriesDef): string {
+  if (!Number.isFinite(value)) return "—";
+
+  switch (series?.format) {
+    case "percent":
+      return `${value.toFixed(series.decimals ?? 1)}%`;
+    case "money":
+      return formatMoney(Math.round(value * 100));
+    default:
+      return new Intl.NumberFormat("en-GH", {
+        minimumFractionDigits: series?.decimals ?? 0,
+        maximumFractionDigits: series?.decimals ?? 0,
+      }).format(value);
+  }
+}
 
 const AXIS_STYLE = {
   fontSize: 11,
@@ -121,9 +148,7 @@ function ChartFrame({
                   </th>
                   {series.map((entry) => (
                     <td key={entry.key} className="numeric py-1.5 text-right">
-                      {entry.format
-                        ? entry.format(Number(row[entry.key] ?? 0))
-                        : String(row[entry.key] ?? "—")}
+                      {formatSeriesValue(Number(row[entry.key] ?? 0), entry)}
                     </td>
                   ))}
                 </tr>
@@ -172,9 +197,7 @@ function VizTooltip({
               </span>
               {/* Value stays in ink, never the series colour. */}
               <span className="numeric ml-auto font-medium text-[var(--text)]">
-                {definition?.format
-                  ? definition.format(Number(entry.value ?? 0))
-                  : String(entry.value)}
+                {formatSeriesValue(Number(entry.value ?? 0), definition)}
               </span>
             </li>
           );
@@ -312,8 +335,6 @@ export function BarSeriesChart({
   horizontal = false,
   height,
   action,
-  /** Colours individual bars by a rule rather than by series. */
-  colourBy,
 }: {
   title: string;
   description?: string;
@@ -325,7 +346,6 @@ export function BarSeriesChart({
   horizontal?: boolean;
   height?: number;
   action?: React.ReactNode;
-  colourBy?: (row: Record<string, string | number>) => string;
 }) {
   return (
     <ChartFrame
@@ -403,13 +423,7 @@ export function BarSeriesChart({
             // without relying on colour contrast alone.
             stroke={stacked ? "var(--viz-surface)" : undefined}
             strokeWidth={stacked ? 2 : 0}
-          >
-            {colourBy
-              ? rows.map((row, rowIndex) => (
-                  <Cell key={rowIndex} fill={colourBy(row)} />
-                ))
-              : null}
-          </Bar>
+          />
         ))}
       </BarChart>
     </ChartFrame>

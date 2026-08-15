@@ -210,7 +210,7 @@ export default async function DashboardPage() {
             {
               key: "rate",
               label: "Attendance",
-              format: (value) => `${value.toFixed(1)}%`,
+              format: "percent",
             },
           ]}
         />
@@ -227,12 +227,12 @@ export default async function DashboardPage() {
               {
                 key: "collected",
                 label: "Collected",
-                format: (value) => formatMoney(value * 100),
+                format: "money",
               },
               {
                 key: "outstanding",
                 label: "Outstanding",
-                format: (value) => formatMoney(value * 100),
+                format: "money",
               },
             ]}
           />
@@ -272,7 +272,7 @@ export default async function DashboardPage() {
             {
               key: "average",
               label: "Average",
-              format: (value) => `${value.toFixed(1)}%`,
+              format: "percent",
             },
           ]}
         />

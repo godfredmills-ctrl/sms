@@ -181,7 +181,7 @@ export default async function FinancePage() {
             {
               key: "amount",
               label: "Value received",
-              format: (value) => formatMoney(value * 100),
+              format: "money",
             },
           ]}
         />
