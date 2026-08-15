@@ -332,14 +332,17 @@ export function AppShell({
                     >
                       My account
                     </Link>
+                    {/* Both live as sections of /account rather than routes of
+                        their own — a password field and a preference grid do not
+                        each need a page, and the fragment lands on the right one. */}
                     <Link
-                      href="/account/password"
+                      href="/account#password"
                       className="block rounded px-3 py-2 text-sm hover:bg-[var(--bg-subtle)]"
                     >
                       Change password
                     </Link>
                     <Link
-                      href="/account/notifications"
+                      href="/account#notifications"
                       className="block rounded px-3 py-2 text-sm hover:bg-[var(--bg-subtle)]"
                     >
                       Notification settings

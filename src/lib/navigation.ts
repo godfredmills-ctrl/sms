@@ -124,6 +124,15 @@ export const STAFF_NAVIGATION: NavGroup[] = [
         href: "/credentials",
         icon: "Award",
         permissions: ["assessment.transcript.generate", "assessment.certificate.issue"],
+        children: [
+          { label: "Issue", href: "/credentials", icon: "Award" },
+          {
+            label: "Templates",
+            href: "/credentials/templates",
+            icon: "LayoutTemplate",
+            permissions: ["assessment.template.manage"],
+          },
+        ],
       },
     ],
   },
@@ -231,6 +240,15 @@ export const STAFF_NAVIGATION: NavGroup[] = [
         href: "/website",
         icon: "Globe",
         permissions: ["website.read"],
+        children: [
+          { label: "Pages", href: "/website", icon: "FileText" },
+          {
+            label: "Media library",
+            href: "/website/media",
+            icon: "Image",
+            permissions: ["website.manage"],
+          },
+        ],
       },
     ],
   },

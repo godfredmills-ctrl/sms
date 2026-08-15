@@ -129,7 +129,7 @@ export default async function AccountPage() {
           />
         </Card>
 
-        <Card>
+        <Card id="password" className="scroll-mt-24">
           <CardHeader
             title="Password"
             description="Changing it ends every other session."
@@ -199,7 +199,7 @@ export default async function AccountPage() {
         </Card>
       </div>
 
-      <Card className="mt-4">
+      <Card id="notifications" className="mt-4 scroll-mt-24">
         <CardHeader
           title="Notification preferences"
           description="Turn a channel off for a category and the system stops using it for you."
