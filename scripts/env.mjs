@@ -23,6 +23,15 @@ export function normaliseNodeEnv({ fallback = "production" } = {}) {
   // Strip surrounding quotes and stray whitespace, then lowercase.
   const cleaned = raw.trim().replace(/^["']|["']$/g, "").trim().toLowerCase();
 
+  // An empty value means the variable exists but says nothing — that is
+  // "unset" in intent, not a mistake. Correct it quietly; Next would
+  // otherwise reject it, but a full warning on every boot would be noise.
+  if (cleaned === "") {
+    process.env.NODE_ENV = fallback;
+    console.log(`  NODE_ENV was empty; using ${JSON.stringify(fallback)}.`);
+    return { changed: true, value: fallback };
+  }
+
   if (cleaned === raw && STANDARD.has(cleaned)) {
     return { changed: false, value: cleaned };
   }
