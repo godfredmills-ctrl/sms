@@ -229,3 +229,403 @@ export async function sendInvoiceReminderAction(invoiceId: string) {
   revalidatePath("/finance/invoices");
   return { ok: true as const, notified: userIds.length };
 }
+
+// -----------------------------------------------------------------------------
+// Fee categories and structures
+// -----------------------------------------------------------------------------
+
+export type FinanceFormState = { ok?: boolean; error?: string; message?: string };
+
+function text(formData: FormData, key: string): string {
+  return String(formData.get(key) ?? "").trim();
+}
+
+export async function createFeeCategoryAction(
+  _previous: FinanceFormState,
+  formData: FormData,
+): Promise<FinanceFormState> {
+  try {
+    await authorize("finance.fee.manage");
+  } catch (error) {
+    return { error: (error as Error).message };
+  }
+
+  const name = text(formData, "name");
+  if (!name) return { error: "Name the fee category." };
+
+  const code =
+    text(formData, "code").toUpperCase() ||
+    name.toUpperCase().replace(/[^A-Z0-9]+/g, "").slice(0, 10);
+
+  if (await db.feeCategory.findUnique({ where: { code } })) {
+    return { error: `A category with code "${code}" already exists.` };
+  }
+
+  const last = await db.feeCategory.findFirst({
+    orderBy: { sortKey: "desc" },
+    select: { sortKey: true },
+  });
+
+  await db.feeCategory.create({
+    data: {
+      name,
+      code,
+      description: text(formData, "description") || null,
+      isRecurring: formData.get("isRecurring") === "on",
+      isMandatory: formData.get("isOptional") !== "on",
+      isOptional: formData.get("isOptional") === "on",
+      glCode: text(formData, "glCode") || null,
+      sortKey: (last?.sortKey ?? 0) + 10,
+    },
+  });
+
+  revalidatePath("/finance/structures");
+  return { ok: true, message: `Added ${name}.` };
+}
+
+export async function createFeeStructureAction(
+  _previous: FinanceFormState,
+  formData: FormData,
+): Promise<FinanceFormState> {
+  try {
+    await authorize("finance.fee.manage");
+  } catch (error) {
+    return { error: (error as Error).message };
+  }
+
+  const name = text(formData, "name");
+  const academicYearId = text(formData, "academicYearId");
+  if (!name || !academicYearId) {
+    return { error: "Name the structure and choose an academic year." };
+  }
+
+  const dueDate = text(formData, "dueDate");
+  const minimumFirst = text(formData, "minimumFirstPayment");
+
+  await db.feeStructure.create({
+    data: {
+      name,
+      academicYearId,
+      termId: text(formData, "termId") || null,
+      classLevelId: text(formData, "classLevelId") || null,
+      boarderType: text(formData, "boarderType") || "ALL",
+      studentType: text(formData, "studentType") || "ALL",
+      dueDate: dueDate ? new Date(dueDate) : null,
+      minimumFirstPaymentMinor: minimumFirst ? toMinor(minimumFirst) : null,
+      notes: text(formData, "notes") || null,
+    },
+  });
+
+  revalidatePath("/finance/structures");
+  return { ok: true, message: `Created ${name}. Add its fee lines next.` };
+}
+
+export async function setStructureItemAction(formData: FormData) {
+  await authorize("finance.fee.manage");
+
+  const structureId = text(formData, "structureId");
+  const categoryId = text(formData, "categoryId");
+  const amount = text(formData, "amount");
+  if (!structureId || !categoryId) return;
+
+  const amountMinor = toMinor(amount);
+
+  // Zero removes the line. Billing a category at GH₵0 and omitting it produce
+  // the same invoice, and an empty row on the structure is just noise.
+  if (amountMinor <= 0) {
+    await db.feeStructureItem.deleteMany({ where: { structureId, categoryId } });
+    revalidatePath("/finance/structures");
+    return;
+  }
+
+  await db.feeStructureItem.upsert({
+    where: { structureId_categoryId: { structureId, categoryId } },
+    create: {
+      structureId,
+      categoryId,
+      amountMinor,
+      description: text(formData, "description") || null,
+      isOptional: formData.get("isOptional") === "on",
+    },
+    update: {
+      amountMinor,
+      description: text(formData, "description") || null,
+      isOptional: formData.get("isOptional") === "on",
+    },
+  });
+
+  revalidatePath("/finance/structures");
+}
+
+/**
+ * Publishing is what makes a structure billable. Until then it can be edited
+ * freely; afterwards a change silently alters what every future invoice
+ * charges, so the transition is explicit and audited.
+ */
+export async function toggleStructurePublishedAction(formData: FormData) {
+  const user = await authorize("finance.fee.manage");
+
+  const id = text(formData, "id");
+  if (!id) return;
+
+  const structure = await db.feeStructure.findUnique({
+    where: { id },
+    select: { isPublished: true, name: true, items: { select: { id: true } } },
+  });
+  if (!structure) return;
+
+  // A structure with no lines would bill everyone GH₵0.
+  if (!structure.isPublished && structure.items.length === 0) return;
+
+  await db.feeStructure.update({
+    where: { id },
+    data: { isPublished: !structure.isPublished },
+  });
+
+  await db.auditLog.create({
+    data: {
+      userId: user.id,
+      action: structure.isPublished
+        ? "finance.structure.unpublish"
+        : "finance.structure.publish",
+      entity: "FeeStructure",
+      entityId: id,
+      summary: `${structure.isPublished ? "Withdrew" : "Published"} ${structure.name}`,
+    },
+  });
+
+  revalidatePath("/finance/structures");
+}
+
+// -----------------------------------------------------------------------------
+// Discounts and scholarships
+// -----------------------------------------------------------------------------
+
+export async function createDiscountAction(
+  _previous: FinanceFormState,
+  formData: FormData,
+): Promise<FinanceFormState> {
+  let user;
+  try {
+    user = await authorize("finance.discount.manage");
+  } catch (error) {
+    return { error: (error as Error).message };
+  }
+
+  const studentId = text(formData, "studentId");
+  const name = text(formData, "name");
+  const type = text(formData, "type") || "PERCENTAGE";
+  const rawValue = text(formData, "value");
+  if (!studentId || !name || !rawValue) {
+    return { error: "Choose a student, name the award and set its value." };
+  }
+
+  const value = type === "PERCENTAGE" ? Number(rawValue) : toMinor(rawValue);
+  if (!Number.isFinite(value) || value <= 0) {
+    return { error: "The value must be greater than zero." };
+  }
+  if (type === "PERCENTAGE" && value > 100) {
+    return { error: "A percentage discount cannot exceed 100%." };
+  }
+
+  const startsOn = text(formData, "startsOn");
+  const endsOn = text(formData, "endsOn");
+
+  await db.studentDiscount.create({
+    data: {
+      studentId,
+      name,
+      type: type as never,
+      value,
+      categoryId: text(formData, "categoryId") || null,
+      academicYearId: text(formData, "academicYearId") || null,
+      reason: text(formData, "reason") || null,
+      sponsorName: text(formData, "sponsorName") || null,
+      startsOn: startsOn ? new Date(startsOn) : null,
+      endsOn: endsOn ? new Date(endsOn) : null,
+      approvedBy: user.fullName,
+      approvedAt: new Date(),
+    },
+  });
+
+  await db.auditLog.create({
+    data: {
+      userId: user.id,
+      action: "finance.discount.create",
+      entity: "Student",
+      entityId: studentId,
+      summary: `Awarded "${name}"`,
+    },
+  });
+
+  revalidatePath("/finance/discounts");
+  return { ok: true, message: `Awarded "${name}".` };
+}
+
+export async function toggleDiscountAction(formData: FormData) {
+  const user = await authorize("finance.discount.manage");
+
+  const id = text(formData, "id");
+  if (!id) return;
+
+  const discount = await db.studentDiscount.findUnique({
+    where: { id },
+    select: { isActive: true, name: true, studentId: true },
+  });
+  if (!discount) return;
+
+  await db.studentDiscount.update({
+    where: { id },
+    data: { isActive: !discount.isActive },
+  });
+
+  await db.auditLog.create({
+    data: {
+      userId: user.id,
+      action: discount.isActive
+        ? "finance.discount.withdraw"
+        : "finance.discount.restore",
+      entity: "Student",
+      entityId: discount.studentId,
+      summary: `${discount.isActive ? "Withdrew" : "Restored"} "${discount.name}"`,
+    },
+  });
+
+  revalidatePath("/finance/discounts");
+}
+
+// -----------------------------------------------------------------------------
+// Reminder rules
+// -----------------------------------------------------------------------------
+
+export async function saveReminderRuleAction(
+  _previous: FinanceFormState,
+  formData: FormData,
+): Promise<FinanceFormState> {
+  try {
+    await authorize("finance.reminder.manage");
+  } catch (error) {
+    return { error: (error as Error).message };
+  }
+
+  const name = text(formData, "name");
+  const trigger = text(formData, "trigger");
+  if (!name || !trigger) return { error: "Name the rule and choose a trigger." };
+
+  const channels = formData.getAll("channels").map(String).filter(Boolean);
+  if (!channels.length) return { error: "Choose at least one channel." };
+
+  const sendAfterHour = Number(text(formData, "sendAfterHour"));
+  const sendBeforeHour = Number(text(formData, "sendBeforeHour"));
+  if (sendAfterHour >= sendBeforeHour) {
+    return { error: "The quiet-hours window must start before it ends." };
+  }
+
+  const id = text(formData, "id");
+  const data = {
+    name,
+    trigger,
+    offsetDays: Number(text(formData, "offsetDays")) || 0,
+    repeatEveryDays: Number(text(formData, "repeatEveryDays")) || 0,
+    maxReminders: Number(text(formData, "maxReminders")) || 3,
+    minBalanceMinor: toMinor(text(formData, "minBalance") || "0"),
+    channels: channels as never,
+    audience: text(formData, "audience") || "BILL_PAYERS",
+    sendAfterHour,
+    sendBeforeHour,
+  };
+
+  if (id) {
+    await db.reminderRule.update({ where: { id }, data });
+  } else {
+    await db.reminderRule.create({ data });
+  }
+
+  revalidatePath("/finance/reminders");
+  return { ok: true, message: id ? "Rule updated." : `Created "${name}".` };
+}
+
+export async function toggleReminderRuleAction(formData: FormData) {
+  await authorize("finance.reminder.manage");
+
+  const id = text(formData, "id");
+  if (!id) return;
+
+  const rule = await db.reminderRule.findUnique({
+    where: { id },
+    select: { isActive: true },
+  });
+  if (!rule) return;
+
+  await db.reminderRule.update({ where: { id }, data: { isActive: !rule.isActive } });
+  revalidatePath("/finance/reminders");
+}
+
+// -----------------------------------------------------------------------------
+// Invoice lifecycle
+// -----------------------------------------------------------------------------
+
+export async function issueInvoiceAction(formData: FormData) {
+  const user = await authorize("finance.invoice.create");
+
+  const id = text(formData, "id");
+  if (!id) return;
+
+  const invoice = await db.invoice.findUnique({
+    where: { id },
+    select: { status: true, totalMinor: true, invoiceNo: true },
+  });
+  if (!invoice || invoice.status !== "DRAFT") return;
+
+  await db.invoice.update({
+    where: { id },
+    data: { status: "ISSUED", issueDate: new Date() },
+  });
+
+  await db.auditLog.create({
+    data: {
+      userId: user.id,
+      action: "finance.invoice.issue",
+      entity: "Invoice",
+      entityId: id,
+      summary: `Issued ${invoice.invoiceNo} for ${formatMoney(invoice.totalMinor)}`,
+    },
+  });
+
+  revalidatePath("/finance/invoices");
+}
+
+/**
+ * Cancels an invoice. Refused once money has been allocated to it: reversing a
+ * receipted payment is a refund, which is a different, deliberate act.
+ */
+export async function cancelInvoiceAction(formData: FormData) {
+  const user = await authorize("finance.invoice.update");
+
+  const id = text(formData, "id");
+  if (!id) return;
+
+  const invoice = await db.invoice.findUnique({
+    where: { id },
+    select: { paidMinor: true, invoiceNo: true, status: true },
+  });
+  if (!invoice || invoice.status === "CANCELLED") return;
+  if (invoice.paidMinor > 0) return;
+
+  await db.invoice.update({
+    where: { id },
+    data: { status: "CANCELLED", cancelledAt: new Date(), balanceMinor: 0 },
+  });
+
+  await db.auditLog.create({
+    data: {
+      userId: user.id,
+      action: "finance.invoice.cancel",
+      entity: "Invoice",
+      entityId: id,
+      summary: `Cancelled ${invoice.invoiceNo}`,
+    },
+  });
+
+  revalidatePath("/finance/invoices");
+}

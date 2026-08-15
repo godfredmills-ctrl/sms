@@ -15,11 +15,17 @@ export type Tab = { href: string; label: string };
 export function TabNav({ tabs }: { tabs: Tab[] }) {
   const pathname = usePathname();
 
+  // Longest matching prefix wins, so an overview tab at /finance does not stay
+  // lit while you are on /finance/invoices.
+  const activeHref = tabs
+    .filter((tab) => pathname === tab.href || pathname.startsWith(`${tab.href}/`))
+    .sort((a, b) => b.href.length - a.href.length)[0]?.href;
+
   return (
     <nav className="-mx-1 mb-5 overflow-x-auto">
       <ul className="flex min-w-max gap-1 border-b border-[var(--border)] px-1">
         {tabs.map((tab) => {
-          const active = pathname === tab.href || pathname.startsWith(`${tab.href}/`);
+          const active = tab.href === activeHref;
           return (
             <li key={tab.href}>
               <Link
