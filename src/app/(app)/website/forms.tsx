@@ -1,0 +1,171 @@
+"use client";
+
+import { useActionState } from "react";
+import { useFormStatus } from "react-dom";
+import { Plus, Save } from "lucide-react";
+
+import { Alert, Button, CardBody, Field, Input, Textarea } from "@/components/ui";
+
+import { createPageAction, updateSiteAction, type SiteState } from "./actions";
+
+export type SiteValues = {
+  id: string;
+  name: string;
+  domain: string;
+  metaTitle: string;
+  metaDescription: string;
+  logoUrl: string;
+  faviconUrl: string;
+  ogImageUrl: string;
+  googleAnalyticsId: string;
+  primary: string;
+  accent: string;
+  font: string;
+  radius: string;
+  address: string;
+  phone: string;
+  email: string;
+  facebook: string;
+  instagram: string;
+  x: string;
+  youtube: string;
+};
+
+export function SiteSettingsForm({ values }: { values: SiteValues }) {
+  const [state, action] = useActionState<SiteState, FormData>(updateSiteAction, {});
+
+  return (
+    <form action={action}>
+      <CardBody className="space-y-3">
+        <input type="hidden" name="id" value={values.id} />
+
+        {state.error ? <Alert tone="danger">{state.error}</Alert> : null}
+        {state.ok ? <Alert tone="success">{state.message}</Alert> : null}
+
+        <Field label="Site name" htmlFor="name" required>
+          <Input id="name" name="name" defaultValue={values.name} required />
+        </Field>
+
+        <Field
+          label="Custom domain"
+          htmlFor="domain"
+          hint="Leave blank to serve at /site."
+        >
+          <Input id="domain" name="domain" defaultValue={values.domain} placeholder="www.school.edu.gh" />
+        </Field>
+
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Primary colour" htmlFor="primary">
+            <Input id="primary" name="primary" defaultValue={values.primary} />
+          </Field>
+          <Field label="Accent colour" htmlFor="accent">
+            <Input id="accent" name="accent" defaultValue={values.accent} />
+          </Field>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Logo URL" htmlFor="logoUrl">
+            <Input id="logoUrl" name="logoUrl" defaultValue={values.logoUrl} />
+          </Field>
+          <Field label="Favicon URL" htmlFor="faviconUrl">
+            <Input id="faviconUrl" name="faviconUrl" defaultValue={values.faviconUrl} />
+          </Field>
+        </div>
+
+        <Field label="Search engine title" htmlFor="metaTitle">
+          <Input id="metaTitle" name="metaTitle" defaultValue={values.metaTitle} />
+        </Field>
+
+        <Field
+          label="Search engine description"
+          htmlFor="metaDescription"
+          hint="About 155 characters is what Google shows."
+        >
+          <Textarea
+            id="metaDescription"
+            name="metaDescription"
+            rows={2}
+            defaultValue={values.metaDescription}
+          />
+        </Field>
+
+        <Field label="Sharing image" htmlFor="ogImageUrl" hint="Shown when a link is shared.">
+          <Input id="ogImageUrl" name="ogImageUrl" defaultValue={values.ogImageUrl} />
+        </Field>
+
+        <Field label="Google Analytics ID" htmlFor="googleAnalyticsId">
+          <Input
+            id="googleAnalyticsId"
+            name="googleAnalyticsId"
+            defaultValue={values.googleAnalyticsId}
+            placeholder="G-XXXXXXXXXX"
+          />
+        </Field>
+
+        <Field label="Address" htmlFor="address">
+          <Textarea id="address" name="address" rows={2} defaultValue={values.address} />
+        </Field>
+
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Phone" htmlFor="phone">
+            <Input id="phone" name="phone" defaultValue={values.phone} />
+          </Field>
+          <Field label="Email" htmlFor="email">
+            <Input id="email" name="email" defaultValue={values.email} />
+          </Field>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Facebook" htmlFor="facebook">
+            <Input id="facebook" name="facebook" defaultValue={values.facebook} />
+          </Field>
+          <Field label="Instagram" htmlFor="instagram">
+            <Input id="instagram" name="instagram" defaultValue={values.instagram} />
+          </Field>
+          <Field label="X" htmlFor="x">
+            <Input id="x" name="x" defaultValue={values.x} />
+          </Field>
+          <Field label="YouTube" htmlFor="youtube">
+            <Input id="youtube" name="youtube" defaultValue={values.youtube} />
+          </Field>
+        </div>
+
+        <SubmitButton icon="save" label="Save site settings" />
+      </CardBody>
+    </form>
+  );
+}
+
+export function PageForm({ siteId }: { siteId: string }) {
+  const [state, action] = useActionState<SiteState, FormData>(createPageAction, {});
+
+  return (
+    <form action={action}>
+      <CardBody className="space-y-3">
+        <input type="hidden" name="siteId" value={siteId} />
+
+        {state.error ? <Alert tone="danger">{state.error}</Alert> : null}
+        {state.ok ? <Alert tone="success">{state.message}</Alert> : null}
+
+        <Field label="Page title" htmlFor="title" required>
+          <Input id="title" name="title" required placeholder="Admissions" />
+        </Field>
+        <Field label="Address" htmlFor="slug" hint="Derived from the title if blank.">
+          <Input id="slug" name="slug" placeholder="admissions" />
+        </Field>
+
+        <SubmitButton icon="plus" label="Create page" />
+      </CardBody>
+    </form>
+  );
+}
+
+function SubmitButton({ icon, label }: { icon: "save" | "plus"; label: string }) {
+  const { pending } = useFormStatus();
+  return (
+    <Button type="submit" variant="outline" className="w-full" disabled={pending}>
+      {icon === "save" ? <Save className="size-4" /> : <Plus className="size-4" />}
+      {pending ? "Saving…" : label}
+    </Button>
+  );
+}
