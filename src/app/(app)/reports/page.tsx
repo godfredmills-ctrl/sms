@@ -132,6 +132,12 @@ export default async function ReportsPage() {
                       <span className="text-sm font-medium">{definition.name}</span>
                       <Badge tone="neutral">{definition.dataset}</Badge>
                       {definition.isShared ? <Badge tone="info">Shared</Badge> : null}
+                      {definition.chartType && definition.chartType !== "TABLE" ? (
+                        <Badge tone="teal">
+                          <BarChart3 className="size-2.5" />
+                          {definition.chartType.toLowerCase()}
+                        </Badge>
+                      ) : null}
                       {definition.includeAiInsights ? (
                         <Badge tone="violet">
                           <Sparkles className="size-2.5" />

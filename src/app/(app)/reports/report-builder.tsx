@@ -4,6 +4,7 @@ import { useActionState, useMemo, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { Check, Download, Play, Sparkles } from "lucide-react";
 
+import { BarSeriesChart, TrendChart } from "@/components/charts";
 import { SearchableSelect } from "@/components/select-search";
 import {
   Alert,
@@ -181,6 +182,24 @@ export function ReportBuilder({
               <Input id="limit" name="limit" type="number" min="1" placeholder="1000" />
             </Field>
 
+            <Field
+              label="Chart"
+              htmlFor="chartType"
+              hint="Needs one text column to group by and one number column to plot."
+            >
+              <SearchableSelect
+                id="chartType"
+                name="chartType"
+                clearable={false}
+                defaultValue="TABLE"
+                options={[
+                  { value: "TABLE", label: "Table only" },
+                  { value: "BAR", label: "Bar chart" },
+                  { value: "LINE", label: "Line chart" },
+                ]}
+              />
+            </Field>
+
             <div className="space-y-2">
               <CheckboxField
                 name="includeAiInsights"
@@ -207,14 +226,23 @@ export function ReportBuilder({
 
       <div className="space-y-4">
         {state.ok && state.rows ? (
-          <ResultTable
-            name={state.name ?? "Report"}
-            message={state.message}
-            rows={state.rows}
-            columns={state.columns ?? []}
-            labels={labels}
-            types={fieldTypes}
-          />
+          <>
+            <ResultChart
+              name={state.name ?? "Report"}
+              chartType={state.chartType ?? "TABLE"}
+              rows={state.rows}
+              columns={state.columns ?? []}
+              dataset={dataset}
+            />
+            <ResultTable
+              name={state.name ?? "Report"}
+              message={state.message}
+              rows={state.rows}
+              columns={state.columns ?? []}
+              labels={labels}
+              types={fieldTypes}
+            />
+          </>
         ) : (
           <Card>
             <EmptyState
@@ -235,6 +263,110 @@ export function ReportBuilder({
         ) : null}
       </div>
     </div>
+  );
+}
+
+/** How many bars stay readable before the axis becomes a smear. */
+const MAX_CATEGORIES = 24;
+
+/**
+ * Charts the result, when the columns allow it.
+ *
+ * A report is rows, not a series, so the chart is derived rather than
+ * configured: the first text column groups, and every numeric column is
+ * plotted against it. Where a group repeats — one row per student, many
+ * students per class — the values are summed, because a chart that silently
+ * showed only the last matching row would be quietly wrong.
+ */
+function ResultChart({
+  name,
+  chartType,
+  rows,
+  columns,
+  dataset,
+}: {
+  name: string;
+  chartType: string;
+  rows: Array<Record<string, string | number | null>>;
+  columns: string[];
+  dataset: Dataset;
+}) {
+  if (chartType === "TABLE" || rows.length === 0) return null;
+
+  const fields = new Map(dataset.fields.map((field) => [field.key, field]));
+
+  const categoryKey = columns.find((key) => {
+    const type = fields.get(key)?.type;
+    return type === "tag" || type === "text";
+  });
+
+  const valueKeys = columns.filter((key) => {
+    const type = fields.get(key)?.type;
+    return type === "number" || type === "money" || type === "percent";
+  });
+
+  if (!categoryKey || valueKeys.length === 0) {
+    return (
+      <Card>
+        <CardBody>
+          <Alert tone="info">
+            A chart needs one text column to group by and at least one numeric
+            column to plot. Add them to the columns above, or leave the chart set to
+            table only.
+          </Alert>
+        </CardBody>
+      </Card>
+    );
+  }
+
+  const grouped = new Map<string, Record<string, number>>();
+
+  for (const row of rows) {
+    const category = String(row[categoryKey] ?? "—");
+    const bucket = grouped.get(category) ?? {};
+    for (const key of valueKeys) {
+      const value = Number(row[key]);
+      // money is stored in pesewas; the charts format major units.
+      const scaled = fields.get(key)?.type === "money" ? value / 100 : value;
+      bucket[key] = (bucket[key] ?? 0) + (Number.isFinite(scaled) ? scaled : 0);
+    }
+    grouped.set(category, bucket);
+  }
+
+  const all = [...grouped.entries()];
+  const truncated = all.length > MAX_CATEGORIES;
+
+  // Largest groups first, so a truncated chart keeps the ones that matter.
+  const chartRows = all
+    .sort((a, b) => (b[1][valueKeys[0]] ?? 0) - (a[1][valueKeys[0]] ?? 0))
+    .slice(0, MAX_CATEGORIES)
+    .map(([category, values]) => ({ [categoryKey]: category, ...values }));
+
+  const series = valueKeys.slice(0, 4).map((key) => ({
+    key,
+    label: fields.get(key)?.label ?? key,
+    format: (fields.get(key)?.type === "money"
+      ? "money"
+      : fields.get(key)?.type === "percent"
+        ? "percent"
+        : "number") as "money" | "percent" | "number",
+  }));
+
+  const description = `${valueKeys.length === 1 ? "Total" : "Totals"} by ${(
+    fields.get(categoryKey)?.label ?? categoryKey
+  ).toLowerCase()}${truncated ? ` · showing the top ${MAX_CATEGORIES} of ${all.length}` : ""}`;
+
+  const Chart = chartType === "LINE" ? TrendChart : BarSeriesChart;
+
+  return (
+    <Chart
+      title={name}
+      description={description}
+      rows={chartRows}
+      categoryKey={categoryKey}
+      categoryLabel={fields.get(categoryKey)?.label ?? categoryKey}
+      series={series}
+    />
   );
 }
 

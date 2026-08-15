@@ -24,6 +24,7 @@ export type ReportState = {
   name?: string;
   rowCount?: number;
   insightId?: string;
+  chartType?: string;
 };
 
 function text(formData: FormData, key: string): string {
@@ -90,6 +91,9 @@ export async function runReportAction(
   if (!config.columns.length) return { error: "Choose at least one column." };
 
   const name = text(formData, "name") || `${dataset.label} report`;
+  const chartType = ["BAR", "LINE"].includes(text(formData, "chartType"))
+    ? text(formData, "chartType")
+    : "TABLE";
 
   const raw = await loadDataset(datasetKey);
   const rows = applyConfig(raw, dataset, config);
@@ -128,6 +132,7 @@ export async function runReportAction(
         description: text(formData, "description") || null,
         dataset: datasetKey,
         config: config as never,
+        chartType,
         includeAiInsights: formData.get("includeAiInsights") === "on",
         isShared: formData.get("isShared") === "on",
         ownerId: user.id,
@@ -145,6 +150,7 @@ export async function runReportAction(
     name,
     rowCount: rows.length,
     insightId,
+    chartType,
     message: `${rows.length.toLocaleString()} row${rows.length === 1 ? "" : "s"} · run ${run.id.slice(-6)}`,
   };
 }

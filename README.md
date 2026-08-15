@@ -354,5 +354,7 @@ scan, finance analysis, report-card remarks, report narratives).
 
 - **Certificates and transcripts render as HTML for printing**, not as generated
   PDF files. The browser's print dialogue produces the PDF.
-- **The report builder has no chart output.** Results are tabular, exportable to
-  CSV and Excel; the chart type on a saved report definition is not yet honoured.
+- **Report charts group and sum; they do not aggregate by other functions.**
+  A bar or line chart totals each numeric column by the first text column.
+  Averages, counts and medians are not offered — build those into the dataset
+  or read them off the table.
