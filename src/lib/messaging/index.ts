@@ -1,5 +1,6 @@
 import type { MessageChannel, PortalType, Prisma } from "@prisma/client";
 
+import { reminderAudienceFilter } from "@/lib/audiences";
 import { db } from "@/lib/db";
 import { env } from "@/lib/env";
 import { formatMoney } from "@/lib/money";
@@ -659,8 +660,7 @@ export async function runFeeReminders(): Promise<{
         body,
         templateId: rule.templateId,
         audience: {
-          portals: rule.audience === "STUDENTS" ? ["STUDENT"] : ["GUARDIAN"],
-          billPayersOnly: rule.audience === "BILL_PAYERS",
+          ...reminderAudienceFilter(rule.audience),
           studentIds: invoices.map((invoice) => invoice.student.id),
           withOutstandingBalance: true,
         },

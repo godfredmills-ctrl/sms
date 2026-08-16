@@ -6,6 +6,7 @@ import { BellRing } from "lucide-react";
 
 import { SearchableSelect } from "@/components/select-search";
 import { Alert, Button, CardBody, Field, Input } from "@/components/ui";
+import { REMINDER_AUDIENCES } from "@/lib/audiences";
 
 import { saveReminderRuleAction, type FinanceFormState } from "../actions";
 
@@ -108,17 +109,18 @@ export function RuleForm() {
         </Field>
 
         <Field label="Audience" htmlFor="audience">
+          {/* Options come from the same table the reminder engine resolves
+              against, so the two cannot drift apart again. */}
           <SearchableSelect
             id="audience"
             name="audience"
             clearable={false}
             defaultValue="BILL_PAYERS"
-            options={[
-              { value: "BILL_PAYERS", label: "Bill payers only" },
-              { value: "ALL_GUARDIANS", label: "All guardians" },
-              { value: "STUDENT", label: "The student" },
-              { value: "EVERYONE", label: "Guardians and student" },
-            ]}
+            options={REMINDER_AUDIENCES.map((entry) => ({
+              value: entry.value,
+              label: entry.label,
+              description: entry.description,
+            }))}
           />
         </Field>
 
