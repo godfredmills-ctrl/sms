@@ -4,6 +4,7 @@ import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
 import { Save } from "lucide-react";
 
+import { ImageField } from "@/components/image-field";
 import { SearchableSelect } from "@/components/select-search";
 import {
   Alert,
@@ -179,23 +180,19 @@ export function SchoolForm({ values }: { values: SchoolValues }) {
           description="Drives report card headers, certificates and the generated website."
         />
         <CardBody className="grid gap-3 sm:grid-cols-2">
-          {/* Certificates and transcripts embed these, and only ever from the
-              school's own storage — the renderer will not fetch an outside URL.
-              Saying so here is cheaper than a school discovering it on a
-              printed certificate. */}
+          {/* Certificates, transcripts and report cards embed these, and only
+              ever from the school's own storage — the renderer will not fetch
+              an outside URL. Uploading here produces an address it can read;
+              the alternative was a school finding out on a printed document. */}
           <Field
-            label="Logo URL"
+            label="Logo"
             htmlFor="logoUrl"
-            hint="Upload it in Website → Media and paste that address. An outside link shows on screen but not on printed documents."
+            hint="Shown in the sidebar and on report cards. An image hosted elsewhere shows on screen but not on printed documents."
           >
-            <Input id="logoUrl" name="logoUrl" defaultValue={values.logoUrl} />
+            <ImageField id="logoUrl" name="logoUrl" defaultValue={values.logoUrl} />
           </Field>
-          <Field
-            label="Crest URL"
-            htmlFor="crestUrl"
-            hint="Used on certificates. Same again."
-          >
-            <Input id="crestUrl" name="crestUrl" defaultValue={values.crestUrl} />
+          <Field label="Crest" htmlFor="crestUrl" hint="Used on certificates and transcripts.">
+            <ImageField id="crestUrl" name="crestUrl" defaultValue={values.crestUrl} />
           </Field>
           <Field label="Primary colour" htmlFor="brandPrimary">
             <div className="flex gap-2">

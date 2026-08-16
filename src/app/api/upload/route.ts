@@ -13,6 +13,15 @@ export const maxDuration = 60;
  * Returns the created FileAsset and, when a folder is supplied, the Document
  * that wraps it. Validation lives in `storeFile` so every write path — this
  * route, imports, generated PDFs — enforces the same size and type rules.
+ *
+ * `visibility=public` is for artwork rather than records: a logo, a crest,
+ * letterhead. Those have to load for people with no session — the login page,
+ * the public site, and the verification page a scanned certificate leads to —
+ * and `/api/files` refuses anyone not signed in, by design. So a public upload
+ * is also registered in the media library and addressed through `/api/media`,
+ * which is the route that exists to be read by the public. Without this a
+ * school uploads its logo, sees it everywhere it looks, and never learns it is
+ * missing for everyone else.
  */
 export async function POST(request: Request) {
   const user = await getCurrentUser();
@@ -63,6 +72,46 @@ export async function POST(request: Request) {
       folder: folderId ? `documents/${slugify(title).slice(0, 24)}` : "documents",
       uploadedById: user.id,
     });
+
+    if (String(form.get("visibility") ?? "") === "public") {
+      if (!stored.mimeType.startsWith("image/")) {
+        return NextResponse.json(
+          { error: "Only images can be published." },
+          { status: 400 },
+        );
+      }
+
+      // The library needs a site to belong to. A school setting its logo has
+      // not necessarily opened the website module yet, and refusing the upload
+      // over a row it does not know exists would be a strange thing to explain.
+      const existing = await db.site.findFirst({ select: { id: true } });
+      const site =
+        existing ??
+        (await db.site.create({
+          data: {
+            name:
+              (await db.school.findFirst({ select: { name: true } }))?.name ?? "School",
+            slug: "main",
+          },
+          select: { id: true },
+        }));
+
+      const media = await db.siteMedia.create({
+        data: {
+          siteId: site.id,
+          fileId: stored.id,
+          altText: title,
+          folder: "branding",
+          transforms: {} as never,
+        },
+      });
+
+      return NextResponse.json({
+        ok: true,
+        file: { ...stored, url: `/api/media/${media.id}` },
+        mediaId: media.id,
+      });
+    }
 
     // A bare upload with no folder is just an attachment; only a foldered
     // upload becomes a cabinet document with access control and versioning.

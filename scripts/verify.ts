@@ -452,6 +452,57 @@ async function checkFinance() {
   }
 }
 
+/**
+ * Branding artwork has two distinct ways to be wrong, and neither announces
+ * itself to the person who set it.
+ *
+ * A link to somewhere else renders on screen and is skipped by the PDF
+ * renderer, which reads only this school's own storage. A privately filed
+ * image is the mirror image: it renders for whoever uploaded it and returns
+ * 401 to everyone with no session — the login page, the public site, the
+ * verification page a scanned certificate leads to. Both look correct from
+ * the desk of the person who configured them.
+ */
+function checkArtwork(
+  group: string,
+  label: string,
+  value: string | null | undefined,
+  options: { public: boolean; where: string },
+) {
+  const url = (value ?? "").trim();
+
+  if (!url) {
+    warn(group, label, `Not set — ${options.where} render without it.`);
+    return;
+  }
+
+  const path = url.startsWith("/")
+    ? url
+    : (() => {
+        try {
+          return new URL(url).pathname;
+        } catch {
+          return url;
+        }
+      })();
+
+  if (path.startsWith("/api/media/")) {
+    pass(group, label, url);
+  } else if (path.startsWith("/api/files/")) {
+    if (options.public) {
+      warn(
+        group,
+        label,
+        "Filed privately, so it is missing for anyone not signed in. Re-upload it from the branding settings.",
+      );
+    } else {
+      pass(group, label, url);
+    }
+  } else {
+    warn(group, label, `${url} is not in the school's storage, so documents render without it.`);
+  }
+}
+
 // --- Things that render to a document or a public page --------------------
 
 async function checkOutputs() {
@@ -486,25 +537,24 @@ async function checkOutputs() {
     }
   }
 
-  // The PDF renderer embeds images from the school's own storage only, so an
-  // outside link is the one case that looks right on screen and comes out
-  // blank on paper.
   const school = await db.school.findFirst({ select: { logoUrl: true } });
-  const logo = (school?.logoUrl ?? "").trim();
-  if (!logo) {
-    warn(g, "School logo", "Not set — sidebar, report cards and certificates have no crest.");
-  } else if (!logo.startsWith("/api/media/") && !logo.startsWith("/api/files/")) {
-    warn(g, "School logo", `${logo} is not in the school's storage, so documents render without it.`);
-  } else {
-    pass(g, "School logo", logo);
-  }
+  checkArtwork(g, "School logo", school?.logoUrl, {
+    public: true,
+    where: "sidebar, report cards, the login page and the verification page",
+  });
 
-  const site = await db.site.findFirst({ select: { id: true, isPublished: true, name: true } });
+  const site = await db.site.findFirst({
+    select: { id: true, isPublished: true, name: true, logoUrl: true },
+  });
   if (!site) {
     warn(g, "Website", "No site record.");
     return;
   }
   if (!site.isPublished) warn(g, "Website", `${site.name} is not published.`);
+  checkArtwork(g, "Website logo", site.logoUrl, {
+    public: true,
+    where: "the public site header",
+  });
 
   const home = await db.sitePage.findFirst({
     where: { siteId: site.id, isHomePage: true },

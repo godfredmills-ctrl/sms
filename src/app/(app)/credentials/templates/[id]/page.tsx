@@ -14,6 +14,7 @@ import {
   Input,
   PageHeader,
 } from "@/components/ui";
+import { ImageField } from "@/components/image-field";
 import { requirePermission } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { parseLayout } from "@/lib/templates";
@@ -139,15 +140,15 @@ export default async function TemplateEditorPage({
             <CardBody className="space-y-3">
               <input type="hidden" name="id" value={template.id} />
               <Field
-                label="Background image URL"
+                label="Background artwork"
                 htmlFor="backgroundUrl"
                 hint={
                   template.file
                     ? `Uploaded file: ${template.file.originalName}`
-                    : "Upload artwork in the document cabinet and paste its link."
+                    : "Artwork you upload here prints. An image hosted elsewhere shows on screen only."
                 }
               >
-                <Input
+                <ImageField
                   id="backgroundUrl"
                   name="backgroundUrl"
                   defaultValue={

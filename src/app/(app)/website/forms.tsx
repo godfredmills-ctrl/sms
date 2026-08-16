@@ -4,6 +4,7 @@ import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
 import { Plus, Save } from "lucide-react";
 
+import { ImageField } from "@/components/image-field";
 import { Alert, Button, CardBody, Field, Input, Textarea } from "@/components/ui";
 
 import { createPageAction, updateSiteAction, type SiteState } from "./actions";
@@ -63,12 +64,14 @@ export function SiteSettingsForm({ values }: { values: SiteValues }) {
           </Field>
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="Logo URL" htmlFor="logoUrl">
-            <Input id="logoUrl" name="logoUrl" defaultValue={values.logoUrl} />
+        {/* These load for visitors with no session, so they are uploaded to
+            the media library rather than filed privately. */}
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field label="Logo" htmlFor="logoUrl">
+            <ImageField id="logoUrl" name="logoUrl" defaultValue={values.logoUrl} />
           </Field>
-          <Field label="Favicon URL" htmlFor="faviconUrl">
-            <Input id="faviconUrl" name="faviconUrl" defaultValue={values.faviconUrl} />
+          <Field label="Favicon" htmlFor="faviconUrl">
+            <ImageField id="faviconUrl" name="faviconUrl" defaultValue={values.faviconUrl} />
           </Field>
         </div>
 
