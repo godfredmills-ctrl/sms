@@ -19,23 +19,7 @@ export type ImportState = {
   unmatched?: string[];
 };
 
-export const IMPORT_FIELDS = [
-  { key: "admissionNo", label: "Admission number", aliases: ["admissionno", "adm no", "index"] },
-  { key: "firstName", label: "First name", aliases: ["firstname", "given name"] },
-  { key: "lastName", label: "Last name", aliases: ["lastname", "surname", "family name"] },
-  { key: "otherNames", label: "Other names", aliases: ["middle name", "middlename"] },
-  { key: "gender", label: "Gender", aliases: ["sex"] },
-  { key: "dateOfBirth", label: "Date of birth", aliases: ["dob", "birth date"] },
-  { key: "className", label: "Class", aliases: ["class", "form", "grade", "section"] },
-  { key: "nationality", label: "Nationality" },
-  { key: "house", label: "House" },
-  { key: "phone", label: "Phone", aliases: ["telephone", "mobile"] },
-  { key: "email", label: "Email" },
-  { key: "residentialAddress", label: "Address", aliases: ["residential address"] },
-  { key: "guardianName", label: "Guardian name", aliases: ["parent name", "guardian"] },
-  { key: "guardianPhone", label: "Guardian phone", aliases: ["parent phone", "contact"] },
-  { key: "guardianEmail", label: "Guardian email", aliases: ["parent email"] },
-];
+import { IMPORT_FIELDS } from "./fields";
 
 function parseGender(value: string): "MALE" | "FEMALE" | "OTHER" | "UNDISCLOSED" {
   const text = value.trim().toLowerCase();
@@ -85,7 +69,13 @@ export async function importStudentsAction(
     return { error: "That file is larger than 10 MB. Split it and import in batches." };
   }
 
-  const dryRun = formData.get("dryRun") === "on";
+  // Two submit buttons rather than a checkbox. The checkbox defaulted to on,
+  // so the ordinary way to use this screen was: upload, read "3 rows would
+  // import", and find no students afterwards. Nothing errored, nothing was
+  // written, and the screen said so in a sentence people had already stopped
+  // reading. A button that says "Import for real" cannot be misread, and it
+  // submits the form the file is still attached to, so nobody re-picks it.
+  const dryRun = formData.get("mode") !== "commit";
 
   let sheet;
   try {

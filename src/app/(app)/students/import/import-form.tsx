@@ -11,11 +11,11 @@ import {
   Card,
   CardBody,
   CardHeader,
-  CheckboxField,
   Field,
 } from "@/components/ui";
 
-import { importStudentsAction, IMPORT_FIELDS, type ImportState } from "./actions";
+import { importStudentsAction, type ImportState } from "./actions";
+import { IMPORT_FIELDS } from "./fields";
 
 export function ImportForm() {
   const [state, action] = useActionState<ImportState, FormData>(
@@ -51,7 +51,7 @@ export function ImportForm() {
                   id="file"
                   name="file"
                   type="file"
-                  accept=".xlsx,.xls"
+                  accept=".xlsx,.csv,text/csv"
                   required
                   className="sr-only"
                   onChange={(event) =>
@@ -61,18 +61,28 @@ export function ImportForm() {
               </label>
             </Field>
 
-            <CheckboxField
-              name="dryRun"
-              defaultChecked
-              label="Dry run"
-              description="Validates every row and reports what would happen, without writing anything. Run this first."
+            {/* Two buttons instead of a "dry run" tick-box. The box defaulted
+                to on, so the obvious way through this screen ended with a
+                report of what would have happened and no students. The file
+                stays attached to this form, so the second button needs no
+                re-upload. */}
+            <Submit
+              mode="check"
+              variant="outline"
+              label="Check the file"
+              busy="Checking…"
+            />
+            <Submit
+              mode="commit"
+              variant="primary"
+              label={state.ok && state.dryRun ? `Import ${state.imported} students` : "Import for real"}
+              busy="Importing…"
             />
 
-            <Submit />
-
             <p className="text-xs text-[var(--text-subtle)]">
-              Column headings are matched loosely — “Admission No.”, “admission_no” and
-              “ADMISSION NUMBER” all work.
+              Checking writes nothing — it reads every row and tells you what would
+              happen. Column headings are matched loosely: “Admission No.”,
+              “admission_no” and “ADMISSION NUMBER” all work.
             </p>
           </CardBody>
         </Card>
@@ -113,12 +123,13 @@ export function ImportForm() {
                 </div>
               </div>
 
-              {state.dryRun && state.imported ? (
+              {state.dryRun ? (
                 <Alert tone="info">
                   <span className="flex items-start gap-2">
                     <CheckCircle2 className="mt-0.5 size-4 shrink-0" />
-                    Nothing has been written. Untick “Dry run” and upload the same file
-                    to import for real.
+                    {state.imported
+                      ? `Nothing has been written yet. Press “Import ${state.imported} students” to save them.`
+                      : "Nothing has been written, and nothing would be — every row was skipped."}
                   </span>
                 </Alert>
               ) : null}
@@ -209,12 +220,33 @@ export function ImportForm() {
   );
 }
 
-function Submit() {
+/**
+ * `name`/`value` on a submit button is what tells the action which button was
+ * pressed — it is only included in the form data for the button that submitted.
+ */
+function Submit({
+  mode,
+  label,
+  busy,
+  variant,
+}: {
+  mode: "check" | "commit";
+  label: string;
+  busy: string;
+  variant: "primary" | "outline";
+}) {
   const { pending } = useFormStatus();
   return (
-    <Button type="submit" className="w-full" disabled={pending}>
+    <Button
+      type="submit"
+      name="mode"
+      value={mode}
+      variant={variant}
+      className="w-full"
+      disabled={pending}
+    >
       <FileUp className="size-4" />
-      {pending ? "Processing…" : "Process file"}
+      {pending ? busy : label}
     </Button>
   );
 }

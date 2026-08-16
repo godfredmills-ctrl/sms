@@ -91,9 +91,53 @@ export type ParsedSheet = {
   rows: Array<Record<string, string>>;
 };
 
+/**
+ * What a file actually is, read from its first bytes rather than its name.
+ *
+ * A registrar renaming `list.csv` to `list.xlsx` because the upload box asked
+ * for one is not an unusual event, and neither is a file exported from an old
+ * system that says .xls and is not. Sniffing means the error message can name
+ * the real problem instead of "could not read that file".
+ */
+function sniff(buffer: Buffer): "xlsx" | "xls" | "csv" {
+  // xlsx is a zip container.
+  if (buffer.length >= 4 && buffer.subarray(0, 4).toString("hex") === "504b0304") {
+    return "xlsx";
+  }
+  // Legacy .xls is an OLE2 compound document.
+  if (buffer.length >= 8 && buffer.subarray(0, 8).toString("hex") === "d0cf11e0a1b11ae1") {
+    return "xls";
+  }
+  return "csv";
+}
+
+/**
+ * Reads the first sheet of a spreadsheet into headers and rows.
+ *
+ * Accepts .xlsx and CSV. CSV matters more than it looks: it is what every
+ * other school system exports, what Google Sheets offers first, and what a
+ * registrar ends up with after emailing a list to themselves. Refusing it sent
+ * people away to convert a file for no reason.
+ */
 export async function parseWorkbook(buffer: Buffer): Promise<ParsedSheet> {
+  const kind = sniff(buffer);
+
+  if (kind === "xls") {
+    throw new Error(
+      "this is an old-format .xls file. Open it in Excel or LibreOffice and save it as .xlsx or CSV, then upload it again",
+    );
+  }
+
   const workbook = new ExcelJS.Workbook();
-  await workbook.xlsx.load(buffer as unknown as ArrayBuffer);
+
+  if (kind === "csv") {
+    // ExcelJS's CSV reader takes a stream, and rejects anything that is not
+    // actually delimited text — which is the right answer for a stray PDF.
+    const { Readable } = await import("node:stream");
+    await workbook.csv.read(Readable.from(buffer.toString("utf8")));
+  } else {
+    await workbook.xlsx.load(buffer as unknown as ArrayBuffer);
+  }
 
   const sheet = workbook.worksheets[0];
   if (!sheet) return { headers: [], rows: [] };

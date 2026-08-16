@@ -22,6 +22,7 @@
     "db:check": "node scripts/dbcheck.mjs",
     "db:verify": "tsx scripts/verify.ts",
     "pdf:preview": "tsx --conditions=react-server scripts/preview-pdf.ts",
+    "import:check": "tsx --conditions=react-server scripts/check-import.ts",
     "db:seed": "tsx prisma/seed.ts",
     "db:seed:force": "npx --yes tsx prisma/seed.ts",
     "db:studio": "prisma studio",
