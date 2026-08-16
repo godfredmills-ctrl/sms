@@ -326,36 +326,59 @@ async function seedSchool() {
 async function seedCalendar(schoolId: string) {
   console.log("  Academic year and terms…");
 
-  const startYear = new Date().getMonth() >= 8 ? new Date().getFullYear() : new Date().getFullYear() - 1;
+  // Terms are anchored to today so the current one always brackets it.
+  //
+  // The previous rule picked a September-to-July year from the calendar month,
+  // which is correct for a real school and wrong for a demo: seed during the
+  // long vacation — July or August — and you got a school whose academic year
+  // finished last month. Every "current term" figure was historical, the
+  // parent calendar counted down to a date four months past, and the whole
+  // school read as abandoned.
+  //
+  // Being mid-term matters more than matching the Ghanaian calendar exactly:
+  // marks and registers need to sit in the past, and the term needs to end in
+  // the future, whenever the seed happens to run.
+  const today = new Date();
+
+  const term2Start = addDays(today, -45);
+  const term2End = addDays(today, 40);
+  const term1Start = addDays(term2Start, -140);
+  const term1End = addDays(term2Start, -21);
+  const term3Start = addDays(term2End, 17);
+  const term3End = addDays(term2End, 110);
+
+  const startYear = term1Start.getFullYear();
 
   const year = await db.academicYear.create({
     data: {
       schoolId,
       name: `${startYear}/${startYear + 1}`,
-      startDate: new Date(startYear, 8, 1),
-      endDate: new Date(startYear + 1, 6, 31),
+      startDate: term1Start,
+      endDate: term3End,
       isCurrent: true,
       terms: {
         create: [
           {
             name: "Term 1",
             sequence: 1,
-            startDate: new Date(startYear, 8, 10),
-            endDate: new Date(startYear, 11, 15),
-            resultsDueDate: new Date(startYear, 11, 8),
+            startDate: term1Start,
+            endDate: term1End,
+            resultsDueDate: addDays(term1End, -7),
           },
           {
             name: "Term 2",
             sequence: 2,
-            startDate: new Date(startYear + 1, 0, 8),
-            endDate: new Date(startYear + 1, 3, 5),
+            startDate: term2Start,
+            endDate: term2End,
+            resultsDueDate: addDays(term2End, -7),
             isCurrent: true,
           },
           {
             name: "Term 3",
             sequence: 3,
-            startDate: new Date(startYear + 1, 3, 22),
-            endDate: new Date(startYear + 1, 6, 25),
+            startDate: term3Start,
+            endDate: term3End,
+            resultsDueDate: addDays(term3End, -7),
           },
         ],
       },
