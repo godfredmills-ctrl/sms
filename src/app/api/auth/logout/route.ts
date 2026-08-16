@@ -6,13 +6,27 @@ import { db } from "@/lib/db";
 /**
  * Signs the user out.
  *
- * The redirect is built from the **request's own origin**, not from APP_URL.
- * Using the configured value means a stale or wrong APP_URL sends someone
- * signing out to a different site entirely — which is a confusing 404 at best,
- * and at worst hands their next click to whatever is running on that address.
- * Wherever they signed out is where they should land.
+ * The redirect sends a **relative** Location. Every absolute alternative is
+ * wrong somewhere:
+ *
+ * - `env.appUrl` is a configured constant, so a stale APP_URL throws the user
+ *   onto whatever else is running at that address.
+ * - `request.url` is the address the *container* was reached on. Behind a
+ *   proxy — which is every real deployment — that is the internal bind
+ *   address, and the browser is handed `https://0.0.0.0:8080/login`.
+ *
+ * A relative Location is resolved by the browser against the URL it actually
+ * used, which is the only origin guaranteed to be correct. RFC 7231 has
+ * permitted this since 2014 and every browser has always accepted it.
  */
-export async function POST(request: Request) {
+function toLogin() {
+  return new NextResponse(null, {
+    status: 303,
+    headers: { Location: "/login", "Cache-Control": "no-store" },
+  });
+}
+
+export async function POST() {
   const user = await getCurrentUser().catch(() => null);
 
   if (user) {
@@ -23,14 +37,13 @@ export async function POST(request: Request) {
 
   await destroySession().catch(() => undefined);
 
-  return NextResponse.redirect(new URL("/login", request.url), { status: 303 });
+  return toLogin();
 }
 
 /**
- * A browser that follows a bare link to this path, or a user who reloads after
- * signing out, would otherwise get a bare 405. Sending them to the login page
- * is what they were trying to reach.
+ * A bare link to this path, or a reload after signing out, would otherwise get
+ * a 405. The login page is where they were trying to go.
  */
-export async function GET(request: Request) {
-  return NextResponse.redirect(new URL("/login", request.url), { status: 303 });
+export async function GET() {
+  return toLogin();
 }

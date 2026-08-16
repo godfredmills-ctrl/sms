@@ -703,7 +703,11 @@ async function seedClasses() {
       const section = await db.classSection.create({
         data: {
           classLevelId: level.id,
-          name: `${definition.code}${suffix}`,
+          // Just the stream, not the level code. The app renders a class as
+          // "{level} {section}" everywhere — report cards, registers, the
+          // gradebook — so baking the code in here produced "JHS 3 J3A".
+          // The academics form says as much: its placeholder is "Gold".
+          name: suffix,
           code: `${definition.code}-${suffix}`,
           capacity: 30,
           roomName: `Room ${definition.code}${suffix}`,
@@ -1099,7 +1103,9 @@ async function seedStudents(
 
       if (hasFather) {
         // Give exactly one family a known login so the parent portal is demoable.
-        const isDemo = !demoGuardianCreated && section.name === "J2A" && index === 0;
+        // Keyed on the section's unique code, not its display name — the name
+        // is now just the stream letter and is shared across every level.
+        const isDemo = !demoGuardianCreated && section.code === "J2-A" && index === 0;
         const guardianUser = isDemo
           ? await db.user.create({
               data: {
@@ -2179,7 +2185,9 @@ async function seedLearning(
   // the moment the demo account moved to a student in a different year.
   const wantedSectionIds = [
     demoStudentSectionId,
-    sections.find((section) => section.name === "J2A")?.id ?? null,
+    // The demo guardian's child sits here, so the parent portal has course
+    // material to show too. Keyed on code — `name` is now just the stream.
+    sections.find((section) => section.code === "J2-A")?.id ?? null,
   ].filter((id): id is string => Boolean(id));
 
   const uniqueSectionIds = [...new Set(wantedSectionIds)];
