@@ -2208,6 +2208,13 @@ model MemoRecipient {
   acknowledgedAt DateTime?
   ackComment     String?
 
+  /// Mailbox state is per recipient, not per memo: one memo has many readers,
+  /// and each archives or discards their own copy without touching anyone
+  /// else's. Trash is restorable — deletedAt here means "in my bin", and the
+  /// row survives so the school's record of who received what does too.
+  archivedAt DateTime?
+  trashedAt  DateTime?
+
   @@unique([memoId, userId])
   @@index([userId])
 }
