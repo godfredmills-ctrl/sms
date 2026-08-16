@@ -48,9 +48,27 @@ export type SiteTheme = {
   navy: string;
   /** The warm highlight — second heading lines, tags, the apply button. */
   gold: string;
+  /**
+   * The highlight darkened for text on light backgrounds. Gold that reads on
+   * navy fails WCAG on white — #E9A319 on white is barely 2:1 — so small text
+   * and heading accents on light surfaces use this instead, derived in the
+   * frame from whatever highlight the school picked.
+   */
+  goldText: string;
   /** The soft wash behind alternating sections. */
   cream: string;
 };
+
+/**
+ * A translucent tint of a theme colour, safe for any colour a school types.
+ *
+ * Appending a hex alpha ("#E9A31926") only works on six-digit hex and turns
+ * "goldenrod" into an invalid value that silently kills the background.
+ * color-mix handles every colour CSS itself accepts.
+ */
+export function tint(colour: string, percent: number): string {
+  return `color-mix(in srgb, ${colour} ${percent}%, transparent)`;
+}
 
 /**
  * The public renderer for a page's blocks.
@@ -85,9 +103,14 @@ export function RenderBlock({
 
   // A call to action has been stored both flat and nested. Accepting both
   // costs three lines and means an older page still renders its button.
+  // Only when the flat keys were never written: a school that clears a
+  // button field must get no button, not the value from two schemas ago.
   const nestedCta = (raw.cta ?? {}) as Record<string, unknown>;
-  const ctaLabel = propText(raw.ctaLabel) || propText(nestedCta.label);
-  const ctaHref = safeHref(propText(raw.ctaHref) || propText(nestedCta.href));
+  const ctaLabel =
+    raw.ctaLabel === undefined ? propText(nestedCta.label) : propText(raw.ctaLabel);
+  const ctaHref = safeHref(
+    raw.ctaHref === undefined ? propText(nestedCta.href) : propText(raw.ctaHref),
+  );
 
   const heading = { fontFamily: "var(--heading-font)" } as const;
 
@@ -96,7 +119,7 @@ export function RenderBlock({
     text ? (
       <p
         className="mb-2 text-xs font-bold tracking-[0.2em] uppercase"
-        style={{ color: theme.gold }}
+        style={{ color: theme.goldText }}
       >
         {text}
       </p>
@@ -150,7 +173,7 @@ export function RenderBlock({
                 {props.headingAccent ? (
                   <>
                     <br />
-                    <span style={{ color: theme.gold }}>{props.headingAccent}</span>
+                    <span style={{ color: theme.goldText }}>{props.headingAccent}</span>
                   </>
                 ) : null}
               </h1>
@@ -173,11 +196,11 @@ export function RenderBlock({
                   alt=""
                   className="aspect-[4/3] w-full rounded-2xl object-cover shadow-lg"
                 />
-                {props.badgeTitle ? (
+                {props.badgeTitle || props.badgeText ? (
                   <div className="absolute -bottom-5 right-6 flex items-center gap-3 rounded-xl bg-white px-4 py-3 shadow-lg">
                     <span
                       className="flex size-10 items-center justify-center rounded-full"
-                      style={{ background: `${theme.gold}26`, color: theme.gold }}
+                      style={{ background: tint(theme.gold, 15), color: theme.goldText }}
                     >
                       <Award className="size-5" />
                     </span>
@@ -293,7 +316,7 @@ export function RenderBlock({
                         >
                           <span
                             className="flex size-9 shrink-0 items-center justify-center rounded-lg"
-                            style={{ background: `${theme.gold}1f`, color: theme.gold }}
+                            style={{ background: tint(theme.gold, 12), color: theme.goldText }}
                           >
                             <Icon className="size-4" />
                           </span>
@@ -327,7 +350,7 @@ export function RenderBlock({
                 {props.headingAccent ? (
                   <>
                     <br />
-                    <span style={{ color: theme.gold }}>{props.headingAccent}</span>
+                    <span style={{ color: theme.goldText }}>{props.headingAccent}</span>
                   </>
                 ) : null}
               </h2>
@@ -434,7 +457,7 @@ export function RenderBlock({
                       className="flex aspect-[4/3] w-full items-center justify-center"
                       style={{ background: theme.cream }}
                     >
-                      <GraduationCap className="size-8" style={{ color: theme.gold }} />
+                      <GraduationCap className="size-8" style={{ color: theme.goldText }} />
                     </div>
                   )}
                   <div className="p-4">
@@ -449,7 +472,7 @@ export function RenderBlock({
                     {tag ? (
                       <p
                         className="mt-2 text-xs font-semibold"
-                        style={{ color: theme.gold }}
+                        style={{ color: theme.goldText }}
                       >
                         {tag}
                       </p>
@@ -530,7 +553,7 @@ export function RenderBlock({
               {props.quote}
             </blockquote>
             {props.attribution ? (
-              <p className="mt-4 text-sm font-semibold" style={{ color: theme.gold }}>
+              <p className="mt-4 text-sm font-semibold" style={{ color: theme.goldText }}>
                 — {props.attribution}
               </p>
             ) : null}
@@ -595,6 +618,16 @@ export function RenderBlock({
             ) : null}
             <div className="mt-6 flex flex-wrap justify-center gap-3">
               {goldButton(ctaLabel, ctaHref)}
+              {/* The catalogue offers a second button unconditionally, so the
+                  band variant honours it too — white outline on the navy. */}
+              {props.secondaryCtaLabel && safeHref(props.secondaryCtaHref) ? (
+                <Link
+                  href={safeHref(props.secondaryCtaHref)}
+                  className="inline-flex h-11 items-center rounded-md border-2 border-white/70 px-6 text-sm font-semibold text-white transition-colors hover:border-white"
+                >
+                  {props.secondaryCtaLabel}
+                </Link>
+              ) : null}
             </div>
           </div>
         </section>
@@ -632,7 +665,7 @@ export function RenderBlock({
                 >
                   <span
                     className="flex size-9 shrink-0 items-center justify-center rounded-lg"
-                    style={{ background: `${theme.gold}1f`, color: theme.gold }}
+                    style={{ background: tint(theme.gold, 12), color: theme.goldText }}
                   >
                     <Icon className="size-4" />
                   </span>
@@ -671,7 +704,7 @@ export function RenderBlock({
                   key={item.id}
                   className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm"
                 >
-                  <p className="text-xs font-semibold" style={{ color: theme.gold }}>
+                  <p className="text-xs font-semibold" style={{ color: theme.goldText }}>
                     {formatDate(item.publishedAt)}
                   </p>
                   <h3
@@ -720,7 +753,7 @@ export function RenderBlock({
               props.thanks ||
               "Thank you — your enquiry has been received. The admissions office will contact you shortly."
             }
-            accent={theme.navy}
+            accent={theme.primary}
           />
         </section>
       );

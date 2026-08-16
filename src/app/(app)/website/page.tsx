@@ -83,8 +83,6 @@ export default async function WebsitePage() {
     accent: theme.accent ?? "#E9A319",
     wash: theme.wash ?? "#FAF6EE",
     headingFont: theme.headingFont ?? "serif",
-    font: theme.font ?? "system",
-    radius: theme.radius ?? "12px",
     address: contact.address ?? "",
     phone: contact.phone ?? "",
     email: contact.email ?? "",

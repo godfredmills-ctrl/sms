@@ -23,7 +23,7 @@ export default async function VerifyPage({
   params: Promise<{ code: string }>;
 }) {
   const { code } = await params;
-  const normalised = code.trim().toUpperCase();
+  const normalised = code.trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
 
   const [transcript, certificate, school] = await Promise.all([
     db.transcript.findUnique({

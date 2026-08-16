@@ -25,8 +25,6 @@ export type SiteValues = {
   accent: string;
   wash: string;
   headingFont: string;
-  font: string;
-  radius: string;
   address: string;
   phone: string;
   email: string;
@@ -64,7 +62,7 @@ export function SiteSettingsForm({ values }: { values: SiteValues }) {
             tags and the Apply button, and the wash sits behind alternating
             sections. */}
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Primary colour" htmlFor="primary" hint="Links and controls.">
+          <Field label="Primary colour" htmlFor="primary" hint="The admission enquiry form.">
             <Input id="primary" name="primary" defaultValue={values.primary} />
           </Field>
           <Field label="Deep colour" htmlFor="secondary" hint="Bands, headings, footer.">

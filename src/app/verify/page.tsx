@@ -17,9 +17,9 @@ export default function VerifyIndexPage() {
     const code = String(formData.get("code") ?? "")
       .trim()
       .toUpperCase()
-      // The code is printed with a hyphen for readability; accept it typed
-      // with or without.
-      .replace(/[^A-Z0-9-]/g, "");
+      // Stored codes are bare alphanumerics; people add grouping hyphens
+      // when reading them out, and the lookup must not punish that.
+      .replace(/[^A-Z0-9]/g, "");
     if (code) redirect(`/verify/${code}`);
   }
 

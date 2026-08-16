@@ -28,6 +28,23 @@ export async function subscribeNewsletterAction(
   const site = await db.site.findFirst({ select: { id: true } });
   if (!site) return { ok: true };
 
+  // Same address ceiling as the enquiry form: an unauthenticated write with
+  // no limit is an invitation to fill the table.
+  const headerList = await headers();
+  const forwarded = headerList.get("x-forwarded-for");
+  const ipAddress = forwarded?.split(",")[0]?.trim() || null;
+
+  if (ipAddress) {
+    const recent = await db.siteFormSubmission.count({
+      where: {
+        ipAddress,
+        formKey: "newsletter",
+        createdAt: { gte: new Date(Date.now() - 60 * 60 * 1000) },
+      },
+    });
+    if (recent >= 10) return { ok: true };
+  }
+
   // One row per address. equals on a JSON path keeps this a query rather than
   // a table scan through parsed JSON in application code.
   const existing = await db.siteFormSubmission.findFirst({
@@ -45,6 +62,7 @@ export async function subscribeNewsletterAction(
       siteId: site.id,
       formKey: "newsletter",
       isSpam: honeypot.length > 0,
+      ipAddress,
       data: { email },
     },
   });

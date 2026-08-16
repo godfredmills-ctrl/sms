@@ -47,8 +47,6 @@ export async function updateSiteAction(
         accent: text(formData, "accent") || "#E9A319",
         wash: text(formData, "wash") || "#FAF6EE",
         headingFont: text(formData, "headingFont") || "serif",
-        font: text(formData, "font") || "system",
-        radius: text(formData, "radius") || "12px",
       },
       contactInfo: {
         address: text(formData, "address"),

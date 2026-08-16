@@ -3034,18 +3034,8 @@ async function seedWebsite(school: { id: string; name: string; motto: string | n
     },
   });
 
-  await db.siteMenu.create({
-    data: {
-      siteId: site.id,
-      location: "HEADER",
-      items: [
-        { label: "Home", url: "/" },
-        { label: "About Us", url: "/about" },
-        { label: "Admissions", url: "/admissions" },
-        { label: "Contact", url: "/contact" },
-      ] as never,
-    },
-  });
+  // No SiteMenu row: navigation is built from the pages themselves, and a
+  // menu table nothing reads is drift waiting to be reported.
 
   await db.sitePost.createMany({
     data: [

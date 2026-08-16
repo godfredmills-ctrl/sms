@@ -34,7 +34,7 @@ export function NewsletterForm({ gold, navy }: { gold: string; navy: string }) {
         required
         placeholder="Enter your email"
         aria-label="Email address"
-        className="h-9 min-w-0 flex-1 rounded-md border border-white/20 bg-white/10 px-3 text-xs text-white placeholder:text-white/50 focus:border-white/50 focus:outline-none"
+        className="h-9 min-w-0 flex-1 rounded-md border border-white/20 bg-white/10 px-3 text-xs text-white placeholder:text-white/70 focus:border-white/50 focus:outline-none"
       />
       <SubmitButton gold={gold} navy={navy} />
       {state.error ? <p className="text-xs text-red-300">{state.error}</p> : null}

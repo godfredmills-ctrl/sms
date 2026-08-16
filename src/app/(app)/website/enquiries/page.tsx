@@ -73,8 +73,11 @@ export default async function EnquiriesPage({
   const params = await searchParams;
   const { page, skip, take } = pageOf(params, PER_PAGE);
   const showSpam = params.spam === "1";
+  const showNewsletter = params.tab === "newsletter";
 
-  const where = { formKey: "admissions-enquiry", isSpam: showSpam };
+  const where = showNewsletter
+    ? { formKey: "newsletter", isSpam: false }
+    : { formKey: "admissions-enquiry", isSpam: showSpam };
 
   const [submissions, total, unread, spamCount] = await Promise.all([
     db.siteFormSubmission.findMany({
@@ -91,6 +94,21 @@ export default async function EnquiriesPage({
       where: { formKey: "admissions-enquiry", isSpam: true },
     }),
   ]);
+
+  // The whole list for the copy box, not just this page of it — the point of
+  // a mailing list is pasting it into the send field of something.
+  const allSubscribers = showNewsletter
+    ? (
+        await db.siteFormSubmission.findMany({
+          where: { formKey: "newsletter", isSpam: false },
+          orderBy: { createdAt: "desc" },
+          select: { data: true },
+          take: 5000,
+        })
+      )
+        .map((row) => String((row.data as { email?: string })?.email ?? ""))
+        .filter(Boolean)
+    : [];
 
   return (
     <>
@@ -123,8 +141,17 @@ export default async function EnquiriesPage({
 
       <div className="mb-4 flex gap-1 border-b border-[var(--border)] pb-px">
         {[
-          { label: "Enquiries", href: "/website/enquiries", active: !showSpam },
+          {
+            label: "Enquiries",
+            href: "/website/enquiries",
+            active: !showSpam && !showNewsletter,
+          },
           { label: "Spam", href: "/website/enquiries?spam=1", active: showSpam },
+          {
+            label: "Newsletter",
+            href: "/website/enquiries?tab=newsletter",
+            active: showNewsletter,
+          },
         ].map((tab) => (
           <Link
             key={tab.label}
@@ -140,6 +167,36 @@ export default async function EnquiriesPage({
         ))}
       </div>
 
+      {showNewsletter ? (
+        <div className="space-y-3">
+          {allSubscribers.length === 0 ? (
+            <Card>
+              <EmptyState
+                icon={<Inbox className="size-5" />}
+                title="No subscribers yet"
+                description="Addresses from the website footer's signup collect here."
+              />
+            </Card>
+          ) : (
+            <Card className="p-5">
+              <p className="mb-2 text-sm font-medium">
+                {allSubscribers.length.toLocaleString()} subscriber
+                {allSubscribers.length === 1 ? "" : "s"}
+              </p>
+              <p className="mb-2 text-xs text-[var(--text-subtle)]">
+                One per line, newest first — select all and paste into your mail
+                tool&rsquo;s BCC field.
+              </p>
+              <textarea
+                readOnly
+                rows={Math.min(allSubscribers.length + 1, 16)}
+                value={allSubscribers.join("\n")}
+                className="w-full rounded-lg border border-[var(--border)] bg-[var(--bg-subtle)] p-3 font-mono text-xs"
+              />
+            </Card>
+          )}
+        </div>
+      ) : (
       <div className="space-y-3">
         {submissions.length === 0 ? (
           <Card>
@@ -250,6 +307,7 @@ export default async function EnquiriesPage({
           label="enquiries"
         />
       </div>
+      )}
     </>
   );
 }
