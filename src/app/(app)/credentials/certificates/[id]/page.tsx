@@ -5,6 +5,7 @@ import { Download } from "lucide-react";
 
 import { Alert } from "@/components/ui";
 import { PrintButton } from "@/components/print-button";
+import { DocumentView } from "../../document-view";
 import { requirePermission } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { env } from "@/lib/env";
@@ -29,15 +30,16 @@ export default async function CertificatePage({
   if (!certificate) notFound();
 
   const school = await db.school.findFirst({
-    select: { name: true, motto: true, logoUrl: true, city: true },
+    select: { name: true, motto: true, logoUrl: true, city: true, branding: true },
   });
 
-  const layout = (certificate.template.layout ?? {}) as {
-    accent?: string;
-    border?: string;
-  };
-  const accent = layout.accent ?? "#128257";
-  const border = layout.border ?? "classic";
+  // This page draws a generic certificate, not the template. It used to read
+  // `accent` and `border` off the layout, which no template has written since
+  // the builder started storing positioned elements — so it was quietly
+  // falling back to its defaults every time and looking like it had honoured
+  // a design it never read. The school's brand colour is at least true.
+  const branding = (school?.branding ?? {}) as Record<string, string>;
+  const accent = branding.primary || "#128257";
 
   return (
     <>
@@ -51,7 +53,11 @@ export default async function CertificatePage({
           </Link>
           <h1 className="mt-1 text-xl font-semibold">{certificate.title}</h1>
           <p className="numeric text-sm text-[var(--text-muted)]">
-            {certificate.serialNumber} · {certificate.template.name}
+            {certificate.serialNumber}
+          </p>
+          <p className="no-print mt-0.5 text-xs text-[var(--text-subtle)]">
+            The PDF is laid out by your &quot;{certificate.template.name}&quot; template —
+            switch below to see it
           </p>
         </div>
         <div className="no-print flex items-center gap-2">
@@ -76,20 +82,17 @@ export default async function CertificatePage({
 
       {/* Landscape A4. The border weight is what makes a certificate read as
           a certificate rather than a letter, so it is drawn, not implied. */}
+      <DocumentView
+        pdfUrl={`/api/credentials/certificate/${certificate.id}`}
+        templateName={certificate.template.name}
+      >
       <div
         className="print-page mx-auto aspect-[297/210] w-full max-w-[297mm] bg-white p-3 shadow-sm print:shadow-none"
         style={{ color: "#111" }}
       >
         <div
           className="flex h-full flex-col items-center justify-center px-12 py-8 text-center"
-          style={{
-            border:
-              border === "minimal"
-                ? `2px solid ${accent}`
-                : `10px double ${accent}`,
-            outline: border === "ornate" ? `2px solid ${accent}` : undefined,
-            outlineOffset: border === "ornate" ? "6px" : undefined,
-          }}
+          style={{ border: `10px double ${accent}` }}
         >
           {school?.logoUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -143,6 +146,7 @@ export default async function CertificatePage({
           </div>
         </div>
       </div>
+      </DocumentView>
     </>
   );
 }

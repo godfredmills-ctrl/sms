@@ -5,6 +5,7 @@ import { Download } from "lucide-react";
 
 import { Alert, Badge } from "@/components/ui";
 import { PrintButton } from "@/components/print-button";
+import { DocumentView } from "../../document-view";
 import { requirePermission } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { env } from "@/lib/env";
@@ -86,13 +87,14 @@ export default async function TranscriptPage({
           <p className="numeric text-sm text-[var(--text-muted)]">
             {transcript.serialNumber}
           </p>
-          {/* The page below is a readable web view. The template governs the
-              PDF, so say which one — otherwise a school that designed a layout
-              looks at this screen and concludes it was ignored. */}
+          {/* The view below is a readable web rendering; the template governs
+              the PDF. Saying so is not enough on its own — a school that
+              designed a layout looks at this screen and concludes it was
+              ignored — so the toggle underneath shows the real file. */}
           <p className="no-print mt-0.5 text-xs text-[var(--text-subtle)]">
             {transcript.template
-              ? `PDF uses the "${transcript.template.name}" template`
-              : "PDF uses the built-in layout — no transcript template was attached"}
+              ? `The PDF is laid out by your "${transcript.template.name}" template — switch below to see it`
+              : "No transcript template attached, so the PDF uses the built-in layout"}
           </p>
         </div>
         <div className="no-print flex items-center gap-2">
@@ -115,6 +117,10 @@ export default async function TranscriptPage({
         </Alert>
       ) : null}
 
+      <DocumentView
+        pdfUrl={`/api/credentials/transcript/${transcript.id}`}
+        templateName={transcript.template?.name ?? null}
+      >
       <div className="print-page mx-auto max-w-[210mm] bg-[var(--bg-elevated)] p-8 text-[12px] shadow-sm print:p-0 print:shadow-none">
         <header className="border-b-2 border-[var(--text)] pb-3 text-center">
           {school?.logoUrl ? (
@@ -173,7 +179,10 @@ export default async function TranscriptPage({
                   <th className="py-1 text-left text-[10px] font-semibold">Subject</th>
                   <th className="py-1 text-right text-[10px] font-semibold">Score</th>
                   <th className="py-1 text-center text-[10px] font-semibold">Grade</th>
-                  <th className="py-1 text-right text-[10px] font-semibold">Point</th>
+                  {/* Point is right-aligned and Remark left-aligned, so with
+                      no gutter between them "4" and "Credit" print as
+                      "4Credit". */}
+                  <th className="py-1 pr-3 text-right text-[10px] font-semibold">Point</th>
                   <th className="py-1 text-left text-[10px] font-semibold">Remark</th>
                 </tr>
               </thead>
@@ -185,7 +194,7 @@ export default async function TranscriptPage({
                       {line.score?.toFixed(1) ?? "—"}
                     </td>
                     <td className="py-0.5 text-center font-medium">{line.grade ?? "—"}</td>
-                    <td className="numeric py-0.5 text-right">{line.point ?? "—"}</td>
+                    <td className="numeric py-0.5 pr-3 text-right">{line.point ?? "—"}</td>
                     <td className="py-0.5 text-[10px]">{line.remark ?? "—"}</td>
                   </tr>
                 ))}
@@ -229,6 +238,7 @@ export default async function TranscriptPage({
           {formatDate(transcript.issuedAt)}. Any alteration renders it invalid.
         </p>
       </div>
+      </DocumentView>
 
       <div className="no-print mx-auto mt-4 max-w-[210mm]">
         <Badge tone="neutral">
