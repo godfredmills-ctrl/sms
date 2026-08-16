@@ -129,7 +129,12 @@ async function main() {
   const subjects = await seedSubjects(levels);
   const staff = await seedStaff(roles, school.id);
   const offerings = await seedOfferings(year.id, terms, sections, subjects, staff);
-  const students = await seedStudents(school.id, roles, sections, year.id);
+  const { students, demoStudentSectionId } = await seedStudents(
+    school.id,
+    roles,
+    sections,
+    year.id,
+  );
   await seedAssessments(offerings, terms, students, sections);
   await seedAttendance(terms, sections, students, staff);
   const feeCategories = await seedFeeStructures(year.id, terms, levels);
@@ -137,7 +142,7 @@ async function main() {
   await seedCommunications(roles);
   await seedElections(sections);
   await seedDocuments();
-  await seedLearning(offerings, students, sections);
+  await seedLearning(offerings, students, sections, demoStudentSectionId);
   await seedWebsite(school);
 
   console.log("\nDone.\n");
@@ -1273,13 +1278,14 @@ async function seedStudents(
         },
       });
 
-      // Older students get a portal login; one gets a known demo account.
+      // Older students get a portal login. The `chance` call stays exactly
+      // here, and is made for every student regardless: the demo account is
+      // chosen in a second pass below, and moving or skipping this call would
+      // shift the whole random sequence and rename every student after it.
       if (age >= 11 && chance(0.5)) {
-        const isDemo = !demoStudentCreated && section.name === "J2A";
         const studentUser = await db.user.create({
           data: {
-            email: isDemo ? "student@goldencrest.edu.gh" : null,
-            username: isDemo ? "student" : admissionNo.replace(/\//g, "").toLowerCase(),
+            username: admissionNo.replace(/\//g, "").toLowerCase(),
             passwordHash: password,
             status: "ACTIVE",
             firstName,
@@ -1292,18 +1298,105 @@ async function seedStudents(
           where: { id: student.id },
           data: { userId: studentUser.id },
         });
-        if (isDemo) demoStudentCreated = true;
       }
 
       students.push({ ...student, sectionId: section.id });
     }
   }
 
+  const demoStudent = await promoteDemoStudent(students, roles, password);
+
   console.log(`    ${students.length} students created`);
-  return students;
+  return { students, demoStudentSectionId: demoStudent?.sectionId ?? null };
 }
 
-type StudentRow = Awaited<ReturnType<typeof seedStudents>>[number];
+/**
+ * Attaches the known demo login to one specific student.
+ *
+ * Done as a second pass rather than inline so the target can be named rather
+ * than being "whichever student in J2A happened to win a coin flip". Set
+ * SEED_DEMO_STUDENT to an admission number or a full name to change who it is;
+ * the default is the student the school asked for.
+ *
+ * Falls back to any student with a login if the target is missing, so a
+ * mistyped name degrades to a working demo account rather than to no login at
+ * all.
+ */
+async function promoteDemoStudent(
+  students: Array<{ id: string; admissionNo: string; firstName: string; lastName: string; sectionId: string }>,
+  roles: Record<string, string>,
+  password: string,
+) {
+  const wanted = (process.env.SEED_DEMO_STUDENT ?? "GCS/2024/0390").trim().toLowerCase();
+
+  const normalise = (value: string) => value.trim().toLowerCase();
+
+  const target =
+    students.find((student) => normalise(student.admissionNo) === wanted) ??
+    students.find(
+      (student) => normalise(`${student.firstName} ${student.lastName}`) === wanted,
+    ) ??
+    null;
+
+  if (!target) {
+    console.warn(
+      `    ! No student matches "${process.env.SEED_DEMO_STUDENT ?? "GCS/2024/0390"}" — the demo login will go to the first student who has one.`,
+    );
+  }
+
+  const fallback = students.find((student) => student.id);
+  const chosen = target ?? fallback;
+  if (!chosen) return null;
+
+  // Free the demo address and username in case a previous pass used them.
+  await db.user.updateMany({
+    where: { email: "student@goldencrest.edu.gh" },
+    data: { email: null },
+  });
+  await db.user.updateMany({
+    where: { username: "student" },
+    data: { username: null },
+  });
+
+  const record = await db.student.findUnique({
+    where: { id: chosen.id },
+    select: { userId: true },
+  });
+
+  if (record?.userId) {
+    await db.user.update({
+      where: { id: record.userId },
+      data: { email: "student@goldencrest.edu.gh", username: "student" },
+    });
+  } else {
+    // The target did not draw a portal login in the main pass, so give them
+    // one. No random calls here — the sequence is already spent.
+    const studentUser = await db.user.create({
+      data: {
+        email: "student@goldencrest.edu.gh",
+        username: "student",
+        passwordHash: password,
+        status: "ACTIVE",
+        firstName: chosen.firstName,
+        lastName: chosen.lastName,
+        portal: "STUDENT",
+        roles: { create: { roleId: roles.student } },
+      },
+    });
+    await db.student.update({
+      where: { id: chosen.id },
+      data: { userId: studentUser.id },
+    });
+  }
+
+  console.log(
+    `    Demo student login → ${chosen.firstName} ${chosen.lastName} (${chosen.admissionNo})`,
+  );
+
+  return chosen;
+}
+
+type StudentRow = Awaited<ReturnType<typeof seedStudents>>["students"][number];
 
 async function seedAssessments(
   offerings: OfferingRow[],
@@ -2036,20 +2129,25 @@ async function seedLearning(
   offerings: OfferingRow[],
   students: StudentRow[],
   sections: SectionRow[],
+  demoStudentSectionId: string | null,
 ) {
   console.log("  Courses, lessons and quizzes…");
 
-  // J2A is where the demo student and demo guardian live, so that is the class
-  // that gets the material.
-  const demoSection = sections.find((section) => section.name === "J2A");
+  // Follow the demo student rather than a hardcoded class. Whoever holds the
+  // demo login must land on a populated Courses tab, and that is the whole
+  // point of seeding this material — pinning it to a class name would break
+  // the moment the demo account moved to a student in a different year.
+  const wantedSectionIds = [
+    demoStudentSectionId,
+    sections.find((section) => section.name === "J2A")?.id ?? null,
+  ].filter((id): id is string => Boolean(id));
 
-  const demoSectionOfferings = demoSection
-    ? offerings.filter((offering) => offering.classSectionId === demoSection.id)
-    : [];
+  const uniqueSectionIds = [...new Set(wantedSectionIds)];
 
-  // Fall back to any class if the demo section is missing, so the seed still
-  // produces something useful rather than silently doing nothing.
-  const target = demoSectionOfferings.length ? demoSectionOfferings : offerings.slice(0, 4);
+  const target = uniqueSectionIds.length
+    ? offerings.filter((offering) => uniqueSectionIds.includes(offering.classSectionId))
+    : offerings.slice(0, 4);
+
   if (!target.length) return;
 
   const subjectNames = await db.subject.findMany({
@@ -2058,9 +2156,15 @@ async function seedLearning(
   });
   const nameOf = new Map(subjectNames.map((entry) => [entry.id, entry.name]));
 
-  const classStudents = students.filter(
-    (student) => student.sectionId === target[0].classSectionId,
-  );
+  // Per-section, because the target can now span two classes — progress and
+  // submissions must belong to the students actually in that course's class.
+  const studentsBySection = new Map<string, StudentRow[]>();
+  for (const student of students) {
+    studentsBySection.set(student.sectionId, [
+      ...(studentsBySection.get(student.sectionId) ?? []),
+      student,
+    ]);
+  }
 
   const MODULES: Record<string, Array<{ title: string; lessons: string[] }>> = {
     default: [
@@ -2081,8 +2185,19 @@ async function seedLearning(
 
   let created = 0;
 
-  for (const [index, offering] of target.slice(0, 5).entries()) {
+  // Cap per class rather than overall, so a second class does not go empty
+  // just because the first used up the budget.
+  const perSection = new Map<string, number>();
+  const chosen = target.filter((offering) => {
+    const used = perSection.get(offering.classSectionId) ?? 0;
+    if (used >= 5) return false;
+    perSection.set(offering.classSectionId, used + 1);
+    return true;
+  });
+
+  for (const [index, offering] of chosen.entries()) {
     const subject = nameOf.get(offering.subjectId) ?? "Subject";
+    const classStudents = studentsBySection.get(offering.classSectionId) ?? [];
 
     const course = await db.course.create({
       data: {
@@ -2193,8 +2308,19 @@ async function seedLearning(
   // --- Quizzes -------------------------------------------------------------
   // One open quiz with a mix of question types so every marking path is
   // exercised, and one already closed so the results view has something in it.
+  //
+  // Both go to the demo student's own class: a quiz they cannot open is not a
+  // demonstration of anything.
+  const quizSectionId = demoStudentSectionId ?? uniqueSectionIds[0] ?? null;
+
+  const quizOfferingIds = chosen
+    .filter((offering) => !quizSectionId || offering.classSectionId === quizSectionId)
+    .map((offering) => offering.id);
+
   const quizCourses = await db.course.findMany({
-    where: { offeringId: { in: target.map((offering) => offering.id) } },
+    where: {
+      offeringId: { in: quizOfferingIds.length ? quizOfferingIds : chosen.map((o) => o.id) },
+    },
     select: { id: true, title: true },
     take: 2,
   });
@@ -2467,6 +2593,40 @@ async function printCredentials() {
     console.log(`  ${role.padEnd(24)} ${email.padEnd(34)} ${password}`);
   }
   console.log("  " + "─".repeat(74));
+
+  // Name the person behind the demo student login, and the class their course
+  // material was seeded into — the two things you need to know before clicking
+  // anything in the portal.
+  const demo = await db.user.findFirst({
+    where: { email: "student@goldencrest.edu.gh" },
+    select: {
+      student: {
+        select: {
+          admissionNo: true,
+          firstName: true,
+          lastName: true,
+          enrollments: {
+            where: { status: "ACTIVE" },
+            take: 1,
+            select: {
+              classSection: {
+                select: { name: true, classLevel: { select: { name: true } } },
+              },
+            },
+          },
+        },
+      },
+    },
+  });
+
+  if (demo?.student) {
+    const section = demo.student.enrollments[0]?.classSection;
+    console.log(
+      `\n  Student portal is ${demo.student.firstName} ${demo.student.lastName} (${demo.student.admissionNo})` +
+        (section ? ` in ${section.classLevel.name} ${section.name}` : "") +
+        `\n  Courses and quizzes were seeded into that class.`,
+    );
+  }
 }
 
 main()

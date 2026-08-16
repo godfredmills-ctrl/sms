@@ -58,6 +58,18 @@ whatever `SEED_ADMIN_PASSWORD` is set to (`ChangeMe123!` out of the box):
 | Parent / Guardian | `parent@goldencrest.edu.gh` — password `Parent123!` |
 | Student | `student@goldencrest.edu.gh` — password `Student123!` |
 
+The student login is attached to one named student, and the demo course
+material and quizzes are seeded into **that student's class** so the portal is
+populated on first sign-in. Set `SEED_DEMO_STUDENT` to a different admission
+number or full name to move it:
+
+```
+SEED_DEMO_STUDENT="GCS/2024/0390"      # default
+SEED_DEMO_STUDENT="Priscilla Quartey"  # by name also works
+```
+
+The seed prints who it landed on and which class was populated.
+
 The seed is deterministic and re-runnable: `npm run db:seed` wipes and rebuilds
 the same school every time.
 
