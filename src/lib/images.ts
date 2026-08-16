@@ -37,7 +37,7 @@ export async function toEmbeddableImage(
 
     const longEdge = Math.max(meta.width ?? 0, meta.height ?? 0);
     const oversized = longEdge > 1600;
-    const usable = meta.format === "png" || meta.format === "jpeg" || meta.format === "jpg";
+    const usable = meta.format === "png" || meta.format === "jpeg";
 
     if (usable && !oversized) {
       return {
@@ -53,7 +53,7 @@ export async function toEmbeddableImage(
 
     // JPEG stays JPEG when only the size was wrong; everything else becomes
     // PNG, which keeps transparency on a crest cut out of its background.
-    if (meta.format === "jpeg" || meta.format === "jpg") {
+    if (meta.format === "jpeg") {
       return {
         bytes: new Uint8Array(await resized.jpeg({ quality: 88, mozjpeg: true }).toBuffer()),
         mimeType: "image/jpeg",

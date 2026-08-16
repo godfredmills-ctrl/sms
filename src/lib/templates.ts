@@ -72,6 +72,11 @@ export const BINDINGS: Array<{
       { path: "document.issuedOn", label: "Date issued", example: "15 August 2026" },
       { path: "document.awardedFor", label: "Awarded for", example: "Outstanding service" },
       { path: "document.verifyCode", label: "Verification code", example: "K3M9-2QX7" },
+      {
+        path: "document.verifyUrl",
+        label: "Verification link",
+        example: "https://school.edu.gh/verify/K3M9-2QX7",
+      },
       { path: "document.signedBy", label: "Signatory", example: "Dr Kwame Mensah" },
       { path: "document.signatoryTitle", label: "Signatory title", example: "Head Teacher" },
     ],

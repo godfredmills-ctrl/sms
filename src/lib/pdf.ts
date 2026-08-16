@@ -1,6 +1,7 @@
 import "server-only";
 
 import { PDFDocument, StandardFonts, rgb, degrees, type PDFFont } from "pdf-lib";
+import QRCode from "qrcode";
 
 import { parseLayout, resolveBinding, type TemplateElement } from "@/lib/templates";
 
@@ -172,6 +173,16 @@ export async function renderTemplatePdf(input: {
       continue;
     }
 
+    if (element.type === "qr") {
+      await drawVerificationCode(pdf, page, element, {
+        width,
+        height,
+        context: input.context,
+        font: regular,
+      });
+      continue;
+    }
+
     drawElement(page, element, {
       width,
       height,
@@ -195,6 +206,87 @@ async function embed(
   } catch {
     return null;
   }
+}
+
+/**
+ * Draws the verification mark: a scannable code with the reference under it.
+ *
+ * Both, deliberately. The QR is how anyone holding the document checks it in a
+ * second, and the printed reference is how it survives a photocopy, a fax or a
+ * bad scan — which is how these documents actually travel between a school, a
+ * parent and an admissions office. The public /verify page accepts the
+ * reference typed in, so the text alone is enough when the square has turned to
+ * mush.
+ *
+ * Templates written before this bound the element to `document.verifyCode`,
+ * which is not a URL. Rather than make every school edit their template, a
+ * bare reference is looked up against `document.verifyUrl` and the QR encodes
+ * that, while the text underneath stays the short reference a person can read
+ * out over the phone.
+ */
+async function drawVerificationCode(
+  pdf: PDFDocument,
+  page: ReturnType<PDFDocument["addPage"]>,
+  element: TemplateElement,
+  options: {
+    width: number;
+    height: number;
+    context: RenderContext;
+    font: PDFFont;
+  },
+) {
+  const { width, height, context, font } = options;
+
+  const value = resolveBinding(element.value, context);
+  if (!value) return;
+
+  const target = value.includes("/")
+    ? value
+    : resolveBinding("document.verifyUrl", context) || value;
+
+  const boxX = (element.x / 100) * width;
+  const boxWidth = (element.width / 100) * width;
+  const boxTop = height - (element.y / 100) * height;
+  const boxHeight = (element.height / 100) * height;
+
+  // Square, since a QR is: the smaller side wins so it stays inside the box a
+  // school drew, whatever proportions they gave it.
+  const side = Math.min(boxWidth, boxHeight);
+  const colour = hexToRgb(element.colour);
+
+  try {
+    const png = await QRCode.toBuffer(target, {
+      type: "png",
+      errorCorrectionLevel: "M",
+      // No quiet zone from the encoder — it is added below in page units so
+      // the module size does not depend on how big the school drew the box.
+      margin: 1,
+      scale: 8,
+      color: { dark: "#000000ff", light: "#ffffffff" },
+    });
+
+    const embedded = await pdf.embedPng(new Uint8Array(png));
+    page.drawImage(embedded, {
+      x: boxX + (boxWidth - side) / 2,
+      y: boxTop - side,
+      width: side,
+      height: side,
+    });
+  } catch {
+    // An unencodable value must not cost the document. The reference below is
+    // the part that actually has to be there.
+  }
+
+  const label = value.includes("/") ? (value.split("/").pop() ?? value) : value;
+  const labelWidth = font.widthOfTextAtSize(label, 7);
+
+  page.drawText(label, {
+    x: boxX + (boxWidth - labelWidth) / 2,
+    y: boxTop - side - 9,
+    size: 7,
+    font,
+    color: colour,
+  });
 }
 
 /**
@@ -432,30 +524,8 @@ function drawElement(
     return;
   }
 
-  if (element.type === "qr") {
-    // The verification code is printed as text rather than as a QR image: the
-    // public /verify page takes the code typed in, so a printed code works
-    // from a photocopy, which is how these documents actually travel.
-    const code = resolveBinding(element.value, context);
-    if (!code) return;
-
-    page.drawRectangle({
-      x: boxX,
-      y: boxTop - boxHeight,
-      width: boxWidth,
-      height: boxHeight,
-      borderColor: colour,
-      borderWidth: 0.75,
-    });
-    page.drawText(code, {
-      x: boxX,
-      y: boxTop - boxHeight - 9,
-      size: 7,
-      font: fonts.regular,
-      color: colour,
-    });
-    return;
-  }
+  // QR elements are drawn by renderTemplatePdf: encoding one is async.
+  if (element.type === "qr") return;
 
   // Image elements never reach here — they need to embed, which is async, so
   // renderTemplatePdf handles them before calling this.

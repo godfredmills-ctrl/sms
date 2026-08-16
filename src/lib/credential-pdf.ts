@@ -2,6 +2,7 @@ import "server-only";
 
 import { db } from "@/lib/db";
 import { loadDocumentImage, resolveTemplateImages } from "@/lib/document-images";
+import { env } from "@/lib/env";
 import { renderTablePdf, renderTemplatePdf } from "@/lib/pdf";
 import { readStoredFile, storeFile } from "@/lib/storage";
 import { formatDate, fullName, toNumber } from "@/lib/utils";
@@ -118,6 +119,7 @@ async function certificatePdf(
       issuedOn: formatDate(record.issuedOn),
       awardedFor: record.awardedFor ?? "",
       verifyCode: record.verifyCode,
+      verifyUrl: `${env.appUrl}/verify/${record.verifyCode}`,
       signedBy: record.signedBy ?? "",
       signatoryTitle: record.signatoryTitle ?? "",
     },
@@ -236,6 +238,7 @@ async function transcriptPdf(
         issuedOn: formatDate(record.issuedAt),
         awardedFor: record.issuedTo ?? "",
         verifyCode: record.verifyCode,
+        verifyUrl: `${env.appUrl}/verify/${record.verifyCode}`,
         signedBy: "",
         signatoryTitle: "",
       },

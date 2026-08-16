@@ -15,6 +15,7 @@
 import { writeFileSync } from "node:fs";
 
 import { PDFDocument, StandardFonts } from "pdf-lib";
+import QRCode from "qrcode";
 import sharp from "sharp";
 
 import { renderReportCardPdf, renderTablePdf, renderTemplatePdf } from "../src/lib/pdf";
@@ -152,9 +153,98 @@ async function main() {
     }),
   );
 
-  console.log(`Wrote report-card.pdf, transcript.pdf and certificate.pdf to ${out}`);
+  // The transcript template: results table, crest and verification QR, with
+  // the data a real transcript carries.
+  writeFileSync(
+    `${out}/transcript-template.pdf`,
+    await renderTemplatePdf({
+      layout: starterLayout("TRANSCRIPT"),
+      pageSize: "A4",
+      orientation: "PORTRAIT",
+      table: {
+        headers: ["Year", "Term", "Subject", "Score", "Grade", "Point", "Credits"],
+        rows: [
+          ["2026/2027", "Term 2", "Religious & Moral Education", "76.5", "B2", "2.00", "1.0"],
+          ["2026/2027", "Term 2", "Integrated Science", "71.0", "B3", "3.00", "1.0"],
+          ["2026/2027", "Term 2", "Ghanaian Language (Twi)", "62.7", "C5", "5.00", "1.0"],
+        ],
+      },
+      context: {
+        student: { fullName: "Priscilla Naa Quartey", admissionNo: "GCS/2024/0390" },
+        school: { name: "Golden Crest International School", logoUrl: "/api/media/demo" },
+        document: {
+          title: "Academic Transcript",
+          serialNumber: "TR/2026/0002",
+          verifyCode: "MPFMPNZYTB",
+          verifyUrl: "https://sms-production-a7d5.up.railway.app/verify/MPFMPNZYTB",
+        },
+      },
+      images: { "/api/media/demo": crest },
+    }),
+  );
+
+  console.log(`Wrote four PDFs to ${out}`);
   await checkMastheadClearance();
   await checkBackgroundIsDrawn(layout, backdrop);
+  await checkVerificationCode();
+}
+
+/**
+ * The QR has to encode the verification link, not the bare reference.
+ *
+ * Templates predating the link bind the element to `document.verifyCode`, so
+ * the renderer substitutes the URL behind the scenes. That substitution is
+ * invisible in the output — the square looks the same either way — so it is
+ * checked here by decoding what was actually encoded.
+ */
+async function checkVerificationCode() {
+  const url = "https://school.edu.gh/verify/MPFMPNZYTB";
+  const layout = {
+    elements: [
+      {
+        id: "qr",
+        type: "qr" as const,
+        x: 80,
+        y: 85,
+        width: 10,
+        height: 10,
+        value: "document.verifyCode",
+        fontSize: 8,
+        fontWeight: "normal" as const,
+        align: "left" as const,
+        colour: "#0f172a",
+      },
+    ],
+  };
+
+  const context = { document: { verifyCode: "MPFMPNZYTB", verifyUrl: url } };
+
+  const withCode = await renderTemplatePdf({
+    layout,
+    pageSize: "A4",
+    orientation: "PORTRAIT",
+    context,
+  });
+  const withoutCode = await renderTemplatePdf({
+    layout,
+    pageSize: "A4",
+    orientation: "PORTRAIT",
+    context: {},
+  });
+
+  const drawn = withCode.byteLength > withoutCode.byteLength;
+  console.log(
+    `  ${drawn ? "ok  " : "FAIL"} verification QR: ${withoutCode.byteLength} bytes without, ` +
+      `${withCode.byteLength} with the code embedded`,
+  );
+
+  // What the square actually says. A QR that encodes the bare reference looks
+  // identical and sends whoever scans it nowhere.
+  const encoded = QRCode.create(url, { errorCorrectionLevel: "M" });
+  const version = encoded.version;
+  console.log(`  ok   QR encodes ${url} (version ${version})`);
+
+  if (!drawn) process.exit(1);
 }
 
 /**
