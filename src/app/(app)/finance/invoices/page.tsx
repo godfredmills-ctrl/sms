@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { AlertTriangle, FileText, Receipt, Wallet } from "lucide-react";
 
 import { Alert, Card, CardHeader, PageHeader, StatCard } from "@/components/ui";
+import { Pager, pageOf } from "@/components/pager";
 import { requirePermission, userCan } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { formatMoney, percentOf } from "@/lib/money";
@@ -14,14 +15,26 @@ export const dynamic = "force-dynamic";
 
 const DAY = 24 * 60 * 60 * 1000;
 
-export default async function InvoicesPage() {
+const PER_PAGE = 50;
+
+export default async function InvoicesPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const user = await requirePermission("finance.read");
   const canGenerate = userCan(user, "finance.invoice.create");
 
-  const [invoices, years] = await Promise.all([
+  const params = await searchParams;
+  const { page, skip, take } = pageOf(params, PER_PAGE);
+
+  // 3000 was one term's billing for a school this size, so the cap was reached
+  // in the first year and everything before it fell off the end.
+  const [invoices, total, years] = await Promise.all([
     db.invoice.findMany({
       orderBy: { issueDate: "desc" },
-      take: 3000,
+      skip,
+      take,
       select: {
         id: true,
         invoiceNo: true,
@@ -52,6 +65,7 @@ export default async function InvoicesPage() {
         },
       },
     }),
+    db.invoice.count(),
     db.academicYear.findMany({
       orderBy: { startDate: "desc" },
       select: {
@@ -169,10 +183,20 @@ export default async function InvoicesPage() {
       ) : null}
 
       <div className={canGenerate ? "grid gap-4 xl:grid-cols-[1fr_340px]" : ""}>
-        <InvoicesTable
-          rows={rows}
-          canRemind={userCan(user, "finance.reminder.manage")}
-        />
+        <div>
+          <InvoicesTable
+            rows={rows}
+            canRemind={userCan(user, "finance.reminder.manage")}
+          />
+          <Pager
+            basePath="/finance/invoices"
+            searchParams={params}
+            page={page}
+            perPage={PER_PAGE}
+            total={total}
+            label="invoices"
+          />
+        </div>
 
         {canGenerate ? (
           <div>

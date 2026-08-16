@@ -12,6 +12,7 @@ import {
   PageHeader,
   StatCard,
 } from "@/components/ui";
+import { Pager, pageOf } from "@/components/pager";
 import { requirePermission } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { formatMoney } from "@/lib/money";
@@ -23,12 +24,28 @@ import { DiscountForm } from "./discount-form";
 export const metadata: Metadata = { title: "Discounts" };
 export const dynamic = "force-dynamic";
 
-export default async function DiscountsPage() {
+const PER_PAGE = 25;
+
+export default async function DiscountsPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   await requirePermission("finance.discount.manage");
 
-  const [discounts, students, categories, years] = await Promise.all([
+  const params = await searchParams;
+  const { page, skip, take } = pageOf(params, PER_PAGE);
+
+  // This query had no limit at all, which is worse than a limit that hides
+  // rows: every scholarship, sibling discount and bursary the school has ever
+  // recorded came back on one page, each with its student joined on. That grows
+  // with the school and never shrinks, because a discount from a past year is
+  // kept rather than deleted.
+  const [discounts, total, students, categories, years] = await Promise.all([
     db.studentDiscount.findMany({
       orderBy: [{ isActive: "desc" }, { createdAt: "desc" }],
+      skip,
+      take,
       include: {
         student: {
           select: {
@@ -41,6 +58,7 @@ export default async function DiscountsPage() {
         },
       },
     }),
+    db.studentDiscount.count(),
     db.student.findMany({
       where: { status: "ENROLLED" },
       orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
@@ -202,6 +220,15 @@ export default async function DiscountsPage() {
               </ul>
             </Card>
           )}
+
+          <Pager
+            basePath="/finance/discounts"
+            searchParams={params}
+            page={page}
+            perPage={PER_PAGE}
+            total={total}
+            label="awards"
+          />
         </div>
 
         <div className="space-y-4">

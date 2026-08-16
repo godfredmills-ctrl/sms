@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Banknote, Receipt, Smartphone, TriangleAlert } from "lucide-react";
 
 import { Alert, LinkButton, PageHeader, StatCard } from "@/components/ui";
+import { Pager, pageOf } from "@/components/pager";
 import { requirePermission, userCan } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { formatMoney } from "@/lib/money";
@@ -12,12 +13,50 @@ import { PaymentsTable, type PaymentRow } from "./payments-table";
 export const metadata: Metadata = { title: "Payments" };
 export const dynamic = "force-dynamic";
 
-export default async function PaymentsPage() {
+const PER_PAGE = 50;
+
+export default async function PaymentsPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const user = await requirePermission("finance.read");
+
+  const params = await searchParams;
+  const { page, skip, take } = pageOf(params, PER_PAGE);
+
+  // Every figure on this page describes the whole ledger, so every one of them
+  // is aggregated in the database. Summing the rows on screen would turn
+  // "GH₵1.2m collected" into "GH₵1.2m collected on this page", and it would
+  // shrink as a bursar paged backwards through the year.
+  const [totalPayments, successAgg, allocatedAgg, failed, momoCount, successCount] =
+    await Promise.all([
+      db.payment.count(),
+      db.payment.aggregate({
+        where: { status: "SUCCESS" },
+        _sum: { amountMinor: true, feeMinor: true },
+      }),
+      db.paymentAllocation.aggregate({
+        where: { payment: { status: "SUCCESS" } },
+        _sum: { amountMinor: true },
+      }),
+      db.payment.count({ where: { status: "FAILED" } }),
+      db.payment.count({ where: { status: "SUCCESS", channel: "MOBILE_MONEY" } }),
+      db.payment.count({ where: { status: "SUCCESS" } }),
+    ]);
+
+  const total = successAgg._sum.amountMinor ?? 0;
+  const fees = successAgg._sum.feeMinor ?? 0;
+  // Money taken but not yet applied to a bill — a credit sitting on account.
+  const onAccount = Math.max(total - (allocatedAgg._sum.amountMinor ?? 0), 0);
+  const momoShare = successCount
+    ? Math.round((momoCount / successCount) * 100)
+    : 0;
 
   const payments = await db.payment.findMany({
     orderBy: { paidAt: "desc" },
-    take: 3000,
+    skip,
+    take,
     select: {
       id: true,
       receiptNo: true,
@@ -104,17 +143,6 @@ export default async function PaymentsPage() {
     };
   });
 
-  const successful = rows.filter((row) => row.status === "SUCCESS");
-  const total = successful.reduce((sum, row) => sum + row.amountMinor, 0);
-  const fees = successful.reduce((sum, row) => sum + row.feeMinor, 0);
-  const onAccount = successful.reduce((sum, row) => sum + row.unallocatedMinor, 0);
-  const failed = rows.filter((row) => row.status === "FAILED").length;
-
-  const momo = successful.filter((row) => row.channel === "MOBILE_MONEY");
-  const momoShare = successful.length
-    ? Math.round((momo.length / successful.length) * 100)
-    : 0;
-
   return (
     <>
       <PageHeader
@@ -134,14 +162,14 @@ export default async function PaymentsPage() {
         <StatCard
           label="Received"
           value={formatMoney(total)}
-          hint={`${successful.length} receipts`}
+          hint={`${successCount.toLocaleString()} receipts`}
           tone="success"
           icon={<Banknote className="size-4" />}
         />
         <StatCard
           label="Mobile money"
           value={`${momoShare}%`}
-          hint={`${momo.length} payments`}
+          hint={`${momoCount.toLocaleString()} payments`}
           tone="violet"
           icon={<Smartphone className="size-4" />}
         />
@@ -169,6 +197,15 @@ export default async function PaymentsPage() {
       ) : null}
 
       <PaymentsTable rows={rows} />
+
+      <Pager
+        basePath="/finance/payments"
+        searchParams={params}
+        page={page}
+        perPage={PER_PAGE}
+        total={totalPayments}
+        label="payments"
+      />
     </>
   );
 }
