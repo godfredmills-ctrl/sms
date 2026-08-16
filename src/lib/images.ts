@@ -17,6 +17,60 @@ import type { Transforms } from "@/lib/image-transforms";
  */
 
 /**
+ * Normalises any image sharp can read into something pdf-lib can embed.
+ *
+ * pdf-lib embeds PNG and JPEG and nothing else, while a school's crest is as
+ * likely to be an SVG or a WebP. Rather than refuse those, everything unusual
+ * is re-encoded to PNG here; PNG and JPEG pass through untouched so a
+ * photograph is not silently inflated into a lossless copy of itself.
+ *
+ * Oversized images are also brought down to 1600px on the long edge. A crest
+ * occupies about an inch on a certificate, so anything larger is weight in
+ * every copy of a document that gets stored, emailed and printed.
+ */
+export async function toEmbeddableImage(
+  input: Buffer,
+): Promise<{ bytes: Uint8Array; mimeType: string } | null> {
+  try {
+    const pipeline = sharp(input, { failOn: "none" });
+    const meta = await pipeline.metadata();
+
+    const longEdge = Math.max(meta.width ?? 0, meta.height ?? 0);
+    const oversized = longEdge > 1600;
+    const usable = meta.format === "png" || meta.format === "jpeg" || meta.format === "jpg";
+
+    if (usable && !oversized) {
+      return {
+        bytes: new Uint8Array(input),
+        mimeType: meta.format === "png" ? "image/png" : "image/jpeg",
+      };
+    }
+
+    let resized = pipeline;
+    if (oversized) {
+      resized = resized.resize({ width: 1600, height: 1600, fit: "inside" });
+    }
+
+    // JPEG stays JPEG when only the size was wrong; everything else becomes
+    // PNG, which keeps transparency on a crest cut out of its background.
+    if (meta.format === "jpeg" || meta.format === "jpg") {
+      return {
+        bytes: new Uint8Array(await resized.jpeg({ quality: 88, mozjpeg: true }).toBuffer()),
+        mimeType: "image/jpeg",
+      };
+    }
+
+    return {
+      bytes: new Uint8Array(await resized.png({ compressionLevel: 9 }).toBuffer()),
+      mimeType: "image/png",
+    };
+  } catch {
+    // Not an image, or one sharp cannot decode. The caller draws a placeholder.
+    return null;
+  }
+}
+
+/**
  * Applies a transform stack.
  *
  * Order matters and is fixed: rotate, then crop, then resize, then colour, then

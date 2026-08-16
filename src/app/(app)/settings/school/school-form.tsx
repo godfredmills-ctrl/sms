@@ -179,10 +179,22 @@ export function SchoolForm({ values }: { values: SchoolValues }) {
           description="Drives report card headers, certificates and the generated website."
         />
         <CardBody className="grid gap-3 sm:grid-cols-2">
-          <Field label="Logo URL" htmlFor="logoUrl">
+          {/* Certificates and transcripts embed these, and only ever from the
+              school's own storage — the renderer will not fetch an outside URL.
+              Saying so here is cheaper than a school discovering it on a
+              printed certificate. */}
+          <Field
+            label="Logo URL"
+            htmlFor="logoUrl"
+            hint="Upload it in Website → Media and paste that address. An outside link shows on screen but not on printed documents."
+          >
             <Input id="logoUrl" name="logoUrl" defaultValue={values.logoUrl} />
           </Field>
-          <Field label="Crest URL" htmlFor="crestUrl">
+          <Field
+            label="Crest URL"
+            htmlFor="crestUrl"
+            hint="Used on certificates. Same again."
+          >
             <Input id="crestUrl" name="crestUrl" defaultValue={values.crestUrl} />
           </Field>
           <Field label="Primary colour" htmlFor="brandPrimary">

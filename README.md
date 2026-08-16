@@ -339,6 +339,7 @@ src/app/
 | `npm run db:deploy` | Apply migrations (production) |
 | `npm run db:check` | Non-destructive: is the database reachable, and what is in it? |
 | `npm run db:verify` | Read-only: does the data hang together? Exits 1 on a failure |
+
 | `npm run db:seed` | Rebuild the demo school — **wipes first** |
 | `npm run db:seed:force` | Same, but fetches `tsx` on demand (for a container where dev dependencies were pruned) |
 | `npm run db:studio` | Prisma Studio |
@@ -400,8 +401,13 @@ scan, finance analysis, report-card remarks, report narratives).
 - **Generated PDFs use the standard PDF fonts (Helvetica).** A template that
   needs a school's own typeface, or a script other than Latin, will fall back.
   The on-screen version and the print stylesheet use the real fonts.
-- **A certificate's background artwork is embedded; images placed inside the
-  layout are not.** Use the page background for artwork.
+- **Images in generated documents come from the school's own storage only.**
+  A logo, crest or photograph placed in a template is embedded when it lives in
+  the media library or the file store (`/api/media/…`, `/api/files/…`) or is a
+  `data:` URL. A link to somewhere else is ignored rather than fetched — a
+  server that will retrieve any URL a form field names, and put the response in
+  a document, is a way of reaching whatever that server can reach. Schools
+  should upload their artwork; the branding settings say so.
 - **Report charts group and sum; they do not aggregate by other functions.**
   A bar or line chart totals each numeric column by the first text column.
   Averages, counts and medians are not offered — build those into the dataset

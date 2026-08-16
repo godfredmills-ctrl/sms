@@ -51,6 +51,7 @@ export const BINDINGS: Array<{
       { path: "student.admissionNo", label: "Admission number", example: "ADM/2026/0417" },
       { path: "student.dateOfBirth", label: "Date of birth", example: "14 March 2009" },
       { path: "student.className", label: "Class", example: "JHS 3 Gold" },
+      { path: "student.photoUrl", label: "Photograph", example: "" },
     ],
   },
   {
@@ -60,6 +61,7 @@ export const BINDINGS: Array<{
       { path: "school.motto", label: "Motto", example: "Knowledge and Service" },
       { path: "school.address", label: "Address", example: "PO Box 1234, Accra" },
       { path: "school.logoUrl", label: "Logo", example: "" },
+      { path: "school.crestUrl", label: "Crest", example: "" },
     ],
   },
   {

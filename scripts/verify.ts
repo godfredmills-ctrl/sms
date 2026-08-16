@@ -486,6 +486,19 @@ async function checkOutputs() {
     }
   }
 
+  // The PDF renderer embeds images from the school's own storage only, so an
+  // outside link is the one case that looks right on screen and comes out
+  // blank on paper.
+  const school = await db.school.findFirst({ select: { logoUrl: true } });
+  const logo = (school?.logoUrl ?? "").trim();
+  if (!logo) {
+    warn(g, "School logo", "Not set — sidebar, report cards and certificates have no crest.");
+  } else if (!logo.startsWith("/api/media/") && !logo.startsWith("/api/files/")) {
+    warn(g, "School logo", `${logo} is not in the school's storage, so documents render without it.`);
+  } else {
+    pass(g, "School logo", logo);
+  }
+
   const site = await db.site.findFirst({ select: { id: true, isPublished: true, name: true } });
   if (!site) {
     warn(g, "Website", "No site record.");

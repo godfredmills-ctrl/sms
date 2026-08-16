@@ -8,9 +8,11 @@
  */
 
 import { PrismaClient, type Prisma } from "@prisma/client";
+import sharp from "sharp";
 
 import { hashPassword } from "../src/lib/crypto";
 import { PERMISSIONS, ROLE_PRESETS } from "../src/lib/rbac";
+import { storeFile } from "../src/lib/storage";
 import { starterLayout } from "../src/lib/templates";
 
 const db = new PrismaClient();
@@ -2554,6 +2556,75 @@ async function seedDocumentTemplates() {
   });
 }
 
+/**
+ * Draws the school a crest and puts it everywhere branding is read from.
+ *
+ * Without one the demo is a school with a blank square where its identity
+ * should be — in the sidebar, on report card headers, on certificates and at
+ * the top of its own website. It is drawn rather than shipped as a binary so
+ * the repository stays free of assets nobody can edit, and it goes into the
+ * media library rather than straight into storage because that route is the
+ * public one: `/api/files` demands a session, which a visitor to the school's
+ * website does not have.
+ *
+ * Cosmetic, so a storage misconfiguration warns and moves on. Somebody seeding
+ * before they have set up a bucket should still get a working school.
+ */
+async function seedBranding(school: { id: string }, siteId: string) {
+  console.log("  Crest…");
+
+  // Geometry only, no text: rendering a font depends on what is installed in
+  // the container, and a crest with an invisible monogram is worse than one
+  // without a monogram.
+  const crest = `<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+    <defs>
+      <linearGradient id="shield" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#16a06b"/>
+        <stop offset="1" stop-color="#0b5c3d"/>
+      </linearGradient>
+    </defs>
+    <path d="M256 28 L436 96 V268 C436 372 356 442 256 484 C156 442 76 372 76 268 V96 Z"
+          fill="url(#shield)" stroke="#d9a325" stroke-width="16" stroke-linejoin="round"/>
+    <path d="M150 232 L256 196 L362 232 L362 256 L256 220 L150 256 Z" fill="#d9a325"/>
+    <path d="M150 300 Q202 280 248 300 L248 374 Q202 354 150 374 Z" fill="#f8fafc"/>
+    <path d="M264 300 Q310 280 362 300 L362 374 Q310 354 264 374 Z" fill="#f8fafc"/>
+    <rect x="248" y="296" width="16" height="82" rx="4" fill="#d9a325"/>
+  </svg>`;
+
+  try {
+    const png = await sharp(Buffer.from(crest)).png({ compressionLevel: 9 }).toBuffer();
+
+    const stored = await storeFile({
+      buffer: png,
+      originalName: "golden-crest.png",
+      mimeType: "image/png",
+      folder: "branding",
+    });
+
+    const media = await db.siteMedia.create({
+      data: {
+        siteId,
+        fileId: stored.id,
+        altText: "Golden Crest International School crest",
+        caption: "School crest",
+        folder: "branding",
+        transforms: {} as never,
+      },
+    });
+
+    const url = `/api/media/${media.id}`;
+    await db.school.update({
+      where: { id: school.id },
+      data: { logoUrl: url, crestUrl: url },
+    });
+    await db.site.update({ where: { id: siteId }, data: { logoUrl: url, faviconUrl: url } });
+  } catch (error) {
+    console.warn(
+      `    ! Could not store the crest (${(error as Error).message}). The school will have no logo.`,
+    );
+  }
+}
+
 async function seedWebsite(school: { id: string; name: string; motto: string | null }) {
   console.log("  Public website…");
 
@@ -2715,7 +2786,7 @@ async function seedWebsite(school: { id: string; name: string; motto: string | n
     },
   });
 
-  void site;
+  await seedBranding(school, site.id);
 }
 
 // -----------------------------------------------------------------------------

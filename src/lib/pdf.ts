@@ -92,6 +92,12 @@ export async function renderTemplatePdf(input: {
   /** Fetched separately so this stays synchronous about IO. */
   backgroundImage?: { bytes: Uint8Array; mimeType: string } | null;
   /**
+   * Images the layout refers to, keyed by the reference they were loaded from —
+   * see `resolveTemplateImages`. Keyed rather than positional so the same crest
+   * used twice is embedded once.
+   */
+  images?: Record<string, { bytes: Uint8Array; mimeType: string }>;
+  /**
    * Rows for an element bound to `academic.resultsTable`. A template binds one
    * string per element, which cannot express a table — this is how a transcript
    * gets its results while still using the school's own layout.
@@ -125,16 +131,17 @@ export async function renderTemplatePdf(input: {
     });
   }
 
-  if (input.backgroundImage) {
-    try {
-      const image = input.backgroundImage.mimeType.includes("png")
-        ? await pdf.embedPng(input.backgroundImage.bytes)
-        : await pdf.embedJpg(input.backgroundImage.bytes);
-      page.drawImage(image, { x: 0, y: 0, width, height });
-    } catch {
-      // A background that will not embed must not cost the school the whole
-      // certificate — the text is the part that matters.
-    }
+  // An explicitly supplied background wins over the one named in the layout,
+  // so a caller can override it without rewriting the template.
+  const background =
+    input.backgroundImage ??
+    (layout.backgroundUrl ? input.images?.[layout.backgroundUrl] : null);
+
+  if (background) {
+    const embedded = await embed(pdf, background);
+    // A background that will not embed must not cost the school the whole
+    // certificate — the text is the part that matters.
+    if (embedded) page.drawImage(embedded, { x: 0, y: 0, width, height });
   }
 
   for (const element of layout.elements) {
@@ -155,6 +162,16 @@ export async function renderTemplatePdf(input: {
       continue;
     }
 
+    if (element.type === "image") {
+      await drawImageElement(pdf, page, element, {
+        width,
+        height,
+        context: input.context,
+        images: input.images ?? {},
+      });
+      continue;
+    }
+
     drawElement(page, element, {
       width,
       height,
@@ -164,6 +181,76 @@ export async function renderTemplatePdf(input: {
   }
 
   return Buffer.from(await pdf.save());
+}
+
+/** pdf-lib takes PNG and JPEG only; anything else was converted upstream. */
+async function embed(
+  pdf: PDFDocument,
+  image: { bytes: Uint8Array; mimeType: string },
+) {
+  try {
+    return image.mimeType.includes("png")
+      ? await pdf.embedPng(image.bytes)
+      : await pdf.embedJpg(image.bytes);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Draws a logo, crest, photograph or signature into the box reserved for it.
+ *
+ * The image is fitted inside the box rather than stretched to it, and centred
+ * on the axis it does not fill. A crest squashed to the proportions of whoever
+ * drew the box is worse than one that leaves a margin, and a school notices.
+ */
+async function drawImageElement(
+  pdf: PDFDocument,
+  page: ReturnType<PDFDocument["addPage"]>,
+  element: TemplateElement,
+  options: {
+    width: number;
+    height: number;
+    context: RenderContext;
+    images: Record<string, { bytes: Uint8Array; mimeType: string }>;
+  },
+) {
+  const { width, height, context, images } = options;
+
+  // Same order the resolver used: a binding if the value names one, otherwise
+  // the value itself.
+  const reference = resolveBinding(element.value, context) || element.value;
+  const source = images[reference];
+  // Nothing is drawn when the image is missing — not even an outline. An empty
+  // box printed on a certificate reads as a fault in the document, where a
+  // little extra white space reads as a design.
+  if (!source) return;
+
+  const embedded = await embed(pdf, source);
+  if (!embedded) return;
+
+  const boxX = (element.x / 100) * width;
+  const boxWidth = (element.width / 100) * width;
+  const boxTop = height - (element.y / 100) * height;
+  const boxHeight = (element.height / 100) * height;
+
+  const scale = Math.min(boxWidth / embedded.width, boxHeight / embedded.height);
+  const drawWidth = embedded.width * scale;
+  const drawHeight = embedded.height * scale;
+
+  const x =
+    element.align === "left"
+      ? boxX
+      : element.align === "right"
+        ? boxX + boxWidth - drawWidth
+        : boxX + (boxWidth - drawWidth) / 2;
+
+  page.drawImage(embedded, {
+    x,
+    y: boxTop - boxHeight + (boxHeight - drawHeight) / 2,
+    width: drawWidth,
+    height: drawHeight,
+  });
 }
 
 /**
@@ -330,12 +417,9 @@ function drawElement(
     return;
   }
 
-  if (element.type === "image") {
-    // Images inside the layout are placeholders in the builder; only the page
-    // background is embedded. Drawing an outline keeps the geometry honest
-    // rather than silently omitting the space it occupies.
-    return;
-  }
+  // Image elements never reach here — they need to embed, which is async, so
+  // renderTemplatePdf handles them before calling this.
+  if (element.type === "image") return;
 
   const text =
     element.type === "field"

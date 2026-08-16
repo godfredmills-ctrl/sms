@@ -1,6 +1,7 @@
 import "server-only";
 
 import { db } from "@/lib/db";
+import { resolveTemplateImages } from "@/lib/document-images";
 import { renderTablePdf, renderTemplatePdf } from "@/lib/pdf";
 import { readStoredFile, storeFile } from "@/lib/storage";
 import { formatDate, fullName, toNumber } from "@/lib/utils";
@@ -61,6 +62,7 @@ async function certificatePdf(
           otherNames: true,
           admissionNo: true,
           dateOfBirth: true,
+          photoUrl: true,
           enrollments: {
             where: { status: "ACTIVE" },
             take: 1,
@@ -81,40 +83,52 @@ async function certificatePdf(
   if (existing) return existing;
 
   const school = await db.school.findFirst({
-    select: { name: true, motto: true, addressLine1: true, city: true, logoUrl: true },
+    select: {
+      name: true,
+      motto: true,
+      addressLine1: true,
+      city: true,
+      logoUrl: true,
+      crestUrl: true,
+    },
   });
 
   const section = record.student?.enrollments[0]?.classSection;
+
+  const context = {
+    student: {
+      fullName: record.student ? fullName(record.student) : record.recipientName,
+      firstName: record.student?.firstName ?? record.recipientName.split(" ")[0],
+      lastName: record.student?.lastName ?? "",
+      admissionNo: record.student?.admissionNo ?? "",
+      dateOfBirth: formatDate(record.student?.dateOfBirth),
+      className: section ? `${section.classLevel.name} ${section.name}` : "",
+      photoUrl: record.student?.photoUrl ?? "",
+    },
+    school: {
+      name: school?.name ?? "",
+      motto: school?.motto ?? "",
+      address: [school?.addressLine1, school?.city].filter(Boolean).join(", "),
+      logoUrl: school?.logoUrl ?? "",
+      crestUrl: school?.crestUrl ?? "",
+    },
+    document: {
+      title: record.title,
+      serialNumber: record.serialNumber,
+      issuedOn: formatDate(record.issuedOn),
+      awardedFor: record.awardedFor ?? "",
+      verifyCode: record.verifyCode,
+      signedBy: record.signedBy ?? "",
+      signatoryTitle: record.signatoryTitle ?? "",
+    },
+  };
 
   const bytes = await renderTemplatePdf({
     layout: record.template.layout,
     pageSize: record.template.pageSize,
     orientation: record.template.orientation,
-    context: {
-      student: {
-        fullName: record.student ? fullName(record.student) : record.recipientName,
-        firstName: record.student?.firstName ?? record.recipientName.split(" ")[0],
-        lastName: record.student?.lastName ?? "",
-        admissionNo: record.student?.admissionNo ?? "",
-        dateOfBirth: formatDate(record.student?.dateOfBirth),
-        className: section ? `${section.classLevel.name} ${section.name}` : "",
-      },
-      school: {
-        name: school?.name ?? "",
-        motto: school?.motto ?? "",
-        address: [school?.addressLine1, school?.city].filter(Boolean).join(", "),
-        logoUrl: school?.logoUrl ?? "",
-      },
-      document: {
-        title: record.title,
-        serialNumber: record.serialNumber,
-        issuedOn: formatDate(record.issuedOn),
-        awardedFor: record.awardedFor ?? "",
-        verifyCode: record.verifyCode,
-        signedBy: record.signedBy ?? "",
-        signatoryTitle: record.signatoryTitle ?? "",
-      },
-    },
+    context,
+    images: await resolveTemplateImages(record.template.layout, context),
   });
 
   const stored = await storeFile({
@@ -150,6 +164,7 @@ async function transcriptPdf(
           otherNames: true,
           admissionNo: true,
           dateOfBirth: true,
+          photoUrl: true,
           enrollments: {
             where: { status: "ACTIVE" },
             take: 1,
@@ -171,7 +186,14 @@ async function transcriptPdf(
   if (existing) return existing;
 
   const school = await db.school.findFirst({
-    select: { name: true, motto: true, addressLine1: true, city: true, logoUrl: true },
+    select: {
+      name: true,
+      motto: true,
+      addressLine1: true,
+      city: true,
+      logoUrl: true,
+      crestUrl: true,
+    },
   });
 
   const headers = ["Year", "Term", "Subject", "Score", "Grade", "Point", "Credits"];
@@ -191,41 +213,46 @@ async function transcriptPdf(
   if (record.template) {
     const section = record.student.enrollments[0]?.classSection;
 
+    const context = {
+      student: {
+        fullName: fullName(record.student),
+        firstName: record.student.firstName,
+        lastName: record.student.lastName,
+        admissionNo: record.student.admissionNo,
+        dateOfBirth: formatDate(record.student.dateOfBirth),
+        className: section ? `${section.classLevel.name} ${section.name}` : "",
+        photoUrl: record.student.photoUrl ?? "",
+      },
+      school: {
+        name: school?.name ?? "",
+        motto: school?.motto ?? "",
+        address: [school?.addressLine1, school?.city].filter(Boolean).join(", "),
+        logoUrl: school?.logoUrl ?? "",
+        crestUrl: school?.crestUrl ?? "",
+      },
+      document: {
+        title: record.purpose ?? "Academic Transcript",
+        serialNumber: record.serialNumber,
+        issuedOn: formatDate(record.issuedAt),
+        awardedFor: record.issuedTo ?? "",
+        verifyCode: record.verifyCode,
+        signedBy: "",
+        signatoryTitle: "",
+      },
+      academic: {
+        cumulativeGpa: toNumber(record.cumulativeGpa)?.toFixed(2) ?? "—",
+        classification: record.classification ?? "",
+        totalCredits: toNumber(record.totalCredits)?.toFixed(1) ?? "—",
+      },
+    };
+
     const templated = await renderTemplatePdf({
       layout: record.template.layout,
       pageSize: record.template.pageSize,
       orientation: record.template.orientation,
       table: { headers, rows },
-      context: {
-        student: {
-          fullName: fullName(record.student),
-          firstName: record.student.firstName,
-          lastName: record.student.lastName,
-          admissionNo: record.student.admissionNo,
-          dateOfBirth: formatDate(record.student.dateOfBirth),
-          className: section ? `${section.classLevel.name} ${section.name}` : "",
-        },
-        school: {
-          name: school?.name ?? "",
-          motto: school?.motto ?? "",
-          address: [school?.addressLine1, school?.city].filter(Boolean).join(", "),
-          logoUrl: school?.logoUrl ?? "",
-        },
-        document: {
-          title: record.purpose ?? "Academic Transcript",
-          serialNumber: record.serialNumber,
-          issuedOn: formatDate(record.issuedAt),
-          awardedFor: record.issuedTo ?? "",
-          verifyCode: record.verifyCode,
-          signedBy: "",
-          signatoryTitle: "",
-        },
-        academic: {
-          cumulativeGpa: toNumber(record.cumulativeGpa)?.toFixed(2) ?? "—",
-          classification: record.classification ?? "",
-          totalCredits: toNumber(record.totalCredits)?.toFixed(1) ?? "—",
-        },
-      },
+      context,
+      images: await resolveTemplateImages(record.template.layout, context),
     });
 
     const storedTemplated = await storeFile({
