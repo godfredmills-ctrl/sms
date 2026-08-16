@@ -1,7 +1,7 @@
 import "server-only";
 
 import { db } from "@/lib/db";
-import { resolveTemplateImages } from "@/lib/document-images";
+import { loadDocumentImage, resolveTemplateImages } from "@/lib/document-images";
 import { renderTablePdf, renderTemplatePdf } from "@/lib/pdf";
 import { readStoredFile, storeFile } from "@/lib/storage";
 import { formatDate, fullName, toNumber } from "@/lib/utils";
@@ -288,6 +288,7 @@ async function transcriptPdf(
     footer: `Cumulative GPA ${toNumber(record.cumulativeGpa)?.toFixed(2) ?? "—"}${
       record.classification ? ` · ${record.classification}` : ""
     } · Verify at /verify/${record.verifyCode} · This document is void if altered.`,
+    crest: await loadDocumentImage(school?.crestUrl || school?.logoUrl),
   });
 
   const stored = await storeFile({

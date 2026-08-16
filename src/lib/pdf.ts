@@ -198,6 +198,38 @@ async function embed(
 }
 
 /**
+ * Puts a crest in the top corner of a built-in layout.
+ *
+ * Anchored by its top-right rather than by an origin, because that is the edge
+ * that has to line up with the margin whatever shape the crest turns out to be.
+ * Silently does nothing without an image — the layouts below all read fine
+ * without one, and a school that has not uploaded a crest should not get a
+ * report card with a gap in it.
+ */
+async function drawCrest(
+  pdf: PDFDocument,
+  page: ReturnType<PDFDocument["addPage"]>,
+  crest: { bytes: Uint8Array; mimeType: string } | null | undefined,
+  at: { right: number; top: number; box: number },
+) {
+  if (!crest) return;
+
+  const embedded = await embed(pdf, crest);
+  if (!embedded) return;
+
+  const scale = Math.min(at.box / embedded.width, at.box / embedded.height);
+  const drawWidth = embedded.width * scale;
+  const drawHeight = embedded.height * scale;
+
+  page.drawImage(embedded, {
+    x: at.right - drawWidth,
+    y: at.top - drawHeight,
+    width: drawWidth,
+    height: drawHeight,
+  });
+}
+
+/**
  * Draws a logo, crest, photograph or signature into the box reserved for it.
  *
  * The image is fitted inside the box rather than stretched to it, and centred
@@ -465,6 +497,8 @@ function drawElement(
 
 export type ReportCardPdf = {
   school: { name: string; address?: string; motto?: string };
+  /** The school crest, loaded by the caller. Omitted schools get text only. */
+  crest?: { bytes: Uint8Array; mimeType: string } | null;
   heading: string;
   student: {
     name: string;
@@ -520,22 +554,38 @@ export async function renderReportCardPdf(input: ReportCardPdf): Promise<Buffer>
   }
 
   // --- Masthead ------------------------------------------------------------
-  page.drawText(input.school.name, {
-    x: margin,
-    y,
-    size: 15,
-    font: bold,
-    color: ink,
+  // The crest sits opposite the school's name, level with the three lines of
+  // address and motto beside it. A report card that goes home in a bag and
+  // comes back signed is the document a school is most often judged on.
+  await drawCrest(pdf, page, input.crest, {
+    right: margin + usable,
+    top: y + 11,
+    box: 44,
   });
-  y -= 14;
+
+  // The text keeps clear of the crest rather than running under it. School
+  // names in Ghana are long — "Golden Crest International School" is on the
+  // short side — so this is the ordinary case, not the edge case.
+  const gutter = input.crest ? 56 : 0;
+  const textWidth = usable - gutter;
+
+  for (const nameLine of wrap(input.school.name, bold, 15, textWidth)) {
+    page.drawText(nameLine, { x: margin, y, size: 15, font: bold, color: ink });
+    y -= 17;
+  }
+  y += 3;
 
   if (input.school.address) {
-    page.drawText(input.school.address, { x: margin, y, size: 8, font: regular, color: muted });
-    y -= 10;
+    for (const addressLine of wrap(input.school.address, regular, 8, textWidth)) {
+      page.drawText(addressLine, { x: margin, y, size: 8, font: regular, color: muted });
+      y -= 10;
+    }
   }
   if (input.school.motto) {
-    page.drawText(input.school.motto, { x: margin, y, size: 8, font: italic, color: muted });
-    y -= 10;
+    for (const mottoLine of wrap(input.school.motto, italic, 8, textWidth)) {
+      page.drawText(mottoLine, { x: margin, y, size: 8, font: italic, color: muted });
+      y -= 10;
+    }
   }
 
   y -= 4;
@@ -749,6 +799,7 @@ export async function renderTablePdf(input: {
   headers: string[];
   rows: string[][];
   footer?: string;
+  crest?: { bytes: Uint8Array; mimeType: string } | null;
 }): Promise<Buffer> {
   const pdf = await PDFDocument.create();
   const regular = await pdf.embedFont(StandardFonts.Helvetica);
@@ -762,24 +813,41 @@ export async function renderTablePdf(input: {
   let page = pdf.addPage([width, height]);
   let cursor = height - margin;
 
-  page.drawText(input.title, {
-    x: margin,
-    y: cursor,
-    size: 16,
-    font: bold,
-    color: rgb(0.06, 0.09, 0.16),
+  // A transcript leaves the school and is read by people who have never heard
+  // of it, which is exactly when a crest earns its place.
+  await drawCrest(pdf, page, input.crest, {
+    right: margin + usable,
+    top: cursor + 12,
+    box: 40,
   });
-  cursor -= 20;
 
-  if (input.subtitle) {
-    page.drawText(input.subtitle, {
+  // "<School name> — Academic Transcript" at 16pt runs most of the width, so
+  // the crest's corner has to be reserved rather than assumed to be free.
+  const headerWidth = usable - (input.crest ? 52 : 0);
+
+  for (const titleLine of wrap(input.title, bold, 16, headerWidth)) {
+    page.drawText(titleLine, {
       x: margin,
       y: cursor,
-      size: 9,
-      font: regular,
-      color: rgb(0.39, 0.45, 0.55),
+      size: 16,
+      font: bold,
+      color: rgb(0.06, 0.09, 0.16),
     });
     cursor -= 20;
+  }
+
+  if (input.subtitle) {
+    for (const subtitleLine of wrap(input.subtitle, regular, 9, headerWidth)) {
+      page.drawText(subtitleLine, {
+        x: margin,
+        y: cursor,
+        size: 9,
+        font: regular,
+        color: rgb(0.39, 0.45, 0.55),
+      });
+      cursor -= 12;
+    }
+    cursor -= 8;
   }
 
   function drawHeaderRow() {

@@ -2,6 +2,7 @@ import "server-only";
 
 import { userCan, type AuthUser } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { loadDocumentImage } from "@/lib/document-images";
 import { renderReportCardPdf } from "@/lib/pdf";
 import { env } from "@/lib/env";
 import { formatDate, fullName, ordinal, toNumber } from "@/lib/utils";
@@ -97,8 +98,17 @@ export async function buildReportCardPdf(id: string): Promise<Buffer | null> {
   if (!card) return null;
 
   const school = await db.school.findFirst({
-    select: { name: true, motto: true, addressLine1: true, city: true, phone: true },
+    select: {
+      name: true,
+      motto: true,
+      addressLine1: true,
+      city: true,
+      phone: true,
+      logoUrl: true,
+    },
   });
+
+  const crest = await loadDocumentImage(school?.logoUrl);
 
   const attendanceKnown =
     card.totalSchoolDays !== null && card.totalSchoolDays > 0;
@@ -145,6 +155,7 @@ export async function buildReportCardPdf(id: string): Promise<Buffer | null> {
         .join(" · "),
       motto: school?.motto ?? undefined,
     },
+    crest,
     heading: `TERMINAL REPORT — ${card.term.name.toUpperCase()}, ${card.academicYear.name}`,
     student: {
       name: fullName(card.student),

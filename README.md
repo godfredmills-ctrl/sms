@@ -339,7 +339,7 @@ src/app/
 | `npm run db:deploy` | Apply migrations (production) |
 | `npm run db:check` | Non-destructive: is the database reachable, and what is in it? |
 | `npm run db:verify` | Read-only: does the data hang together? Exits 1 on a failure |
-
+| `npm run pdf:preview` | Writes a sample report card, transcript and certificate to `$SCRATCH` — no database needed |
 | `npm run db:seed` | Rebuild the demo school — **wipes first** |
 | `npm run db:seed:force` | Same, but fetches `tsx` on demand (for a container where dev dependencies were pruned) |
 | `npm run db:studio` | Prisma Studio |

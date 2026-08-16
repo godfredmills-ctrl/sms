@@ -21,6 +21,7 @@
     "db:reset": "prisma migrate reset --force",
     "db:check": "node scripts/dbcheck.mjs",
     "db:verify": "tsx scripts/verify.ts",
+    "pdf:preview": "tsx --conditions=react-server scripts/preview-pdf.ts",
     "db:seed": "tsx prisma/seed.ts",
     "db:seed:force": "npx --yes tsx prisma/seed.ts",
     "db:studio": "prisma studio",
