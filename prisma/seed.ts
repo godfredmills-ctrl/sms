@@ -188,6 +188,8 @@ async function reset() {
     "lessonResource", "lesson", "courseModule", "discussionPost",
     "discussionThread", "liveSession", "course",
     "communicationRecipient", "communicationJob", "feeReminder", "reminderRule",
+    // After the two tables that point at it (communicationJob, reminderRule).
+    "messageTemplate",
     "announcementRead", "announcementAttachment", "announcement",
     "memoRecipient", "memoAttachment", "memo",
     "directMessage", "conversationMember", "conversation",
@@ -215,10 +217,48 @@ async function reset() {
     "fileAsset", "term", "academicYear", "setting", "campus", "school",
   ];
 
+  // A model missing from the list above is not a harmless omission: its rows
+  // survive the wipe and the seed dies hundreds of lines later on a unique
+  // constraint that names a field rather than the cause. Catching it here
+  // points straight at the fix.
+  const known = new Set(tables as string[]);
+  const delegates = db as unknown as Record<string, { deleteMany?: unknown }>;
+  const missing = Object.keys(db).filter(
+    (key) =>
+      !key.startsWith("$") &&
+      !key.startsWith("_") &&
+      typeof delegates[key]?.deleteMany === "function" &&
+      !known.has(key),
+  );
+
+  if (missing.length) {
+    console.error(
+      [
+        "",
+        `  ! ${missing.length} table(s) are not cleared by reset():`,
+        ...missing.map((name) => `      ${name}`),
+        "",
+        "    Add them to the list in reset(), after anything that references them.",
+        "",
+      ].join("\n"),
+    );
+    process.exit(1);
+  }
+
   for (const table of tables) {
     const model = db[table] as unknown as { deleteMany?: () => Promise<unknown> };
-    if (typeof model?.deleteMany === "function") {
-      await model.deleteMany().catch(() => undefined);
+    if (typeof model?.deleteMany !== "function") continue;
+
+    try {
+      await model.deleteMany();
+    } catch (error) {
+      // Previously swallowed. A delete that fails here means the ordering is
+      // wrong, and hiding it just moves the failure somewhere less explicable.
+      console.error(
+        `\n  ! Could not clear "${String(table)}": ${(error as Error).message.split("\n").find((line) => line.trim()) ?? ""}`,
+      );
+      console.error("    It is probably listed before a table that references it.\n");
+      process.exit(1);
     }
   }
 }
