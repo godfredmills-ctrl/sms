@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Download } from "lucide-react";
+import { Download, RefreshCw } from "lucide-react";
 
 import { Alert, Badge } from "@/components/ui";
 import { PrintButton } from "@/components/print-button";
@@ -106,6 +106,20 @@ export default async function TranscriptPage({
           >
             <Download className="size-4" />
             PDF
+          </a>
+          {/* The PDF is built once and kept, so a document already issued does
+              not change under a family who has a printed copy. That also means
+              a corrected template never reaches it — this is the deliberate
+              way to say "use today's layout instead". */}
+          <a
+            href={`/api/credentials/transcript/${transcript.id}?regenerate=1`}
+            target="_blank"
+            rel="noreferrer"
+            title="Discards the stored PDF and renders this transcript again from the template as it is now."
+            className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-[var(--border-strong)] px-3 text-sm font-medium hover:bg-[var(--bg-subtle)]"
+          >
+            <RefreshCw className="size-4" />
+            Rebuild
           </a>
           <PrintButton label="Print transcript" />
         </div>

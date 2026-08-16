@@ -14,14 +14,15 @@ import { parseLayout, resolveBinding } from "@/lib/templates";
  * them — so the fetching lives here, on the server side of the line, where the
  * file store and the database are reachable.
  *
- * **Only the school's own files are loaded.** A reference resolves when it
- * points at `/api/files/<id>`, `/api/media/<id>`, or is a `data:` URL, and is
- * ignored otherwise. That rules out fetching an arbitrary URL from inside the
- * server to render a document, which is how a logo field turns into a way of
- * reaching whatever the server can reach and putting the response in a PDF.
- * The cost is that a logo pasted in as `https://someone-elses-site/logo.png`
+ * **Only the school's own files are loaded.** A reference resolves when its
+ * path is `/api/files/<id>` or `/api/media/<id>` — absolute or relative, since
+ * a link copied out of the document cabinet carries the whole address — or
+ * when it is a `data:` URL. Anything else is ignored. That rules out fetching
+ * an arbitrary URL from inside the server to render a document, which is how a
+ * logo field turns into a way of reaching whatever the server can reach and
+ * putting the response in a PDF. The cost is that artwork hosted elsewhere
  * does not appear on printed documents; the fix for a school is to upload it,
- * and the branding settings say so.
+ * and the settings say so.
  */
 
 export type EmbeddedImage = { bytes: Uint8Array; mimeType: string };
@@ -33,6 +34,31 @@ const INTERNAL_MEDIA = /^\/api\/media\/([A-Za-z0-9_-]+)/;
 /** Roughly the largest sensible crest or signature, before re-encoding. */
 const MAX_SOURCE_BYTES = 8 * 1024 * 1024;
 
+/**
+ * The path part of a reference, whichever form it arrives in.
+ *
+ * Absolute and relative are both expected. Someone pasting a link copied out
+ * of the document cabinet gets the whole address, host and all, and the app's
+ * own hints tell them to do exactly that — so accepting only a leading slash
+ * rejects the form the product asks for.
+ *
+ * The host is discarded rather than checked. Nothing here fetches: the id is
+ * looked up in this school's own database whatever hostname was typed in front
+ * of it, so an unfamiliar host resolves to nothing rather than to a request.
+ * Checking it would only break custom domains and preview deployments.
+ */
+function pathOf(value: string): string | null {
+  if (value.startsWith("/")) return value;
+
+  try {
+    const url = new URL(value);
+    if (url.protocol !== "http:" && url.protocol !== "https:") return null;
+    return url.pathname;
+  } catch {
+    return null;
+  }
+}
+
 export async function loadDocumentImage(
   reference: string | null | undefined,
 ): Promise<EmbeddedImage | null> {
@@ -41,10 +67,13 @@ export async function loadDocumentImage(
 
   if (value.startsWith("data:")) return fromDataUrl(value);
 
-  const media = INTERNAL_MEDIA.exec(value);
+  const path = pathOf(value);
+  if (!path) return null;
+
+  const media = INTERNAL_MEDIA.exec(path);
   if (media) return fromSiteMedia(media[1]);
 
-  const internal = INTERNAL_FILE.exec(value);
+  const internal = INTERNAL_FILE.exec(path);
   if (!internal) return null;
 
   const asset = await db.fileAsset.findUnique({

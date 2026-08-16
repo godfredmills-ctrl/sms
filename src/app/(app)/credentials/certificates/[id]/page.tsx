@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Download } from "lucide-react";
+import { Download, RefreshCw } from "lucide-react";
 
 import { Alert } from "@/components/ui";
 import { PrintButton } from "@/components/print-button";
@@ -69,6 +69,18 @@ export default async function CertificatePage({
           >
             <Download className="size-4" />
             PDF
+          </a>
+          {/* See the transcript page: the stored PDF is deliberately frozen,
+              and this is the only way to re-render it from today's template. */}
+          <a
+            href={`/api/credentials/certificate/${certificate.id}?regenerate=1`}
+            target="_blank"
+            rel="noreferrer"
+            title="Discards the stored PDF and renders this certificate again from the template as it is now."
+            className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-[var(--border-strong)] px-3 text-sm font-medium hover:bg-[var(--bg-subtle)]"
+          >
+            <RefreshCw className="size-4" />
+            Rebuild
           </a>
           <PrintButton label="Print certificate" />
         </div>

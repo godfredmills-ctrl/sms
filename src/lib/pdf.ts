@@ -324,7 +324,12 @@ async function drawResultsTable(
 
   function header() {
     table.headers.forEach((label, index) => {
-      page.drawText(label, {
+      let text = label;
+      const max = columnWidth - size;
+      while (fonts.bold.widthOfTextAtSize(text, size * 0.85) > max && text.length > 1) {
+        text = text.slice(0, -1);
+      }
+      page.drawText(text, {
         x: boxX + index * columnWidth,
         y,
         size: size * 0.85,
@@ -357,7 +362,10 @@ async function drawResultsTable(
 
     row.forEach((cell, index) => {
       let value = cell;
-      const max = columnWidth - 4;
+      // The gutter scales with the type. At 4pt a truncated subject ended up
+      // touching the score beside it — "Religious & Mo…76.5" — which reads as
+      // one value rather than two.
+      const max = columnWidth - size;
       while (fonts.regular.widthOfTextAtSize(value, size) > max && value.length > 1) {
         value = value.slice(0, -1);
       }

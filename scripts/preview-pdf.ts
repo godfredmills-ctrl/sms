@@ -104,12 +104,34 @@ async function main() {
     }),
   );
 
+  // A background is drawn from the same image map as the elements, keyed by
+  // the layout's backgroundUrl. Rendering with and without one is how we check
+  // it arrived rather than being quietly dropped.
+  const backdrop = await sharp({
+    create: { width: 1400, height: 990, channels: 3, background: "#eef4ff" },
+  })
+    .png()
+    .toBuffer();
+
+  const layout = starterLayout("CERTIFICATE");
+  const withBackdrop = {
+    ...layout,
+    backgroundUrl: "https://school.example/api/files/backdrop",
+  };
+
   writeFileSync(
     `${out}/certificate.pdf`,
     await renderTemplatePdf({
-      layout: starterLayout("CERTIFICATE"),
+      layout: withBackdrop,
       pageSize: "A4",
       orientation: "LANDSCAPE",
+      images: {
+        "https://school.example/api/files/backdrop": {
+          bytes: new Uint8Array(backdrop),
+          mimeType: "image/png",
+        },
+        "/api/media/demo": crest,
+      },
       context: {
         student: { fullName: "Priscilla Naa Quartey" },
         school: {
@@ -127,12 +149,47 @@ async function main() {
           signatoryTitle: "Head Teacher",
         },
       },
-      images: { "/api/media/demo": crest },
     }),
   );
 
   console.log(`Wrote report-card.pdf, transcript.pdf and certificate.pdf to ${out}`);
   await checkMastheadClearance();
+  await checkBackgroundIsDrawn(layout, backdrop);
+}
+
+/**
+ * A background that never reaches the page fails silently — the certificate
+ * still renders, just plain, which is exactly what a school reports as "the
+ * background is not showing". Rendering the same layout with and without one
+ * and comparing the output settles it.
+ */
+async function checkBackgroundIsDrawn(
+  layout: ReturnType<typeof starterLayout>,
+  backdrop: Buffer,
+) {
+  const context = { school: { name: "Test" }, document: { title: "Test" } };
+  const reference = "https://school.example/api/files/backdrop";
+
+  const plain = await renderTemplatePdf({
+    layout,
+    pageSize: "A4",
+    orientation: "LANDSCAPE",
+    context,
+  });
+  const dressed = await renderTemplatePdf({
+    layout: { ...layout, backgroundUrl: reference },
+    pageSize: "A4",
+    orientation: "LANDSCAPE",
+    context,
+    images: { [reference]: { bytes: new Uint8Array(backdrop), mimeType: "image/png" } },
+  });
+
+  const drawn = dressed.byteLength > plain.byteLength;
+  console.log(
+    `  ${drawn ? "ok  " : "FAIL"} background: ${plain.byteLength} bytes plain, ` +
+      `${dressed.byteLength} with the image embedded`,
+  );
+  if (!drawn) process.exit(1);
 }
 
 /**
