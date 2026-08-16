@@ -137,6 +137,7 @@ async function main() {
   await seedCommunications(roles);
   await seedElections(sections);
   await seedDocuments();
+  await seedLearning(offerings, students, sections);
   await seedWebsite(school);
 
   console.log("\nDone.\n");
@@ -2021,6 +2022,288 @@ async function seedDocuments() {
       },
     });
   }
+}
+
+/**
+ * Courses, lessons, an assignment and two quizzes.
+ *
+ * Deliberately concentrated on the demo student's own class (J2A) rather than
+ * spread thinly across the school: the point of the demo data is that signing
+ * in as the demo student shows a populated portal immediately, not that every
+ * class has one lesson nobody looks at.
+ */
+async function seedLearning(
+  offerings: OfferingRow[],
+  students: StudentRow[],
+  sections: SectionRow[],
+) {
+  console.log("  Courses, lessons and quizzes…");
+
+  // J2A is where the demo student and demo guardian live, so that is the class
+  // that gets the material.
+  const demoSection = sections.find((section) => section.name === "J2A");
+
+  const demoSectionOfferings = demoSection
+    ? offerings.filter((offering) => offering.classSectionId === demoSection.id)
+    : [];
+
+  // Fall back to any class if the demo section is missing, so the seed still
+  // produces something useful rather than silently doing nothing.
+  const target = demoSectionOfferings.length ? demoSectionOfferings : offerings.slice(0, 4);
+  if (!target.length) return;
+
+  const subjectNames = await db.subject.findMany({
+    where: { id: { in: target.map((offering) => offering.subjectId) } },
+    select: { id: true, name: true },
+  });
+  const nameOf = new Map(subjectNames.map((entry) => [entry.id, entry.name]));
+
+  const classStudents = students.filter(
+    (student) => student.sectionId === target[0].classSectionId,
+  );
+
+  const MODULES: Record<string, Array<{ title: string; lessons: string[] }>> = {
+    default: [
+      {
+        title: "Unit 1 — Foundations",
+        lessons: [
+          "What this unit covers",
+          "Key vocabulary and definitions",
+          "Worked examples",
+        ],
+      },
+      {
+        title: "Unit 2 — Applying it",
+        lessons: ["Practice problems", "Common mistakes and how to avoid them"],
+      },
+    ],
+  };
+
+  let created = 0;
+
+  for (const [index, offering] of target.slice(0, 5).entries()) {
+    const subject = nameOf.get(offering.subjectId) ?? "Subject";
+
+    const course = await db.course.create({
+      data: {
+        offeringId: offering.id,
+        title: `${subject} — JHS 2`,
+        code: `${subject.slice(0, 3).toUpperCase()}-J2-${index + 1}`,
+        description: `Online material, assignments and quizzes for ${subject}.`,
+        status: "PUBLISHED",
+        allowDiscussion: true,
+        syllabus: `This course follows the GES syllabus for ${subject} at JHS 2. Work through each unit in order; the quizzes at the end of a unit are there to tell you what to revisit.`,
+        createdById: null,
+      },
+    });
+
+    for (const [moduleIndex, moduleSpec] of MODULES.default.entries()) {
+      const module = await db.courseModule.create({
+        data: {
+          courseId: course.id,
+          title: moduleSpec.title,
+          description: `${subject}: ${moduleSpec.title.toLowerCase()}.`,
+          sortKey: (moduleIndex + 1) * 10,
+          isPublished: true,
+        },
+      });
+
+      for (const [lessonIndex, lessonTitle] of moduleSpec.lessons.entries()) {
+        const lesson = await db.lesson.create({
+          data: {
+            moduleId: module.id,
+            title: lessonTitle,
+            contentType: lessonIndex === 1 ? "VIDEO" : "TEXT",
+            content: `${lessonTitle}\n\nThis is demonstration material for ${subject}. In a real course this is where the teacher's notes, worked examples and diagrams would sit.\n\nWork through it, then mark the lesson complete so your teacher can see who is keeping up.`,
+            videoUrl: lessonIndex === 1 ? "https://www.youtube.com/embed/aircAruvnKk" : null,
+            durationMinutes: 10 + lessonIndex * 5,
+            sortKey: (lessonIndex + 1) * 10,
+            isPublished: true,
+          },
+        });
+
+        // Some progress already recorded, so the teacher's engagement figure
+        // is not a flat zero on a fresh install.
+        for (const student of classStudents) {
+          if (random() > 0.55) continue;
+          await db.lessonProgress
+            .create({
+              data: {
+                lessonId: lesson.id,
+                studentId: student.id,
+                percent: 100,
+                completedAt: addDays(new Date(), -between(1, 20)),
+                secondsSpent: between(120, 900),
+              },
+            })
+            .catch(() => undefined);
+        }
+      }
+    }
+
+    // One assignment per course, already due, with most of the class in.
+    const assignment = await db.assignment.create({
+      data: {
+        courseId: course.id,
+        title: `${subject} — Unit 1 assignment`,
+        instructions:
+          "Answer all questions in your exercise book, then upload a photograph of your work. Show your working — marks are given for method as well as the final answer.",
+        type: "FILE_UPLOAD",
+        maxScore: 20,
+        dueAt: addDays(new Date(), -3),
+        allowLate: true,
+        latePenaltyPercent: 10,
+        isPublished: true,
+      },
+    });
+
+    for (const student of classStudents) {
+      const roll = random();
+      if (roll > 0.85) continue; // not handed in
+
+      const late = roll > 0.75;
+      const graded = roll < 0.6;
+
+      await db.submission
+        .create({
+          data: {
+            assignmentId: assignment.id,
+            studentId: student.id,
+            status: graded ? "GRADED" : "SUBMITTED",
+            textBody: "Please see the attached photograph of my working.",
+            submittedAt: addDays(new Date(), late ? -1 : -5),
+            isLate: late,
+            score: graded ? between(9, 20) : null,
+            feedback: graded
+              ? pick([
+                  "Good method throughout. Watch your units in question 3.",
+                  "Well set out. Revisit the last question — the approach is right but the arithmetic slipped.",
+                  "Strong work. Try to show one more line of working so the method is clear.",
+                ])
+              : null,
+            gradedAt: graded ? addDays(new Date(), -1) : null,
+          },
+        })
+        .catch(() => undefined);
+    }
+
+    created += 1;
+  }
+
+  // --- Quizzes -------------------------------------------------------------
+  // One open quiz with a mix of question types so every marking path is
+  // exercised, and one already closed so the results view has something in it.
+  const quizCourses = await db.course.findMany({
+    where: { offeringId: { in: target.map((offering) => offering.id) } },
+    select: { id: true, title: true },
+    take: 2,
+  });
+
+  for (const [index, course] of quizCourses.entries()) {
+    const isOpen = index === 0;
+
+    const quiz = await db.quiz.create({
+      data: {
+        courseId: course.id,
+        title: isOpen ? "Unit 1 check-up" : "Unit 1 test (closed)",
+        description: isOpen
+          ? "A short quiz to check you have understood Unit 1. You have two attempts."
+          : "This quiz has closed. Your result and the answers are shown below.",
+        timeLimitMinutes: isOpen ? 15 : 20,
+        maxAttempts: isOpen ? 2 : 1,
+        passMark: 50,
+        shuffleQuestions: true,
+        shuffleOptions: true,
+        showAnswersAfter: isOpen ? "AFTER_CLOSE" : "IMMEDIATELY",
+        opensAt: addDays(new Date(), -7),
+        closesAt: isOpen ? addDays(new Date(), 14) : addDays(new Date(), -1),
+        isPublished: true,
+      },
+    });
+
+    const questions: Array<{
+      type: "MULTIPLE_CHOICE" | "MULTIPLE_ANSWER" | "TRUE_FALSE" | "SHORT_ANSWER" | "ESSAY";
+      prompt: string;
+      points: number;
+      options?: Array<{ text: string; isCorrect: boolean }>;
+      accepted?: string[];
+      explanation?: string;
+    }> = [
+      {
+        type: "MULTIPLE_CHOICE",
+        prompt: "Which of these is the capital city of Ghana?",
+        points: 1,
+        options: [
+          { text: "Accra", isCorrect: true },
+          { text: "Kumasi", isCorrect: false },
+          { text: "Takoradi", isCorrect: false },
+          { text: "Tamale", isCorrect: false },
+        ],
+        explanation: "Accra has been the capital since 1877.",
+      },
+      {
+        type: "TRUE_FALSE",
+        prompt: "The Volta River is the longest river in Ghana.",
+        points: 1,
+        options: [
+          { text: "True", isCorrect: true },
+          { text: "False", isCorrect: false },
+        ],
+      },
+      {
+        type: "MULTIPLE_ANSWER",
+        prompt: "Select every region that borders the Greater Accra Region.",
+        points: 2,
+        options: [
+          { text: "Eastern", isCorrect: true },
+          { text: "Volta", isCorrect: true },
+          { text: "Central", isCorrect: true },
+          { text: "Upper West", isCorrect: false },
+        ],
+        explanation: "Upper West is in the far north and shares no boundary.",
+      },
+      {
+        type: "SHORT_ANSWER",
+        prompt: "Name the body of water that lies to the south of Ghana.",
+        points: 1,
+        accepted: ["Gulf of Guinea", "Atlantic Ocean", "the Atlantic"],
+      },
+      {
+        type: "ESSAY",
+        prompt:
+          "In two or three sentences, explain why the Akosombo Dam was built and one effect it had.",
+        points: 5,
+        explanation: "Marked by your teacher.",
+      },
+    ];
+
+    for (const [questionIndex, spec] of questions.entries()) {
+      await db.quizQuestion.create({
+        data: {
+          quizId: quiz.id,
+          type: spec.type,
+          prompt: spec.prompt,
+          points: spec.points,
+          explanation: spec.explanation ?? null,
+          acceptedAnswers: spec.accepted ?? [],
+          sortKey: (questionIndex + 1) * 10,
+          ...(spec.options
+            ? {
+                options: {
+                  create: spec.options.map((option, optionIndex) => ({
+                    text: option.text,
+                    isCorrect: option.isCorrect,
+                    sortKey: optionIndex,
+                  })),
+                },
+              }
+            : {}),
+        },
+      });
+    }
+  }
+
+  console.log(`    ${created} courses with lessons, assignments and quizzes.`);
 }
 
 async function seedWebsite(school: { id: string; name: string; motto: string | null }) {

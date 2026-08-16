@@ -300,6 +300,7 @@ src/app/
 | `npm start` | Applies migrations, then serves |
 | `npm run db:migrate` | Create/apply a migration in development |
 | `npm run db:deploy` | Apply migrations (production) |
+| `npm run db:check` | Non-destructive: is the database reachable, and what is in it? |
 | `npm run db:seed` | Rebuild the demo school |
 | `npm run db:studio` | Prisma Studio |
 | `npm run typecheck` | TypeScript, no emit |
