@@ -11,6 +11,7 @@ import { PrismaClient, type Prisma } from "@prisma/client";
 
 import { hashPassword } from "../src/lib/crypto";
 import { PERMISSIONS, ROLE_PRESETS } from "../src/lib/rbac";
+import { starterLayout } from "../src/lib/templates";
 
 const db = new PrismaClient();
 
@@ -142,6 +143,7 @@ async function main() {
   await seedCommunications(roles);
   await seedElections(sections);
   await seedDocuments();
+  await seedDocumentTemplates();
   await seedLearning(offerings, students, sections, demoStudentSectionId);
   await seedWebsite(school);
 
@@ -2478,6 +2480,52 @@ async function seedLearning(
   }
 
   console.log(`    ${created} courses with lessons, assignments and quizzes.`);
+}
+
+/**
+ * A default certificate and transcript template.
+ *
+ * Without these a fresh install cannot issue a certificate at all — the issue
+ * form requires a template and there were none to choose. Both use the same
+ * starter layout the in-app designer produces, so they are immediately usable
+ * and immediately editable.
+ */
+async function seedDocumentTemplates() {
+  console.log("  Certificate and transcript templates…");
+
+  await db.documentTemplate.create({
+    data: {
+      name: "Standard certificate",
+      kind: "CERTIFICATE",
+      description: "Landscape certificate with the school crest and a verification code.",
+      source: "BUILDER",
+      pageSize: "A4",
+      orientation: "LANDSCAPE",
+      isDefault: true,
+      layout: {
+        ...starterLayout("CERTIFICATE"),
+        border: "classic",
+        accent: "#128257",
+      } as never,
+    },
+  });
+
+  await db.documentTemplate.create({
+    data: {
+      name: "Standard transcript",
+      kind: "TRANSCRIPT",
+      description: "Portrait transcript with the full results table.",
+      source: "BUILDER",
+      pageSize: "A4",
+      orientation: "PORTRAIT",
+      isDefault: true,
+      layout: {
+        ...starterLayout("TRANSCRIPT"),
+        border: "minimal",
+        accent: "#128257",
+      } as never,
+    },
+  });
 }
 
 async function seedWebsite(school: { id: string; name: string; motto: string | null }) {

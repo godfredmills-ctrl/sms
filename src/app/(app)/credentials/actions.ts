@@ -348,24 +348,38 @@ export async function revokeCredentialAction(formData: FormData) {
 }
 
 /** Creates a certificate template that certificates are issued against. */
+/**
+ * The quick template creator on this page.
+ *
+ * It used to store only `{ border, accent }`, which the on-screen certificate
+ * reads but the PDF renderer cannot — so a template made here produced a
+ * styled web page and a **blank PDF**. It now writes a full element layout as
+ * well, keeping the two style keys the HTML view uses. The result is usable
+ * immediately and can be rearranged in the designer.
+ */
 export async function createTemplateAction(formData: FormData) {
   const user = await authorize("assessment.template.manage");
+
+  const kind = String(formData.get("kind") ?? "CERTIFICATE");
+  const { starterLayout } = await import("@/lib/templates");
 
   await db.documentTemplate.create({
     data: {
       name: String(formData.get("name") ?? "Untitled template"),
-      kind: String(formData.get("kind") ?? "CERTIFICATE"),
+      kind,
       description: String(formData.get("description") ?? "") || null,
       source: "BUILDER",
       orientation: String(formData.get("orientation") ?? "LANDSCAPE"),
       isDefault: formData.get("isDefault") === "on",
       layout: {
+        ...starterLayout(kind),
         border: String(formData.get("border") ?? "classic"),
         accent: String(formData.get("accent") ?? "#128257"),
-      },
+      } as never,
       createdById: user.id,
     },
   });
 
   revalidatePath("/credentials");
+  revalidatePath("/credentials/templates");
 }
