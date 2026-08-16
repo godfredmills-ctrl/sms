@@ -66,22 +66,23 @@
 
   /* --------------------------------------------------------------------
      Sidebar
-     Its own palette rather than the page's, because in dark mode it sits on
-     a blue gradient whose contrast cannot be derived from the surrounding
-     surface tokens. Light mode keeps the navigation on a plain surface and
-     lets a single accent carry the active state.
+     Its own palette rather than the page's, and the same one in both
+     themes: solid school blue with white text. The navigation is the one
+     part of the frame that should look identical however the pages are
+     themed — it is the school's colour, not the reader's preference.
      -------------------------------------------------------------------- */
-  --sidebar-bg: #ffffff;
-  --sidebar-text: var(--text);
-  --sidebar-muted: var(--text-muted);
-  --sidebar-faint: var(--text-subtle);
-  --sidebar-hover: var(--bg-subtle);
-  --sidebar-active-bg: #2c66ce;
+  --sidebar-bg: #2c66ce;
+  --sidebar-text: #ffffff;
+  --sidebar-muted: rgb(255 255 255 / 0.72);
+  --sidebar-faint: rgb(255 255 255 / 0.5);
+  --sidebar-hover: rgb(255 255 255 / 0.12);
+  /* White rather than a brighter blue — no blue reads as "selected" on blue. */
+  --sidebar-active-bg: rgb(255 255 255 / 0.2);
   --sidebar-active-text: #ffffff;
-  --sidebar-line: var(--border);
-  --sidebar-tree: var(--border-strong);
-  --sidebar-flyout: var(--bg-elevated);
-  --sidebar-tooltip: #1f2937;
+  --sidebar-line: rgb(255 255 255 / 0.16);
+  --sidebar-tree: rgb(255 255 255 / 0.28);
+  --sidebar-flyout: #1c3f7d;
+  --sidebar-tooltip: #0f2547;
   --sidebar-tooltip-text: #ffffff;
 
   color-scheme: light;
@@ -125,30 +126,8 @@
   --teal: #4fbecb;
   --teal-soft: #0d2a2e;
 
-  /*
-   * Dark sidebar: a gradient built from #2C66CE. Lighter at the top where the
-   * logo sits, deepening downward so the lower half of a long nav list does
-   * not compete with the page beside it.
-   */
-  --sidebar-bg: linear-gradient(
-    168deg,
-    #3d7ae4 0%,
-    #2c66ce 42%,
-    #1e4c9e 78%,
-    #163a7a 100%
-  );
-  --sidebar-text: #ffffff;
-  --sidebar-muted: rgb(255 255 255 / 0.72);
-  --sidebar-faint: rgb(255 255 255 / 0.5);
-  --sidebar-hover: rgb(255 255 255 / 0.12);
-  /* White rather than a brighter blue — no blue reads as "selected" on blue. */
-  --sidebar-active-bg: rgb(255 255 255 / 0.2);
-  --sidebar-active-text: #ffffff;
-  --sidebar-line: rgb(255 255 255 / 0.16);
-  --sidebar-tree: rgb(255 255 255 / 0.28);
-  --sidebar-flyout: #1c3f7d;
-  --sidebar-tooltip: #0f2547;
-  --sidebar-tooltip-text: #ffffff;
+  /* The sidebar palette is inherited from the light block unchanged: solid
+     #2C66CE with white text, identical in both themes by design. */
 
   color-scheme: dark;
 }

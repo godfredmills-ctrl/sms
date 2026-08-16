@@ -18,6 +18,7 @@ import { formatDate, humanise } from "@/lib/utils";
 
 import { deleteCalendarEventAction } from "../actions";
 import { EventForm } from "./event-form";
+import { MonthGrid } from "./month-grid";
 
 export const metadata: Metadata = { title: "Academic calendar" };
 export const dynamic = "force-dynamic";
@@ -27,10 +28,30 @@ const MONTH_FORMAT = new Intl.DateTimeFormat("en-GH", {
   year: "numeric",
 });
 
-export default async function AcademicCalendarPage() {
+/** "2026-09" → the first of that month; anything else → this month. */
+function parseMonth(value: string | string[] | undefined): Date {
+  const raw = Array.isArray(value) ? value[0] : value;
+  const match = raw?.match(/^(\d{4})-(\d{1,2})$/);
+  if (match) {
+    const year = Number(match[1]);
+    const monthIndex = Number(match[2]) - 1;
+    if (monthIndex >= 0 && monthIndex <= 11) return new Date(year, monthIndex, 1);
+  }
+  const now = new Date();
+  return new Date(now.getFullYear(), now.getMonth(), 1);
+}
+
+export default async function AcademicCalendarPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const user = await requirePermission(["academic.structure.read", "attendance.read"]);
   const canManage = userCan(user, "academic.year.manage");
   const now = new Date();
+
+  const params = await searchParams;
+  const month = parseMonth(params.month);
 
   const year = await db.academicYear.findFirst({
     where: { isCurrent: true },
@@ -97,16 +118,12 @@ export default async function AcademicCalendarPage() {
   const upcoming = events.filter((event) => event.endsAt >= now);
   const nextHoliday = upcoming.find((event) => event.isHoliday);
 
-  // Grouped by month so a year of events reads as a calendar rather than a
-  // ledger. Months come from the events themselves — a month with nothing in
-  // it earns no heading.
-  const byMonth = new Map<string, typeof events>();
-  for (const event of events) {
-    const key = MONTH_FORMAT.format(event.startsAt);
-    const list = byMonth.get(key) ?? [];
-    list.push(event);
-    byMonth.set(key, list);
-  }
+  // The agenda under the grid covers only the month on display — the grid is
+  // the overview, the list is where descriptions and the delete button live.
+  const monthEnd = new Date(month.getFullYear(), month.getMonth() + 1, 0, 23, 59, 59);
+  const monthEvents = events.filter(
+    (event) => event.startsAt <= monthEnd && event.endsAt >= month,
+  );
 
   return (
     <>
@@ -191,23 +208,32 @@ export default async function AcademicCalendarPage() {
 
           <div className={canManage ? "grid gap-4 lg:grid-cols-[1fr_340px]" : ""}>
             <div className="space-y-4">
-              {byMonth.size === 0 ? (
+              <MonthGrid
+                month={month}
+                events={events}
+                terms={year.terms}
+                basePath="/academics/calendar"
+              />
+
+              {monthEvents.length === 0 ? (
                 <Card>
                   <EmptyState
                     icon={<CalendarDays className="size-5" />}
-                    title="Nothing on the calendar"
+                    title={`Nothing in ${MONTH_FORMAT.format(month)}`}
                     description={
                       canManage
-                        ? "Add the year's events with the form."
+                        ? "Add events with the form, or move to another month."
                         : "Events appear here once the office adds them."
                     }
                   />
                 </Card>
               ) : (
-                [...byMonth.entries()].map(([month, monthEvents]) => (
-                  <Card key={month}>
-                    <CardHeader title={month} />
-                    <ul className="divide-y divide-[var(--border)]">
+                <Card>
+                  <CardHeader
+                    title={`In ${MONTH_FORMAT.format(month)}`}
+                    description="Details of everything on the grid above."
+                  />
+                  <ul className="divide-y divide-[var(--border)]">
                       {monthEvents.map((event) => {
                         const past = event.endsAt < now;
                         const multiDay =
@@ -286,7 +312,6 @@ export default async function AcademicCalendarPage() {
                       })}
                     </ul>
                   </Card>
-                ))
               )}
             </div>
 
