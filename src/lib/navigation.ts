@@ -257,6 +257,12 @@ export const STAFF_NAVIGATION: NavGroup[] = [
             icon: "Image",
             permissions: ["website.manage"],
           },
+          {
+            label: "Enquiries",
+            href: "/website/enquiries",
+            icon: "MailQuestion",
+            permissions: ["student.create"],
+          },
         ],
       },
     ],

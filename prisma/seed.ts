@@ -2762,17 +2762,16 @@ async function seedWebsite(school: { id: string; name: string; motto: string | n
                   body: "Applications for the next academic year are open. Entrance assessments are held monthly.",
                 },
               },
-              // No "form" block type exists in the renderer, so a form block
-              // would render as nothing at all. A call to action pointing at
-              // the contact page is honest about what the site can do.
               {
                 id: "apply",
-                type: "cta",
+                type: "admissionForm",
                 props: {
-                  heading: "Ready to apply?",
-                  body: "Entrance assessments are held monthly. Get in touch to book a place.",
-                  ctaLabel: "Contact the office",
-                  ctaHref: "/site/contact",
+                  heading: "Apply for admission",
+                  intro:
+                    "Tell us about your child and the admissions office will be in touch within two school days.",
+                  levels: "Nursery\nKindergarten\nLower Primary\nUpper Primary\nJHS",
+                  thanks:
+                    "Thank you — your enquiry has been received. The admissions office will contact you shortly.",
                 },
               },
             ],

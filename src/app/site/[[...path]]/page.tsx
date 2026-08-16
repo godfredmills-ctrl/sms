@@ -146,7 +146,13 @@ export default async function PublicSitePage({
 
       <main>
         {blocks.map((block) => (
-          <RenderBlock key={block.id} block={block} news={news} contact={contact} />
+          <RenderBlock
+            key={block.id}
+            block={block}
+            news={news}
+            contact={contact}
+            accent={theme.primary ?? "#2C66CE"}
+          />
         ))}
 
         {blocks.length === 0 ? (

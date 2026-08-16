@@ -20,7 +20,8 @@ export type BlockType =
   | "quote"
   | "cta"
   | "contact"
-  | "news";
+  | "news"
+  | "admissionForm";
 
 export type BlockField = {
   key: string;
@@ -180,6 +181,31 @@ export const BLOCK_DEFS: BlockDef[] = [
       { key: "count", label: "How many", kind: "text" },
     ],
     defaults: { heading: "School news", count: "3" },
+  },
+  {
+    type: "admissionForm",
+    label: "Admission enquiry form",
+    description:
+      "Prospective parents apply from the website. Submissions land in Website → Enquiries for the admissions office to follow up.",
+    fields: [
+      { key: "heading", label: "Heading", kind: "text" },
+      { key: "intro", label: "Introduction", kind: "textarea" },
+      {
+        key: "levels",
+        label: "Levels offered",
+        kind: "list",
+        hint: "One per line — Nursery, KG, Primary, JHS…",
+      },
+      { key: "thanks", label: "Thank-you message", kind: "textarea" },
+    ],
+    defaults: {
+      heading: "Apply for admission",
+      intro:
+        "Tell us about your child and we will be in touch within two school days.",
+      levels: "Nursery\nKindergarten\nLower Primary\nUpper Primary\nJHS",
+      thanks:
+        "Thank you — your enquiry has been received. The admissions office will contact you shortly.",
+    },
   },
 ];
 

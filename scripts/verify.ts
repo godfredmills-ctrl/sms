@@ -556,6 +556,25 @@ async function checkOutputs() {
     where: "the public site header",
   });
 
+  // The admission form is the public site's one interactive element, and a
+  // block type the renderer does not recognise renders as nothing — silently.
+  const admissionsPage = await db.sitePage.findFirst({
+    where: { siteId: site.id, slug: "admissions", status: "PUBLISHED" },
+    select: { blocks: true },
+  });
+  const hasEnquiryForm =
+    Array.isArray(admissionsPage?.blocks) &&
+    (admissionsPage.blocks as Array<{ type?: string }>).some(
+      (block) => block?.type === "admissionForm",
+    );
+  if (!admissionsPage) {
+    warn(g, "Admissions page", "Not published — prospective parents have nowhere to apply.");
+  } else if (!hasEnquiryForm) {
+    warn(g, "Admissions page", "Published, but carries no enquiry form block.");
+  } else {
+    pass(g, "Admissions page", "enquiry form present");
+  }
+
   const home = await db.sitePage.findFirst({
     where: { siteId: site.id, isHomePage: true },
     select: { title: true, status: true, blocks: true },

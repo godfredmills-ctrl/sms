@@ -3,6 +3,8 @@ import Link from "next/link";
 import { parseRows, propText, type Block } from "@/lib/site-blocks";
 import { formatDate } from "@/lib/utils";
 
+import { EnquiryForm } from "./enquiry-form";
+
 export type NewsItem = { id: string; title: string; summary: string | null; publishedAt: Date | null };
 
 /**
@@ -16,11 +18,14 @@ export function RenderBlock({
   block,
   news,
   contact,
+  accent = "#2C66CE",
 }: {
   block: Block;
   news: NewsItem[];
   /** The site's own contact details, used when a contact block carries none. */
   contact?: Record<string, string>;
+  /** The theme's primary colour, for blocks that carry interactive elements. */
+  accent?: string;
 }) {
   const raw = (block.props ?? {}) as Record<string, unknown>;
   const props = new Proxy(raw, {
@@ -336,6 +341,35 @@ export function RenderBlock({
           )}
         </section>
       );
+
+    case "admissionForm": {
+      // "One level per line" in the editor; parseRows already tolerates the
+      // shapes JSON actually arrives in.
+      const levels = parseRows(raw.levels)
+        .map((row) => row[0])
+        .filter(Boolean);
+
+      return (
+        <section className="mx-auto max-w-3xl px-6 py-14">
+          {props.heading ? (
+            <h2 className="mb-2 text-2xl font-semibold tracking-tight">
+              {props.heading}
+            </h2>
+          ) : null}
+          {props.intro ? (
+            <p className="mb-6 text-sm text-[var(--text-muted)]">{props.intro}</p>
+          ) : null}
+          <EnquiryForm
+            levels={levels.length ? levels : ["Nursery", "Primary", "JHS"]}
+            thanks={
+              props.thanks ||
+              "Thank you — your enquiry has been received. The admissions office will contact you shortly."
+            }
+            accent={accent}
+          />
+        </section>
+      );
+    }
 
     default:
       return null;
