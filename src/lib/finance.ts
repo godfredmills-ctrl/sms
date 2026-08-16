@@ -464,11 +464,26 @@ export async function recordPayment(input: RecordPaymentInput) {
 
     for (const allocation of allocations) {
       if (allocation.amountMinor <= 0) continue;
+
+      // Capped at what the invoice actually owes. planAllocation works this
+      // out, but an allocation chosen at the counter does not: a bursar typing
+      // GH₵2,000 against a bill of GH₵1,500 wrote the whole 2,000 onto it. The
+      // balance clamps at zero in refreshInvoiceTotals, so the extra 500
+      // vanished — it did not become credit on the account, it stopped
+      // existing, and the family's statement no longer matched the receipt
+      // they were holding.
+      const invoice = await tx.invoice.findUnique({
+        where: { id: allocation.invoiceId },
+        select: { balanceMinor: true },
+      });
+      const applied = Math.min(allocation.amountMinor, invoice?.balanceMinor ?? 0);
+      if (applied <= 0) continue;
+
       await tx.paymentAllocation.create({
         data: {
           paymentId: payment.id,
           invoiceId: allocation.invoiceId,
-          amountMinor: allocation.amountMinor,
+          amountMinor: applied,
           allocatedBy: input.receivedById ?? null,
         },
       });

@@ -12,14 +12,23 @@ import { Button } from "@/components/ui";
  * Mounted once from the root layout. Every prompt is dismissible and
  * remembers the dismissal — nobody should be nagged twice.
  */
-export function PwaRuntime() {
+export function PwaRuntime({ signedIn = false }: { signedIn?: boolean }) {
   useServiceWorker();
 
   return (
     <>
       <OfflineBanner />
       <InstallPrompt />
-      <PushPrompt />
+      {/* Only offered to someone signed in. This runs from the root layout, so
+          it also covers the login page, the public website and the certificate
+          verification page. An anonymous visitor was asked to enable
+          notifications, and saying yes POSTed a subscription to a route that
+          401s — so nothing was stored, and browser permission was now
+          "granted", which is not "default", which is the condition this prompt
+          waits for. That browser could never be asked again, including after
+          the parent signed in, and there was no way back short of clearing
+          site permissions by hand. */}
+      {signedIn ? <PushPrompt /> : null}
     </>
   );
 }

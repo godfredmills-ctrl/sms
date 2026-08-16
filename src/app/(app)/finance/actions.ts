@@ -21,6 +21,7 @@ export type RecordPaymentState = {
   ok?: boolean;
   error?: string;
   receiptNo?: string;
+  paymentId?: string;
 };
 
 export async function recordPaymentAction(
@@ -109,7 +110,7 @@ export async function recordPaymentAction(
     revalidatePath("/finance");
     revalidatePath(`/students/${studentId}`);
 
-    return { ok: true, receiptNo: payment.receiptNo };
+    return { ok: true, receiptNo: payment.receiptNo, paymentId: payment.id };
   } catch (error) {
     return { error: (error as Error).message };
   }
@@ -338,6 +339,19 @@ export async function setStructureItemAction(formData: FormData) {
     return;
   }
 
+  // Taken from the category, not from the form. The row on the structures page
+  // is an amount box and a Save button — there is no optional checkbox on it —
+  // so reading one meant every line saved as mandatory, including lines on
+  // categories the school had explicitly marked Optional. Billing filters on
+  // the line's flag, so school bus, lunch and club fees went onto every
+  // student's invoice, and the page displayed an "Optional" badge beside each
+  // of them from the category while the line underneath said otherwise.
+  const category = await db.feeCategory.findUnique({
+    where: { id: categoryId },
+    select: { isOptional: true },
+  });
+  const isOptional = category?.isOptional ?? false;
+
   await db.feeStructureItem.upsert({
     where: { structureId_categoryId: { structureId, categoryId } },
     create: {
@@ -345,12 +359,12 @@ export async function setStructureItemAction(formData: FormData) {
       categoryId,
       amountMinor,
       description: text(formData, "description") || null,
-      isOptional: formData.get("isOptional") === "on",
+      isOptional,
     },
     update: {
       amountMinor,
       description: text(formData, "description") || null,
-      isOptional: formData.get("isOptional") === "on",
+      isOptional,
     },
   });
 

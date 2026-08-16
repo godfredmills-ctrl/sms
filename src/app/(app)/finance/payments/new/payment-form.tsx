@@ -83,7 +83,10 @@ export function RecordPaymentForm({
             been issued and the invoice balance updated.
           </p>
           <div className="mt-5 flex flex-wrap justify-center gap-2">
-            <LinkButton href={`/finance/receipts/${state.receiptNo}`} variant="outline">
+            {/* The payment record is the receipt — there is no /finance/receipts
+                route and never was, so this button 404'd on the one screen a
+                bursar reaches with a parent standing in front of them. */}
+            <LinkButton href={`/finance/payments/${state.paymentId}`} variant="outline">
               <Receipt className="size-4" />
               Print receipt
             </LinkButton>

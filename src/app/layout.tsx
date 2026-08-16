@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 
 import { PwaRuntime } from "@/components/pwa";
+import { getCurrentUser } from "@/lib/auth";
 
 import "./globals.css";
 
@@ -44,9 +45,14 @@ export const viewport: Viewport = {
  */
 const THEME_SCRIPT = `(function(){try{var t=localStorage.getItem('theme');if(t==='dark'||t==='light'){document.documentElement.setAttribute('data-theme',t);}}catch(e){}})();`;
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
+  // Only used to decide whether to offer push enrolment. Nothing about the user
+  // is rendered here, so this stays a cheap session lookup rather than a reason
+  // to make the whole tree dynamic.
+  const signedIn = Boolean(await getCurrentUser());
+
   return (
     <html lang="en-GH" suppressHydrationWarning>
       <head>
@@ -54,7 +60,7 @@ export default function RootLayout({
       </head>
       <body>
         {children}
-        <PwaRuntime />
+        <PwaRuntime signedIn={signedIn} />
       </body>
     </html>
   );
