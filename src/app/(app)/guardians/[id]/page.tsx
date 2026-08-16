@@ -5,6 +5,7 @@ import {
   Briefcase,
   FolderOpen,
   Home,
+  Pencil,
   Phone,
   Users,
   Wallet,
@@ -20,10 +21,18 @@ import {
   CardHeader,
   DescriptionList,
   EmptyState,
+  LinkButton,
   PageHeader,
   StatCard,
   StatusBadge,
 } from "@/components/ui";
+
+import {
+  DeleteGuardianCard,
+  GuardianAccountCard,
+  LinkWardCard,
+  UnlinkWardButton,
+} from "../ward-cards";
 import { requirePermission, userCan } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { formatMoney } from "@/lib/money";
@@ -66,6 +75,7 @@ export default async function GuardianProfilePage({
   const active = (TABS.find((entry) => entry.key === tab)?.key ?? "overview") as TabKey;
 
   const canSeeFinance = userCan(user, "finance.read");
+  const canManage = userCan(user, "student.guardian.manage");
 
   const guardian = await db.guardian.findUnique({
     where: { id },
@@ -114,6 +124,29 @@ export default async function GuardianProfilePage({
 
   const name = fullName(guardian);
 
+  // For the link card and the delete guard, only fetched for someone who can
+  // act on them.
+  const [linkableStudents, paymentCount] = canManage
+    ? await Promise.all([
+        db.student.findMany({
+          where: {
+            status: "ENROLLED",
+            guardians: { none: { guardianId: guardian.id } },
+          },
+          orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
+          take: 1500,
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            otherNames: true,
+            admissionNo: true,
+          },
+        }),
+        db.payment.count({ where: { guardianId: guardian.id } }),
+      ])
+    : [[], 0];
+
   // Only the children this guardian actually pays for — attributing every
   // child's balance to every listed guardian double-counts a shared bill.
   const owed = canSeeFinance
@@ -144,6 +177,16 @@ export default async function GuardianProfilePage({
         }
         action={
           <>
+            {canManage ? (
+              <LinkButton
+                href={`/guardians/${guardian.id}/edit`}
+                variant="outline"
+                size="sm"
+              >
+                <Pencil className="size-3.5" />
+                Edit record
+              </LinkButton>
+            ) : null}
             {guardian.isPtaMember ? <Badge tone="teal">PTA</Badge> : null}
             {guardian.isAlumni ? <Badge tone="violet">Alumni</Badge> : null}
             {guardian.user ? (
@@ -199,7 +242,8 @@ export default async function GuardianProfilePage({
       {!guardian.user ? (
         <Alert tone="warning" className="mb-4">
           This guardian has no portal login, so they cannot see results, fee statements
-          or announcements. Create an account under Users &amp; roles.
+          or announcements. Create one from the Children tab — it links the account to
+          this record and their wards.
         </Alert>
       ) : null}
 
@@ -333,7 +377,7 @@ export default async function GuardianProfilePage({
                       </div>
                     </div>
 
-                    <div className="flex flex-wrap gap-1">
+                    <div className="flex flex-wrap items-center gap-1">
                       {link.isPrimary ? <Badge tone="primary">Primary</Badge> : null}
                       {link.isEmergency ? <Badge tone="danger">Emergency</Badge> : null}
                       {link.isBillPayer ? (
@@ -346,6 +390,12 @@ export default async function GuardianProfilePage({
                         <Badge tone="success">Reports</Badge>
                       ) : null}
                       {link.canPickUp ? <Badge tone="neutral">Can collect</Badge> : null}
+                      {canManage ? (
+                        <UnlinkWardButton
+                          guardianId={guardian.id}
+                          studentId={link.student.id}
+                        />
+                      ) : null}
                     </div>
                   </li>
                 );
@@ -355,10 +405,45 @@ export default async function GuardianProfilePage({
             <EmptyState
               icon={<Users className="size-5" />}
               title="No children linked"
-              description="Link this guardian from a student's Family tab."
+              description={
+                canManage
+                  ? "Use the card below to link one."
+                  : "Link this guardian from a student's Family tab."
+              }
             />
           )}
         </Card>
+      ) : null}
+
+      {active === "children" && canManage ? (
+        <div className="mt-4 grid gap-4 lg:grid-cols-2">
+          <LinkWardCard
+            guardianId={guardian.id}
+            students={linkableStudents.map((student) => ({
+              value: student.id,
+              label: fullName(student),
+              description: student.admissionNo,
+            }))}
+          />
+
+          <div className="space-y-4">
+            {!guardian.user && userCan(user, "user.manage") ? (
+              <GuardianAccountCard
+                guardianId={guardian.id}
+                suggestedEmail={guardian.email ?? ""}
+                suggestedPhone={guardian.phone}
+                hasWards={guardian.students.length > 0}
+              />
+            ) : null}
+
+            <DeleteGuardianCard
+              guardianId={guardian.id}
+              name={name}
+              wardCount={guardian.students.length}
+              paymentCount={paymentCount}
+            />
+          </div>
+        </div>
       ) : null}
 
       {active === "documents" ? (

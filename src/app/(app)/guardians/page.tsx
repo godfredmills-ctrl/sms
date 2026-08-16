@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
-import { Contact, MessageSquare, Users, Wallet } from "lucide-react";
+import { Contact, MessageSquare, UserPlus, Users, Wallet } from "lucide-react";
 
-import { Alert, PageHeader, StatCard } from "@/components/ui";
+import { Alert, LinkButton, PageHeader, StatCard } from "@/components/ui";
 import { requirePermission, userCan } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { formatMoney } from "@/lib/money";
@@ -118,6 +118,14 @@ export default async function GuardiansPage() {
       <PageHeader
         title="Guardians"
         description="Parents and guardians, who they are responsible for, and how to reach them."
+        action={
+          userCan(user, "student.guardian.manage") ? (
+            <LinkButton href="/guardians/new" size="sm">
+              <UserPlus className="size-4" />
+              Add guardian
+            </LinkButton>
+          ) : null
+        }
       />
 
       <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
