@@ -205,7 +205,10 @@ async function reset() {
     "attendanceRecord", "attendanceSession",
     "timetableSlot", "subjectOffering", "levelSubject",
     "promotionRecord", "enrollment",
-    "clinicVisit", "studentMedical", "studentDocument", "disciplinaryRecord",
+    "clinicVisit", "studentMedical", "disciplinaryRecord",
+    // Documents on a person's file — before the people and the files they
+    // point at, both of which are deleted further down.
+    "studentDocument", "staffDocument", "guardianDocument",
     "educationHistory", "familyRelation", "studentGuardian",
     "documentAccessLog", "documentVersion", "document", "documentFolder",
     "siteFormSubmission", "sitePost", "siteMedia", "siteMenu", "sitePage", "site",
