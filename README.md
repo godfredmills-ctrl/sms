@@ -73,6 +73,26 @@ The seed prints who it landed on and which class was populated.
 The seed is deterministic and re-runnable: `npm run db:seed` wipes and rebuilds
 the same school every time.
 
+### Checking the data hangs together
+
+```
+npm run db:verify
+```
+
+Prisma guarantees each row is valid. Nothing guarantees the rows are
+collectively sensible, and that gap is where the awkward bugs live — an
+academic year that finished last month, a published course with no lessons, a
+quiz nobody can open, an invoice whose balance does not follow from its total.
+All of those seed cleanly and only show up later as a page that looks broken
+rather than empty.
+
+`db:verify` asserts the invariants instead: the current year and term contain
+today, every demo login resolves to a person, the demo student can see courses
+and sit a quiz, invoices reconcile, reminder rules name an audience the engine
+recognises, certificate and transcript templates have elements to draw, the
+home page has blocks. It is read-only and exits non-zero on a failure, so it
+can gate a deploy. Run it after every seed.
+
 ---
 
 ## Deploying to Railway
@@ -318,6 +338,7 @@ src/app/
 | `npm run db:migrate` | Create/apply a migration in development |
 | `npm run db:deploy` | Apply migrations (production) |
 | `npm run db:check` | Non-destructive: is the database reachable, and what is in it? |
+| `npm run db:verify` | Read-only: does the data hang together? Exits 1 on a failure |
 | `npm run db:seed` | Rebuild the demo school — **wipes first** |
 | `npm run db:seed:force` | Same, but fetches `tsx` on demand (for a container where dev dependencies were pruned) |
 | `npm run db:studio` | Prisma Studio |
