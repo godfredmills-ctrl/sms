@@ -94,7 +94,19 @@ export default async function StudentProfilePage({
   const user = await requirePermission(["student.read", "student.read.own"]);
   const { id } = await params;
   const { tab } = await searchParams;
-  const active = (TABS.find((entry) => entry.key === tab)?.key ?? "overview") as TabKey;
+
+  // Resolved against the tabs this user may see, not against all of them.
+  // Hiding a tab from the strip hides the link, and the link is not the way in
+  // — ?tab=medical is. A form teacher without student.medical.read was one
+  // typed URL away from a child's allergies, diagnoses and clinic visits, and
+  // ?tab=background from the family's income band and whether the child is an
+  // orphan. Neither left a trace that looked like a refusal, because nothing
+  // was refused.
+  const visibleTabs = TABS.filter(
+    (entry) => !entry.permission || userCan(user, entry.permission),
+  );
+  const active = (visibleTabs.find((entry) => entry.key === tab)?.key ??
+    "overview") as TabKey;
 
   const student = await db.student.findUnique({
     where: { id },
@@ -133,10 +145,6 @@ export default async function StudentProfilePage({
   });
 
   if (!student) notFound();
-
-  const visibleTabs = TABS.filter(
-    (entry) => !entry.permission || userCan(user, entry.permission),
-  );
 
   const fullName = [student.firstName, student.otherNames, student.lastName]
     .filter(Boolean)

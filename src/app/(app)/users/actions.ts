@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 
-import { authorize } from "@/lib/auth";
+import { authorize, userCan } from "@/lib/auth";
 import { generateCode, hashPassword } from "@/lib/crypto";
 import { db } from "@/lib/db";
 import { PERMISSIONS } from "@/lib/rbac";
@@ -40,6 +40,20 @@ export async function inviteUserAction(
   if (!firstName || !lastName) return { error: "First and last name are required." };
   if (!email && !phone) return { error: "Give an email address or a phone number." };
   if (!roleIds.length) return { error: "Assign at least one role." };
+
+  // Handing out a role is the same act whether the account is new or existing,
+  // so it takes the same permission. It did not: changing an existing user's
+  // roles required user.role.manage, while creating one required only
+  // user.manage — and creation takes a roleIds list. Anyone who could add a
+  // colleague could add a colleague who is a super_admin, or invite a second
+  // account for themselves and sign in as it. The narrower permission was
+  // guarding the door beside an open window.
+  if (!userCan(actor, "user.role.manage")) {
+    return {
+      error:
+        "You can create accounts but not decide their roles. Ask someone with the “Assign roles to users” permission to do this, or to grant it to you.",
+    };
+  }
 
   const clash = await db.user.findFirst({
     where: {

@@ -85,7 +85,15 @@ export default async function StaffProfilePage({
   const user = await requirePermission("staff.read");
   const { id } = await params;
   const { tab } = await searchParams;
-  const active = (TABS.find((entry) => entry.key === tab)?.key ?? "overview") as TabKey;
+
+  // Same reason as the student profile: the tab strip hides the link, not the
+  // panel. ?tab=payroll showed a colleague's salary, bank account and SSNIT
+  // number to any account with staff.read.
+  const visibleTabs = TABS.filter(
+    (entry) => !entry.permission || userCan(user, entry.permission),
+  );
+  const active = (visibleTabs.find((entry) => entry.key === tab)?.key ??
+    "overview") as TabKey;
 
   const staff = await db.staff.findUnique({
     where: { id },
@@ -125,10 +133,6 @@ export default async function StaffProfilePage({
   });
 
   if (!staff) notFound();
-
-  const visibleTabs = TABS.filter(
-    (entry) => !entry.permission || userCan(user, entry.permission),
-  );
 
   const name = fullName(staff);
   const qualifications =

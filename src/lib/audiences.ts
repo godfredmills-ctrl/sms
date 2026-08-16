@@ -1,4 +1,24 @@
-import type { PortalType } from "@prisma/client";
+import type { MessageChannel, PortalType } from "@prisma/client";
+
+/**
+ * The channels a message can go out on.
+ *
+ * Typed as MessageChannel so the compiler rejects a value the database has no
+ * enum member for. The admission form previously offered "Phone call" as VOICE,
+ * which is not a MessageChannel — choosing it did not fail validation, it threw
+ * a raw Prisma error and lost the entire admission, at the end of a long form,
+ * for picking the option a Ghanaian parent is most likely to want.
+ *
+ * A channel belongs here only once something can actually deliver on it. An
+ * option nothing sends is the same bug wearing a valid enum value.
+ */
+export const MESSAGE_CHANNELS: Array<{ value: MessageChannel; label: string }> = [
+  { value: "SMS", label: "SMS" },
+  { value: "WHATSAPP", label: "WhatsApp" },
+  { value: "EMAIL", label: "Email" },
+  { value: "PUSH", label: "Push notification" },
+  { value: "IN_APP", label: "In-app notification" },
+];
 
 /**
  * Who a fee reminder goes to.

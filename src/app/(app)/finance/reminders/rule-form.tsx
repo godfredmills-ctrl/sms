@@ -6,7 +6,7 @@ import { BellRing } from "lucide-react";
 
 import { SearchableSelect } from "@/components/select-search";
 import { Alert, Button, CardBody, Field, Input } from "@/components/ui";
-import { REMINDER_AUDIENCES } from "@/lib/audiences";
+import { MESSAGE_CHANNELS, REMINDER_AUDIENCES } from "@/lib/audiences";
 
 import { saveReminderRuleAction, type FinanceFormState } from "../actions";
 
@@ -98,13 +98,7 @@ export function RuleForm() {
             name="channels"
             multiple
             defaultValue={["SMS", "PUSH"]}
-            options={[
-              { value: "SMS", label: "SMS" },
-              { value: "EMAIL", label: "Email" },
-              { value: "PUSH", label: "Push notification" },
-              { value: "IN_APP", label: "In-app notification" },
-              { value: "WHATSAPP", label: "WhatsApp" },
-            ]}
+            options={MESSAGE_CHANNELS}
           />
         </Field>
 

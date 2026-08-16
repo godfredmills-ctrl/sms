@@ -18,6 +18,8 @@ import {
   Textarea,
 } from "@/components/ui";
 
+import { MESSAGE_CHANNELS } from "@/lib/audiences";
+
 import { admitStudentAction, type AdmissionState } from "../actions";
 
 const REGIONS = [
@@ -179,13 +181,7 @@ export function AdmissionForm({ sections }: { sections: SelectOption[] }) {
               name="guardianChannel"
               clearable={false}
               defaultValue="SMS"
-              options={[
-                { value: "SMS", label: "SMS" },
-                { value: "WHATSAPP", label: "WhatsApp" },
-                { value: "EMAIL", label: "Email" },
-                { value: "PUSH", label: "App notification" },
-                { value: "VOICE", label: "Phone call" },
-              ]}
+              options={MESSAGE_CHANNELS}
             />
           </Field>
         </CardBody>

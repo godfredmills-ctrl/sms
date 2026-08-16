@@ -59,6 +59,7 @@ export default async function DocumentsPage() {
         id: true,
         name: true,
         accessLevel: true,
+        allowedRoleIds: true,
         _count: { select: { documents: true } },
       },
     }),
@@ -76,7 +77,7 @@ export default async function DocumentsPage() {
         version: true,
         createdAt: true,
         fileId: true,
-        folder: { select: { name: true } },
+        folder: { select: { name: true, accessLevel: true, allowedRoleIds: true } },
         file: {
           select: {
             mimeType: true,
@@ -89,22 +90,44 @@ export default async function DocumentsPage() {
     }),
   ]);
 
-  // Access is re-checked per document rather than assumed from the route: the
-  // cabinet mixes school-wide handbooks with restricted board minutes.
-  const visible = documents.filter((document) => {
-    if (user.roleKeys.includes("super_admin")) return true;
-    switch (document.accessLevel) {
+  // Access is re-checked here rather than assumed from the route: the cabinet
+  // mixes school-wide handbooks with restricted board minutes.
+  const permits = (level: string, allowedRoleIds: string[]) => {
+    switch (level) {
       case "PUBLIC":
       case "SCHOOL_WIDE":
         return true;
       case "STAFF":
         return user.portal === "STAFF";
       case "ROLE_RESTRICTED":
-        return document.allowedRoleIds.some((role) => user.roleKeys.includes(role));
+        return allowedRoleIds.some((role) => user.roleKeys.includes(role));
       default:
         return false;
     }
-  });
+  };
+
+  const isSuperAdmin = user.roleKeys.includes("super_admin");
+
+  // A folder's own access level was stored, selected, displayed — and never
+  // consulted. Documents were filtered by their own level only, and a document
+  // takes the default STAFF unless somebody sets it, so anything filed into
+  // "Board minutes" without being individually restricted was readable by every
+  // staff account. The folder is the restriction a school actually configures;
+  // putting a document inside one has to mean something.
+  const folderPermits = (
+    folder: { accessLevel: string; allowedRoleIds: string[] } | null,
+  ) => !folder || permits(folder.accessLevel, folder.allowedRoleIds);
+
+  const visible = documents.filter(
+    (document) =>
+      isSuperAdmin ||
+      (folderPermits(document.folder) &&
+        permits(document.accessLevel, document.allowedRoleIds)),
+  );
+
+  const visibleFolders = folders.filter(
+    (folder) => isSuperAdmin || permits(folder.accessLevel, folder.allowedRoleIds),
+  );
 
   const rows: DocumentRow[] = visible.map((document) => ({
     id: document.id,
@@ -144,7 +167,7 @@ export default async function DocumentsPage() {
           tone="violet"
           icon={<FolderOpen className="size-4" />}
         />
-        <StatCard label="Folders" value={folders.length} tone="info" />
+        <StatCard label="Folders" value={visibleFolders.length} tone="info" />
         <StatCard
           label="Storage used"
           value={formatBytes(totalBytes)}
@@ -162,11 +185,11 @@ export default async function DocumentsPage() {
 
       <div className="grid gap-4 lg:grid-cols-[340px_1fr]">
         <div className="space-y-4">
-          {canUpload && folders.length ? (
+          {canUpload && visibleFolders.length ? (
             <Card>
               <CardHeader title="Upload" description="Drag a file in, or browse." />
               <DocumentUploader
-                folders={folders.map((folder) => ({
+                folders={visibleFolders.map((folder) => ({
                   value: folder.id,
                   label: folder.name,
                   description: `${folder._count.documents} documents`,
@@ -211,7 +234,7 @@ export default async function DocumentsPage() {
           <Card>
             <CardHeader title="Folders" />
             <ul className="divide-y divide-[var(--border)]">
-              {folders.map((folder) => (
+              {visibleFolders.map((folder) => (
                 <li
                   key={folder.id}
                   className="flex items-center gap-2.5 px-5 py-2.5 text-sm"

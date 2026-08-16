@@ -46,25 +46,39 @@ export async function saveAttendance(
   }
 
   try {
-    const session = await db.attendanceSession.upsert({
+    // Found-then-written rather than upserted on the compound key, because a
+    // daily register has no periodIndex and Postgres treats NULL as distinct
+    // from NULL inside a unique index. So `periodIndex: null` in the upsert's
+    // where-clause matched nothing, ever: the constraint permitted a second row
+    // and the upsert created one. A teacher correcting a register at lunchtime
+    // did not replace the morning's — they made a second session for the same
+    // class on the same day, and the student was then both present and absent.
+    // Every attendance percentage on top of that was computed over both.
+    const existing = await db.attendanceSession.findFirst({
       where: {
-        classSectionId_date_type_periodIndex: {
-          classSectionId: input.classSectionId,
-          date,
-          type: "DAILY",
-          periodIndex: null as unknown as number,
-        },
-      },
-      create: {
         classSectionId: input.classSectionId,
-        termId: input.termId,
         date,
         type: "DAILY",
-        takenById: user.staffId,
-        takenAt: new Date(),
+        periodIndex: null,
       },
-      update: { takenById: user.staffId, takenAt: new Date() },
+      select: { id: true },
     });
+
+    const session = existing
+      ? await db.attendanceSession.update({
+          where: { id: existing.id },
+          data: { takenById: user.staffId, takenAt: new Date() },
+        })
+      : await db.attendanceSession.create({
+          data: {
+            classSectionId: input.classSectionId,
+            termId: input.termId,
+            date,
+            type: "DAILY",
+            takenById: user.staffId,
+            takenAt: new Date(),
+          },
+        });
 
     // Replace the whole register in one transaction so a partial save can
     // never leave half a class marked.
