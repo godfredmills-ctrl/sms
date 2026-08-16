@@ -333,7 +333,9 @@ Every module below has a working interface on top of the data model.
 **People** — students (advanced table plus a ten-tab profile covering demographics,
 background, medical history and allergies, guardians, family tree, education
 history, academics, attendance, fees, documents and conduct), admissions,
-spreadsheet import, staff records and profiles, the guardian register.
+spreadsheet import, staff records and profiles, and a guardian register with
+full profiles. All three carry a documents tab: upload, in-browser preview,
+verification against the original, and expiry tracking.
 
 **Academics** — class levels and sections, subjects and the curriculum map,
 academic years and terms with locking, a timetable grid that detects teacher

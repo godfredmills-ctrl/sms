@@ -789,6 +789,7 @@ model Staff {
   gradedScores     AssessmentScore[]
   takenAttendance  AttendanceSession[]
   leaveRequests    StaffLeave[]
+  documents        StaffDocument[]
 
   @@index([status])
   @@index([department])
@@ -1049,6 +1050,7 @@ model Guardian {
   students  StudentGuardian[]
   relations FamilyRelation[]  @relation("GuardianRelations")
   payments  Payment[]
+  documents GuardianDocument[]
 
   @@index([lastName, firstName])
   @@index([phone])
@@ -1155,6 +1157,13 @@ model EducationHistory {
   @@index([studentId])
 }
 
+/// Documents held on a person's file.
+///
+/// Three concrete tables rather than one polymorphic one. A polymorphic
+/// `recordId` cannot carry a foreign key, so deleting a student would leave
+/// their passport scan behind with nothing pointing at it — an orphaned
+/// identity document is a data-protection problem, not an untidy row. The
+/// cascade is the point.
 model StudentDocument {
   id         String    @id @default(cuid())
   studentId  String
@@ -1167,9 +1176,51 @@ model StudentDocument {
   expiresAt  DateTime?
   isVerified Boolean   @default(false)
   verifiedBy String?
+  verifiedAt DateTime?
+  uploadedById String?
   uploadedAt DateTime  @default(now())
 
   @@index([studentId, category])
+}
+
+model StaffDocument {
+  id         String    @id @default(cuid())
+  staffId    String
+  staff      Staff     @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  fileId     String
+  file       FileAsset @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  /// CONTRACT, CERTIFICATE, GHANA_CARD, SSNIT, CV, REFERENCE, POLICE_CHECK, MEDICAL
+  category   String
+  title      String
+  notes      String?
+  expiresAt  DateTime?
+  isVerified Boolean   @default(false)
+  verifiedBy String?
+  verifiedAt DateTime?
+  uploadedById String?
+  uploadedAt DateTime  @default(now())
+
+  @@index([staffId, category])
+}
+
+model GuardianDocument {
+  id         String    @id @default(cuid())
+  guardianId String
+  guardian   Guardian  @relation(fields: [guardianId], references: [id], onDelete: Cascade)
+  fileId     String
+  file       FileAsset @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  /// GHANA_CARD, PASSPORT, PROOF_OF_ADDRESS, CUSTODY_ORDER, EMPLOYMENT_LETTER
+  category   String
+  title      String
+  notes      String?
+  expiresAt  DateTime?
+  isVerified Boolean   @default(false)
+  verifiedBy String?
+  verifiedAt DateTime?
+  uploadedById String?
+  uploadedAt DateTime  @default(now())
+
+  @@index([guardianId, category])
 }
 
 model DisciplinaryRecord {
@@ -2361,6 +2412,8 @@ model FileAsset {
   documents               Document[]
   documentVersions        DocumentVersion[]
   studentDocuments        StudentDocument[]
+  staffDocuments          StaffDocument[]
+  guardianDocuments       GuardianDocument[]
   templates               DocumentTemplate[]
   announcementAttachments AnnouncementAttachment[]
   memoAttachments         MemoAttachment[]

@@ -16,6 +16,8 @@ import {
 } from "lucide-react";
 
 import { FamilyTree, type FamilyNode } from "@/components/family-tree";
+import { PersonDocuments } from "@/components/person-documents";
+import { DOCUMENT_CATEGORIES, documentsFor } from "@/lib/person-documents";
 import {
   Alert,
   Avatar,
@@ -1044,44 +1046,15 @@ export default async function StudentProfilePage({
       ) : null}
 
       {active === "documents" ? (
-        <Card>
-          <CardHeader
-            title="Student documents"
-            description="Birth certificate, passport, transfer letters and other records"
-          />
-          {student.documents.length ? (
-            <ul className="divide-y divide-[var(--border)]">
-              {student.documents.map((document) => (
-                <li
-                  key={document.id}
-                  className="flex flex-wrap items-center gap-3 px-5 py-3"
-                >
-                  <FileText className="size-4 shrink-0 text-[var(--text-subtle)]" />
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium">{document.title}</p>
-                    <p className="text-xs text-[var(--text-muted)]">
-                      {humanise(document.category)} · {formatDate(document.uploadedAt)}
-                    </p>
-                  </div>
-                  {document.isVerified ? <Badge tone="success">Verified</Badge> : null}
-                  <LinkButton
-                    href={`/api/files/${document.fileId}`}
-                    target="_blank"
-                    variant="outline"
-                    size="sm"
-                  >
-                    Preview
-                  </LinkButton>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <EmptyState
-              title="No documents uploaded"
-              description="Upload the student's birth certificate, photo and previous school records."
-            />
-          )}
-        </Card>
+        <PersonDocuments
+          kind="student"
+          personId={student.id}
+          personName={fullName}
+          documents={await documentsFor("student", student.id)}
+          categories={DOCUMENT_CATEGORIES.student}
+          canManage={userCan(user, "student.document.manage")}
+          canVerify={userCan(user, "student.update")}
+        />
       ) : null}
 
       {active === "conduct" ? (

@@ -5,11 +5,15 @@ import {
   Banknote,
   BookOpen,
   CalendarCheck,
+  FolderOpen,
   GraduationCap,
   Home,
   Phone,
   ShieldAlert,
 } from "lucide-react";
+
+import { PersonDocuments } from "@/components/person-documents";
+import { DOCUMENT_CATEGORIES, documentsFor } from "@/lib/person-documents";
 
 import {
   Alert,
@@ -34,7 +38,13 @@ import {
   humanise,
 } from "@/lib/utils";
 
-type TabKey = "overview" | "employment" | "teaching" | "payroll" | "leave";
+type TabKey =
+  | "overview"
+  | "employment"
+  | "teaching"
+  | "documents"
+  | "payroll"
+  | "leave";
 
 const TABS: Array<{
   key: TabKey;
@@ -45,6 +55,7 @@ const TABS: Array<{
   { key: "overview", label: "Overview", icon: Home },
   { key: "employment", label: "Employment", icon: ShieldAlert },
   { key: "teaching", label: "Teaching", icon: BookOpen },
+  { key: "documents", label: "Documents", icon: FolderOpen },
   { key: "payroll", label: "Bank & payroll", icon: Banknote, permission: "staff.update" },
   { key: "leave", label: "Leave", icon: CalendarCheck, permission: "staff.leave.manage" },
 ];
@@ -474,6 +485,18 @@ export default async function StaffProfilePage({
             </CardBody>
           </Card>
         </div>
+      ) : null}
+
+      {active === "documents" ? (
+        <PersonDocuments
+          kind="staff"
+          personId={staff.id}
+          personName={name}
+          documents={await documentsFor("staff", staff.id)}
+          categories={DOCUMENT_CATEGORIES.staff}
+          canManage={userCan(user, "staff.update")}
+          canVerify={userCan(user, "staff.update")}
+        />
       ) : null}
 
       {active === "payroll" ? (

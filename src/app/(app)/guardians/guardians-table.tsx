@@ -170,6 +170,7 @@ export function GuardiansTable({ rows }: { rows: GuardianRow[] }) {
       rows={rows}
       columns={columns}
       rowKey={(row) => row.id}
+      href={(row) => `/guardians/${row.id}`}
       storageKey="guardians"
       exportFileName="guardians"
       searchPlaceholder="Search by guardian, child, phone or employer…"
