@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { parseRows, type Block } from "@/lib/site-blocks";
+import { parseRows, propText, type Block } from "@/lib/site-blocks";
 import { formatDate } from "@/lib/utils";
 
 export type NewsItem = { id: string; title: string; summary: string | null; publishedAt: Date | null };
@@ -12,8 +12,26 @@ export type NewsItem = { id: string; title: string; summary: string | null; publ
  * dangerouslySetInnerHTML. That is what keeps a school's public site safe from
  * whatever ends up typed into a content field.
  */
-export function RenderBlock({ block, news }: { block: Block; news: NewsItem[] }) {
-  const props = block.props ?? {};
+export function RenderBlock({
+  block,
+  news,
+  contact,
+}: {
+  block: Block;
+  news: NewsItem[];
+  /** The site's own contact details, used when a contact block carries none. */
+  contact?: Record<string, string>;
+}) {
+  const raw = (block.props ?? {}) as Record<string, unknown>;
+  const props = new Proxy(raw, {
+    get: (target, key) => propText(target[key as string]),
+  }) as Record<string, string>;
+
+  // A call to action has been stored both flat and nested. Accepting both
+  // costs three lines and means an older page still renders its button.
+  const nestedCta = (raw.cta ?? {}) as Record<string, unknown>;
+  const ctaLabel = propText(raw.ctaLabel) || propText(nestedCta.label);
+  const ctaHref = propText(raw.ctaHref) || propText(nestedCta.href);
 
   switch (block.type) {
     case "hero":
@@ -35,12 +53,12 @@ export function RenderBlock({ block, news }: { block: Block; news: NewsItem[] })
                 {props.subheading}
               </p>
             ) : null}
-            {props.ctaLabel && props.ctaHref ? (
+            {ctaLabel && ctaHref ? (
               <Link
-                href={props.ctaHref}
+                href={ctaHref}
                 className="mt-7 inline-flex h-11 items-center rounded-full bg-white px-6 text-sm font-semibold text-[#1e4c9e] transition-opacity hover:opacity-90"
               >
-                {props.ctaLabel}
+                {ctaLabel}
               </Link>
             ) : null}
           </div>
@@ -120,7 +138,7 @@ export function RenderBlock({ block, news }: { block: Block; news: NewsItem[] })
     }
 
     case "cards": {
-      const rows = parseRows(props.items);
+      const rows = parseRows(raw.items, ["title", "description", "href"]);
       return (
         <section className="mx-auto max-w-6xl px-6 py-14">
           {props.heading ? (
@@ -164,7 +182,7 @@ export function RenderBlock({ block, news }: { block: Block; news: NewsItem[] })
     }
 
     case "stats": {
-      const rows = parseRows(props.items);
+      const rows = parseRows(raw.items, ["value", "label"]);
       return (
         <section className="bg-[var(--bg-subtle)] px-6 py-14">
           <div className="mx-auto max-w-5xl">
@@ -212,12 +230,12 @@ export function RenderBlock({ block, news }: { block: Block; news: NewsItem[] })
             {props.body ? (
               <p className="mx-auto mt-3 max-w-xl text-white/85">{props.body}</p>
             ) : null}
-            {props.ctaLabel && props.ctaHref ? (
+            {ctaLabel && ctaHref ? (
               <Link
-                href={props.ctaHref}
+                href={ctaHref}
                 className="mt-6 inline-flex h-11 items-center rounded-full bg-white px-6 text-sm font-semibold text-[var(--primary)] hover:opacity-90"
               >
-                {props.ctaLabel}
+                {ctaLabel}
               </Link>
             ) : null}
           </div>
@@ -225,52 +243,59 @@ export function RenderBlock({ block, news }: { block: Block; news: NewsItem[] })
       );
 
     case "contact":
+      // A contact block left empty falls back to the site's own details rather
+      // than rendering an empty definition list. The school already entered
+      // them once in site settings; asking again to fill a blank panel is the
+      // kind of thing that makes a page look broken.
+      const address = props.address || contact?.address || "";
+      const phone = props.phone || contact?.phone || "";
+      const email = props.email || contact?.email || "";
+      const hours = props.hours || "";
+
       return (
         <section className="mx-auto max-w-4xl px-6 py-14">
-          {props.heading ? (
-            <h2 className="mb-6 text-2xl font-semibold tracking-tight">
-              {props.heading}
-            </h2>
-          ) : null}
+          <h2 className="mb-6 text-2xl font-semibold tracking-tight">
+            {props.heading || "Contact us"}
+          </h2>
           <dl className="grid gap-5 sm:grid-cols-2">
-            {props.address ? (
+            {address ? (
               <div>
                 <dt className="text-xs font-medium tracking-wide text-[var(--text-subtle)] uppercase">
                   Address
                 </dt>
-                <dd className="mt-1 text-sm whitespace-pre-wrap">{props.address}</dd>
+                <dd className="mt-1 text-sm whitespace-pre-wrap">{address}</dd>
               </div>
             ) : null}
-            {props.phone ? (
+            {phone ? (
               <div>
                 <dt className="text-xs font-medium tracking-wide text-[var(--text-subtle)] uppercase">
                   Phone
                 </dt>
                 <dd className="mt-1 text-sm">
-                  <a href={`tel:${props.phone}`} className="hover:underline">
-                    {props.phone}
+                  <a href={`tel:${phone}`} className="hover:underline">
+                    {phone}
                   </a>
                 </dd>
               </div>
             ) : null}
-            {props.email ? (
+            {email ? (
               <div>
                 <dt className="text-xs font-medium tracking-wide text-[var(--text-subtle)] uppercase">
                   Email
                 </dt>
                 <dd className="mt-1 text-sm">
-                  <a href={`mailto:${props.email}`} className="hover:underline">
-                    {props.email}
+                  <a href={`mailto:${email}`} className="hover:underline">
+                    {email}
                   </a>
                 </dd>
               </div>
             ) : null}
-            {props.hours ? (
+            {hours ? (
               <div>
                 <dt className="text-xs font-medium tracking-wide text-[var(--text-subtle)] uppercase">
                   Opening hours
                 </dt>
-                <dd className="mt-1 text-sm">{props.hours}</dd>
+                <dd className="mt-1 text-sm">{hours}</dd>
               </div>
             ) : null}
           </dl>

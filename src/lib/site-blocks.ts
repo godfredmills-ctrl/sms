@@ -187,14 +187,54 @@ export function blockDef(type: string): BlockDef | undefined {
   return BLOCK_DEFS.find((def) => def.type === type);
 }
 
-/** Parses a "a | b | c" line list into rows of trimmed cells. */
-export function parseRows(value: string | undefined): string[][] {
+/**
+ * Parses a list of rows out of whatever is stored on the block.
+ *
+ * The editor writes "a | b | c" lines, but page JSON is untrusted input — it
+ * may predate the editor, or have been written by an earlier version with a
+ * different shape. A public website must not 500 because a block holds an
+ * array where a string was expected, so every plausible shape is accepted and
+ * anything unrecognisable yields no rows.
+ *
+ * `keys` gives the column order when entries are objects, since {label, value}
+ * and {value, label} are indistinguishable without it.
+ */
+export function parseRows(value: unknown, keys?: string[]): string[][] {
   if (!value) return [];
-  return value
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .map((line) => line.split("|").map((cell) => cell.trim()));
+
+  const cells = (entry: unknown): string[] => {
+    if (typeof entry === "string") {
+      return entry.split("|").map((cell) => cell.trim());
+    }
+    if (entry && typeof entry === "object") {
+      const record = entry as Record<string, unknown>;
+      const order = keys ?? Object.keys(record);
+      return order.map((key) => String(record[key] ?? "").trim());
+    }
+    return [String(entry ?? "").trim()];
+  };
+
+  if (Array.isArray(value)) {
+    return value.map(cells).filter((row) => row.some(Boolean));
+  }
+
+  if (typeof value === "string") {
+    return value
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .map((line) => line.split("|").map((cell) => cell.trim()));
+  }
+
+  return [];
+}
+
+/** Reads a block prop as a string, whatever JSON actually holds. */
+export function propText(value: unknown): string {
+  if (value === null || value === undefined) return "";
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  return "";
 }
 
 export function parseBlocks(value: unknown): Block[] {

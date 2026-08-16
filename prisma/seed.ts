@@ -2516,25 +2516,42 @@ async function seedWebsite(school: { id: string; name: string; motto: string | n
             status: "PUBLISHED",
             publishedAt: new Date(),
             blocks: [
+              // Prop shapes match what the block editor writes and the public
+              // renderer reads — flat strings, with list blocks holding
+              // "a | b" lines. Anything else renders blank or breaks.
               {
                 id: "hero",
                 type: "hero",
                 props: {
                   heading: school.name,
-                  subheading: school.motto,
-                  cta: { label: "Apply for admission", href: "/admissions" },
+                  subheading: school.motto ?? "",
+                  ctaLabel: "Apply for admission",
+                  ctaHref: "/site/admissions",
                 },
               },
               {
                 id: "stats",
                 type: "stats",
                 props: {
+                  heading: "",
                   items: [
-                    { label: "Students", value: "480+" },
-                    { label: "Teachers", value: "38" },
-                    { label: "Years of service", value: "14" },
-                    { label: "BECE pass rate", value: "98%" },
-                  ],
+                    "480+ | Students",
+                    "38 | Teachers",
+                    "14 | Years of service",
+                    "98% | BECE pass rate",
+                  ].join("\n"),
+                },
+              },
+              {
+                id: "offer",
+                type: "cards",
+                props: {
+                  heading: "What we offer",
+                  items: [
+                    "Early Years | Nursery and Kindergarten in a play-led setting. |",
+                    "Primary | Basic 1 to 6 on the GES and British curricula. |",
+                    "Junior High | JHS 1 to 3, preparing for the BECE. |",
+                  ].join("\n"),
                 },
               },
               {
@@ -2561,7 +2578,19 @@ async function seedWebsite(school: { id: string; name: string; motto: string | n
                   body: "Applications for the next academic year are open. Entrance assessments are held monthly.",
                 },
               },
-              { id: "form", type: "form", props: { formKey: "admissions-enquiry" } },
+              // No "form" block type exists in the renderer, so a form block
+              // would render as nothing at all. A call to action pointing at
+              // the contact page is honest about what the site can do.
+              {
+                id: "apply",
+                type: "cta",
+                props: {
+                  heading: "Ready to apply?",
+                  body: "Entrance assessments are held monthly. Get in touch to book a place.",
+                  ctaLabel: "Contact the office",
+                  ctaHref: "/site/contact",
+                },
+              },
             ],
           },
           {
