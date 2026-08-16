@@ -11,6 +11,7 @@ import {
   StatCard,
   StatusBadge,
 } from "@/components/ui";
+import { Pager, pageOf } from "@/components/pager";
 import { requirePermission, userCan } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { formatDate, humanise, relativeTime } from "@/lib/utils";
@@ -21,17 +22,32 @@ import { MemoForm } from "./memo-form";
 export const metadata: Metadata = { title: "Memos" };
 export const dynamic = "force-dynamic";
 
-export default async function MemosPage() {
+const PER_PAGE = 20;
+
+export default async function MemosPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const user = await requirePermission("communication.memo.read");
   const canCreate = userCan(user, "communication.memo.create");
 
-  const [memos, staffUsers] = await Promise.all([
+  const params = await searchParams;
+  const { page, skip, take } = pageOf(params, PER_PAGE);
+
+  const where = canCreate
+    ? {}
+    : {
+        status: "ISSUED" as const,
+        recipients: { some: { userId: user.id } },
+      };
+
+  const [memos, total, staffUsers] = await Promise.all([
     db.memo.findMany({
-      where: canCreate
-        ? {}
-        : { status: "ISSUED", recipients: { some: { userId: user.id } } },
+      where,
       orderBy: [{ issuedAt: "desc" }, { createdAt: "desc" }],
-      take: 60,
+      skip,
+      take,
       select: {
         id: true,
         referenceNo: true,
@@ -51,6 +67,7 @@ export default async function MemosPage() {
         },
       },
     }),
+    db.memo.count({ where }),
     canCreate
       ? db.user.findMany({
           where: { portal: "STAFF", status: "ACTIVE" },
@@ -199,6 +216,15 @@ export default async function MemosPage() {
               );
             })
           )}
+
+          <Pager
+            basePath="/communications/memos"
+            searchParams={params}
+            page={page}
+            perPage={PER_PAGE}
+            total={total}
+            label="memos"
+          />
         </div>
 
         {canCreate ? (

@@ -5,7 +5,8 @@ import { Lock, Smartphone } from "lucide-react";
 import { Alert, Button, Card, CardBody } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { recalculateInvoice } from "@/lib/finance";
+import { env } from "@/lib/env";
+import { allocatePaymentToOldestInvoices } from "@/lib/finance";
 import { formatMoney } from "@/lib/money";
 import { notifyUsers } from "@/lib/messaging";
 
@@ -19,12 +20,54 @@ export const dynamic = "force-dynamic";
  * payment → confirmed → invoice recalculated → guardian notified — so the
  * whole fee loop can be demonstrated without a merchant account.
  */
+/**
+ * Who may approve this payment.
+ *
+ * Any signed-in account used to be enough, and the reference is the only other
+ * thing needed. So a student, or a parent of an unrelated child, could open
+ * this page against somebody else's pending payment and mark it SUCCESS —
+ * clearing another family's fees against money that never moved. The page is a
+ * simulator, but the row it writes is the real Payment row, and the invoice it
+ * settles is the real invoice.
+ */
+async function mayApprove(userId: string, studentId: string): Promise<boolean> {
+  const user = await db.user.findUnique({
+    where: { id: userId },
+    select: {
+      staff: { select: { id: true } },
+      student: { select: { id: true } },
+      guardian: { select: { id: true } },
+    },
+  });
+  if (!user) return false;
+
+  // A bursar taking a payment over the counter.
+  if (user.staff) return true;
+
+  if (user.student) return user.student.id === studentId;
+
+  if (user.guardian) {
+    const link = await db.studentGuardian.findFirst({
+      where: { guardianId: user.guardian.id, studentId },
+      select: { id: true },
+    });
+    return Boolean(link);
+  }
+
+  return false;
+}
+
 export default async function MockCheckoutPage({
   searchParams,
 }: {
   searchParams: Promise<{ reference?: string }>;
 }) {
-  await requireUser();
+  // The simulator exists to stand in for a gateway that is not configured. If
+  // one IS configured the school is taking real money, and a page that marks
+  // payments settled without any must not be reachable at all.
+  if (env.payments.provider !== "mock") notFound();
+
+  const user = await requireUser();
   const { reference } = await searchParams;
   if (!reference) notFound();
 
@@ -32,6 +75,7 @@ export default async function MockCheckoutPage({
     where: { reference },
     select: {
       id: true,
+      studentId: true,
       amountMinor: true,
       status: true,
       channel: true,
@@ -42,9 +86,17 @@ export default async function MockCheckoutPage({
   });
 
   if (!payment) notFound();
+  // Not a 403: telling an unrelated caller that this reference exists is
+  // itself the leak.
+  if (!(await mayApprove(user.id, payment.studentId))) notFound();
 
   async function confirm(formData: FormData) {
     "use server";
+
+    // A Server Action is a POST endpoint of its own: the checks above ran when
+    // the page was rendered and prove nothing about who is calling this.
+    if (env.payments.provider !== "mock") notFound();
+    const actor = await requireUser();
 
     const outcome = String(formData.get("outcome") ?? "success");
     const record = await db.payment.findUnique({
@@ -52,6 +104,9 @@ export default async function MockCheckoutPage({
       include: { allocations: true, student: { select: { id: true } } },
     });
     if (!record) return;
+    if (!(await mayApprove(actor.id, record.studentId))) notFound();
+    // Re-approving a settled payment would allocate it a second time.
+    if (record.status === "SUCCESS") redirect(`/portal/guardian?ref=${reference}`);
 
     if (outcome !== "success") {
       await db.payment.update({
@@ -65,42 +120,14 @@ export default async function MockCheckoutPage({
       redirect(`/portal/guardian?ref=${reference}`);
     }
 
-    // Allocate to the student's oldest outstanding invoices.
-    const invoices = await db.invoice.findMany({
-      where: {
-        studentId: record.studentId,
-        balanceMinor: { gt: 0 },
-        status: { in: ["ISSUED", "PART_PAID", "OVERDUE"] },
-      },
-      orderBy: [{ dueDate: "asc" }, { issueDate: "asc" }],
-      select: { id: true, balanceMinor: true },
-    });
-
-    let remaining = record.amountMinor;
-    const touched: string[] = [];
-
-    for (const invoice of invoices) {
-      if (remaining <= 0) break;
-      const applied = Math.min(remaining, invoice.balanceMinor);
-      await db.paymentAllocation.create({
-        data: {
-          paymentId: record.id,
-          invoiceId: invoice.id,
-          amountMinor: applied,
-        },
-      });
-      touched.push(invoice.id);
-      remaining -= applied;
-    }
-
     await db.payment.update({
       where: { id: record.id },
       data: { status: "SUCCESS", confirmedAt: new Date(), paidAt: new Date() },
     });
 
-    for (const invoiceId of touched) {
-      await recalculateInvoice(invoiceId);
-    }
+    // Shared with the real gateway webhook. It used to be written out here and
+    // only here, which is exactly why the live path settled nothing.
+    await allocatePaymentToOldestInvoices(record.id);
 
     const guardians = await db.studentGuardian.findMany({
       where: { studentId: record.studentId, isBillPayer: true },

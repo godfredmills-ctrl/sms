@@ -10,6 +10,7 @@ import {
   PageHeader,
   StatusBadge,
 } from "@/components/ui";
+import { Pager, pageOf } from "@/components/pager";
 import { requirePermission, userCan } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { humanise, relativeTime } from "@/lib/utils";
@@ -20,34 +21,49 @@ import { AnnouncementForm } from "./announcement-form";
 export const metadata: Metadata = { title: "Announcements" };
 export const dynamic = "force-dynamic";
 
-export default async function AnnouncementsPage() {
+const PER_PAGE = 20;
+
+export default async function AnnouncementsPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const user = await requirePermission("communication.announcement.read");
   const canManage = userCan(user, "communication.announcement.manage");
 
+  const params = await searchParams;
+  const { page, skip, take } = pageOf(params, PER_PAGE);
+
   // Everyone sees what is published to their portal; editors also see drafts.
-  const announcements = await db.announcement.findMany({
-    where: canManage
-      ? {}
-      : { status: "PUBLISHED", audiences: { has: user.portal } },
-    orderBy: [{ isPinned: "desc" }, { publishedAt: "desc" }, { createdAt: "desc" }],
-    take: 60,
-    select: {
-      id: true,
-      title: true,
-      summary: true,
-      body: true,
-      category: true,
-      priority: true,
-      status: true,
-      audiences: true,
-      channels: true,
-      isPinned: true,
-      publishedAt: true,
-      createdAt: true,
-      viewCount: true,
-      author: { select: { firstName: true, lastName: true } },
-    },
-  });
+  const where = canManage
+    ? {}
+    : { status: "PUBLISHED" as const, audiences: { has: user.portal } };
+
+  const [total, announcements] = await Promise.all([
+    db.announcement.count({ where }),
+    db.announcement.findMany({
+      where,
+      orderBy: [{ isPinned: "desc" }, { publishedAt: "desc" }, { createdAt: "desc" }],
+      skip,
+      take,
+      select: {
+        id: true,
+        title: true,
+        summary: true,
+        body: true,
+        category: true,
+        priority: true,
+        status: true,
+        audiences: true,
+        channels: true,
+        isPinned: true,
+        publishedAt: true,
+        createdAt: true,
+        viewCount: true,
+        author: { select: { firstName: true, lastName: true } },
+      },
+    }),
+  ]);
 
   return (
     <>
@@ -162,6 +178,15 @@ export default async function AnnouncementsPage() {
               </Card>
             ))
           )}
+
+          <Pager
+            basePath="/communications/announcements"
+            searchParams={params}
+            page={page}
+            perPage={PER_PAGE}
+            total={total}
+            label="announcements"
+          />
         </div>
 
         {canManage ? (

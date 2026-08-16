@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 
 import { Badge, Button, Card, CardHeader, EmptyState, PageHeader, StatCard } from "@/components/ui";
+import { Pager, pageOf } from "@/components/pager";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { cn, formatDateTime, relativeTime } from "@/lib/utils";
@@ -30,22 +31,44 @@ const ICONS: Record<string, typeof Bell> = {
   SYSTEM: Bell,
 };
 
-export default async function NotificationsPage() {
+const PER_PAGE = 30;
+
+export default async function NotificationsPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const user = await requireUser();
 
-  const notifications = await db.notification.findMany({
-    where: { userId: user.id },
-    orderBy: { createdAt: "desc" },
-    take: 200,
-  });
+  const params = await searchParams;
+  const { page, skip, take } = pageOf(params, PER_PAGE);
+  const where = { userId: user.id };
+
+  // The totals are counted in the database, not derived from the rows on
+  // screen. Reading them off the page would make "12 unread" mean "12 unread
+  // among the thirty you happen to be looking at", and it would fall as you
+  // paged forward — a number that changes when you navigate is worse than no
+  // number.
+  const [notifications, total, unreadCount, urgentCount, categoryCounts] =
+    await Promise.all([
+      db.notification.findMany({ where, orderBy: { createdAt: "desc" }, skip, take }),
+      db.notification.count({ where }),
+      db.notification.count({ where: { ...where, readAt: null } }),
+      db.notification.count({
+        where: { ...where, readAt: null, priority: { in: ["HIGH", "URGENT"] } },
+      }),
+      db.notification.groupBy({
+        by: ["category"],
+        where,
+        _count: { category: true },
+      }),
+    ]);
 
   const unread = notifications.filter((entry) => !entry.readAt);
-  const urgent = unread.filter((entry) => entry.priority === "HIGH" || entry.priority === "URGENT");
 
-  const byCategory = new Map<string, number>();
-  for (const entry of notifications) {
-    byCategory.set(entry.category, (byCategory.get(entry.category) ?? 0) + 1);
-  }
+  const byCategory = new Map<string, number>(
+    categoryCounts.map((entry) => [entry.category, entry._count.category]),
+  );
 
   return (
     <>
@@ -53,7 +76,7 @@ export default async function NotificationsPage() {
         title="Notifications"
         description="Everything the system has sent you."
         action={
-          unread.length ? (
+          unreadCount ? (
             <form action={markAllReadAction}>
               <Button type="submit" variant="outline" size="sm">
                 <CheckCheck className="size-4" />
@@ -67,17 +90,17 @@ export default async function NotificationsPage() {
       <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatCard
           label="Unread"
-          value={unread.length}
-          tone={unread.length ? "warning" : "success"}
+          value={unreadCount}
+          tone={unreadCount ? "warning" : "success"}
           icon={<Bell className="size-4" />}
         />
         <StatCard
           label="Needs attention"
-          value={urgent.length}
+          value={urgentCount}
           hint="High or urgent priority"
-          tone={urgent.length ? "danger" : "success"}
+          tone={urgentCount ? "danger" : "success"}
         />
-        <StatCard label="Total received" value={notifications.length} tone="violet" />
+        <StatCard label="Total received" value={total} tone="violet" />
         <StatCard
           label="Categories"
           value={byCategory.size}
@@ -173,6 +196,15 @@ export default async function NotificationsPage() {
           />
         )}
       </Card>
+
+      <Pager
+        basePath="/notifications"
+        searchParams={params}
+        page={page}
+        perPage={PER_PAGE}
+        total={total}
+        label="notifications"
+      />
 
       <Card className="mt-4">
         <CardHeader title="Delivery preferences" />

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { db } from "@/lib/db";
-import { recalculateInvoice } from "@/lib/finance";
+import { allocatePaymentToOldestInvoices, recalculateInvoice } from "@/lib/finance";
 import { getGateway } from "@/lib/payments";
 import { notifyUsers } from "@/lib/messaging";
 import { formatMoney } from "@/lib/money";
@@ -110,8 +110,17 @@ export async function POST(request: Request) {
     },
   });
 
-  for (const allocation of payment.allocations) {
-    await recalculateInvoice(allocation.invoiceId);
+  if (payment.allocations.length) {
+    // Somebody chose the invoices — a bursar recording a payment against
+    // specific bills. Honour that.
+    for (const allocation of payment.allocations) {
+      await recalculateInvoice(allocation.invoiceId);
+    }
+  } else {
+    // Nobody did: this money arrived from a checkout. Without this the payment
+    // reached SUCCESS, a receipt was issued, and every invoice stayed exactly
+    // as outstanding as before.
+    await allocatePaymentToOldestInvoices(payment.id);
   }
 
   const guardianUserIds = payment.student.guardians

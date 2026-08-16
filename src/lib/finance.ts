@@ -542,6 +542,77 @@ export async function recalculateInvoice(invoiceId: string) {
   await db.$transaction((tx) => refreshInvoiceTotals(tx, invoiceId));
 }
 
+/**
+ * Spreads a confirmed payment across the student's oldest unpaid invoices.
+ *
+ * A payment started at a checkout has no allocations: nobody chose an invoice,
+ * the parent just paid. Something has to decide where the money lands, and
+ * until this existed each confirmation path decided for itself — the mock
+ * checkout allocated, and the real gateway webhook looped over
+ * `payment.allocations`, which for an online payment is empty. So a parent paid
+ * through the live gateway, the payment went to SUCCESS, a receipt was issued,
+ * and the invoice stayed fully outstanding. The school chased a parent who had
+ * already paid.
+ *
+ * Oldest first by due date: it clears the debt that has been outstanding
+ * longest, which is what a bursar does by hand and what stops an invoice
+ * ageing into arrears while a newer one is settled.
+ *
+ * Idempotent. A gateway that delivers the same webhook twice — all of them do —
+ * must not allocate twice, so an already-allocated payment is left alone.
+ */
+export async function allocatePaymentToOldestInvoices(
+  paymentId: string,
+): Promise<string[]> {
+  return db.$transaction(async (tx) => {
+    const payment = await tx.payment.findUnique({
+      where: { id: paymentId },
+      select: {
+        studentId: true,
+        amountMinor: true,
+        allocations: { select: { id: true } },
+      },
+    });
+
+    if (!payment) return [];
+    if (payment.allocations.length > 0) return [];
+
+    const invoices = await tx.invoice.findMany({
+      where: {
+        studentId: payment.studentId,
+        balanceMinor: { gt: 0 },
+        status: { in: ["ISSUED", "PART_PAID", "OVERDUE"] },
+      },
+      orderBy: [{ dueDate: "asc" }, { issueDate: "asc" }],
+      select: { id: true, balanceMinor: true },
+    });
+
+    let remaining = payment.amountMinor;
+    const touched: string[] = [];
+
+    for (const invoice of invoices) {
+      if (remaining <= 0) break;
+      const applied = Math.min(remaining, invoice.balanceMinor);
+
+      await tx.paymentAllocation.create({
+        data: { paymentId, invoiceId: invoice.id, amountMinor: applied },
+      });
+
+      touched.push(invoice.id);
+      remaining -= applied;
+    }
+
+    // Anything left over stays unallocated rather than being forced onto a
+    // settled invoice. It shows as credit on the student's statement, which is
+    // what an overpayment is.
+    for (const invoiceId of touched) {
+      await refreshInvoiceTotals(tx, invoiceId);
+    }
+
+    return touched;
+  });
+}
+
 /** Marks issued invoices past their due date as overdue. Run from cron. */
 export async function markOverdueInvoices(): Promise<number> {
   const result = await db.invoice.updateMany({

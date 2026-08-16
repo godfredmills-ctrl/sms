@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
-import { AlertTriangle, History, ShieldCheck, Users } from "lucide-react";
+import { History, ShieldCheck, Users } from "lucide-react";
 
-import { Alert, PageHeader, StatCard } from "@/components/ui";
+import { PageHeader, StatCard } from "@/components/ui";
+import { Pager, pageOf } from "@/components/pager";
 import { requirePermission } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { fullName } from "@/lib/utils";
@@ -11,18 +12,30 @@ import { AuditTable, type AuditRow } from "./audit-table";
 export const metadata: Metadata = { title: "Audit trail" };
 export const dynamic = "force-dynamic";
 
-/** How many entries the page holds. Beyond this, filter or export. */
-const WINDOW = 1000;
+/**
+ * Entries per page. It used to be a flat 1000-row window with nothing beyond
+ * it — and an audit trail whose older half cannot be reached is not an audit
+ * trail. A school investigating who changed a mark last term was looking at a
+ * list that had silently stopped.
+ */
+const PER_PAGE = 50;
 
-export default async function AuditPage() {
+export default async function AuditPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   await requirePermission("user.audit.read");
 
+  const params = await searchParams;
+  const { page, skip, take } = pageOf(params, PER_PAGE);
   const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
   const [entries, total, todayCount] = await Promise.all([
     db.auditLog.findMany({
       orderBy: { createdAt: "desc" },
-      take: WINDOW,
+      skip,
+      take,
       select: {
         id: true,
         action: true,
@@ -98,18 +111,16 @@ export default async function AuditPage() {
         />
       </div>
 
-      {total > WINDOW ? (
-        <Alert tone="info" className="mb-4">
-          <span className="flex items-start gap-2">
-            <AlertTriangle className="mt-0.5 size-4 shrink-0" />
-            Showing the {WINDOW.toLocaleString()} most recent entries of{" "}
-            {total.toLocaleString()}. Filter or export to work with the rest — the
-            page deliberately does not load them all.
-          </span>
-        </Alert>
-      ) : null}
-
       <AuditTable rows={rows} />
+
+      <Pager
+        basePath="/audit"
+        searchParams={params}
+        page={page}
+        perPage={PER_PAGE}
+        total={total}
+        label="entries"
+      />
     </>
   );
 }
