@@ -81,6 +81,9 @@ export type RenderContext = Record<string, unknown>;
  * `document.serialNumber` and so on — so a template that looks right in the
  * builder produces the same document here.
  */
+/** The binding an element uses to say "the results table goes here". */
+export const RESULTS_TABLE_BINDING = "academic.resultsTable";
+
 export async function renderTemplatePdf(input: {
   layout: unknown;
   pageSize: string;
@@ -88,6 +91,12 @@ export async function renderTemplatePdf(input: {
   context: RenderContext;
   /** Fetched separately so this stays synchronous about IO. */
   backgroundImage?: { bytes: Uint8Array; mimeType: string } | null;
+  /**
+   * Rows for an element bound to `academic.resultsTable`. A template binds one
+   * string per element, which cannot express a table — this is how a transcript
+   * gets its results while still using the school's own layout.
+   */
+  table?: { headers: string[]; rows: string[][] } | null;
 }): Promise<Buffer> {
   const layout = parseLayout(input.layout);
 
@@ -129,6 +138,23 @@ export async function renderTemplatePdf(input: {
   }
 
   for (const element of layout.elements) {
+    // The results table is the one element that can outgrow its box and spill
+    // onto another page, so it is drawn by its own routine rather than by the
+    // single-box text renderer.
+    if (
+      input.table &&
+      element.type === "field" &&
+      element.value === RESULTS_TABLE_BINDING
+    ) {
+      await drawResultsTable(pdf, page, element, {
+        width,
+        height,
+        table: input.table,
+        fonts: { regular, bold },
+      });
+      continue;
+    }
+
     drawElement(page, element, {
       width,
       height,
@@ -138,6 +164,97 @@ export async function renderTemplatePdf(input: {
   }
 
   return Buffer.from(await pdf.save());
+}
+
+/**
+ * Draws the results table inside the box the template reserved for it.
+ *
+ * When the rows outrun that box the table continues on a fresh page using the
+ * full height, repeating the column header. Truncating instead would drop
+ * subjects off a transcript silently, which is the one failure a transcript
+ * cannot have.
+ */
+async function drawResultsTable(
+  pdf: PDFDocument,
+  firstPage: ReturnType<PDFDocument["addPage"]>,
+  element: TemplateElement,
+  options: {
+    width: number;
+    height: number;
+    table: { headers: string[]; rows: string[][] };
+    fonts: { regular: PDFFont; bold: PDFFont };
+  },
+) {
+  const { width, height, table, fonts } = options;
+
+  const boxX = (element.x / 100) * width;
+  const boxWidth = (element.width / 100) * width;
+  const boxTop = height - (element.y / 100) * height;
+  const boxBottom = boxTop - (element.height / 100) * height;
+
+  const size = Math.min(element.fontSize, 10);
+  const rowHeight = size * 1.55;
+  const colour = hexToRgb(element.colour);
+  const muted = rgb(0.45, 0.5, 0.58);
+
+  const columnWidth = boxWidth / table.headers.length;
+
+  let page = firstPage;
+  let y = boxTop;
+  let floor = boxBottom;
+
+  function header() {
+    table.headers.forEach((label, index) => {
+      page.drawText(label, {
+        x: boxX + index * columnWidth,
+        y,
+        size: size * 0.85,
+        font: fonts.bold,
+        color: muted,
+      });
+    });
+    y -= 4;
+    page.drawRectangle({
+      x: boxX,
+      y,
+      width: boxWidth,
+      height: 0.5,
+      color: rgb(0.8, 0.84, 0.88),
+    });
+    y -= rowHeight * 0.75;
+  }
+
+  header();
+
+  for (const row of table.rows) {
+    if (y - rowHeight < floor) {
+      page = pdf.addPage([width, height]);
+      // A continuation page is not bound by the original box — it gets the
+      // whole sheet, with a normal margin.
+      y = height - 48;
+      floor = 48;
+      header();
+    }
+
+    row.forEach((cell, index) => {
+      let value = cell;
+      const max = columnWidth - 4;
+      while (fonts.regular.widthOfTextAtSize(value, size) > max && value.length > 1) {
+        value = value.slice(0, -1);
+      }
+      if (value !== cell && value.length > 1) value = `${value.slice(0, -1)}…`;
+
+      page.drawText(value, {
+        x: boxX + index * columnWidth,
+        y,
+        size,
+        font: index === 0 ? fonts.bold : fonts.regular,
+        color: colour,
+      });
+    });
+
+    y -= rowHeight;
+  }
 }
 
 function drawElement(

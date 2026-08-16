@@ -48,9 +48,24 @@ export async function issueTranscriptAction(
   const year = new Date().getFullYear();
   const count = await db.transcript.count();
 
+  // The chosen template is validated rather than trusted: a stale id, or one
+  // for a certificate, would otherwise be saved and then silently ignored at
+  // render time — which is exactly how a template comes to look broken.
+  const requestedTemplateId = String(formData.get("templateId") ?? "").trim();
+  const template = requestedTemplateId
+    ? await db.documentTemplate.findFirst({
+        where: { id: requestedTemplateId, kind: "TRANSCRIPT", isActive: true },
+        select: { id: true },
+      })
+    : await db.documentTemplate.findFirst({
+        where: { kind: "TRANSCRIPT", isActive: true, isDefault: true },
+        select: { id: true },
+      });
+
   const transcript = await db.transcript.create({
     data: {
       studentId,
+      templateId: template?.id ?? null,
       serialNumber: `TR/${year}/${String(count + 1).padStart(4, "0")}`,
       verifyCode: generateCode(10),
       purpose: String(formData.get("purpose") ?? "") || null,

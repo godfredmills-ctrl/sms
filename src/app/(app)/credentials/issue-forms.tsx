@@ -20,7 +20,14 @@ import {
   type CredentialState,
 } from "./actions";
 
-export function TranscriptForm({ students }: { students: SelectOption[] }) {
+export function TranscriptForm({
+  students,
+  templates,
+}: {
+  students: SelectOption[];
+  /** TRANSCRIPT templates, default first. */
+  templates: SelectOption[];
+}) {
   const [state, action] = useActionState<CredentialState, FormData>(
     issueTranscriptAction,
     {},
@@ -50,6 +57,23 @@ export function TranscriptForm({ students }: { students: SelectOption[] }) {
             options={students}
             value={studentId}
             onChange={(next) => setStudentId(next as string)}
+          />
+        </Field>
+
+        <Field
+          label="Template"
+          hint={
+            templates.length
+              ? "Your own layout. Without one, a built-in transcript is used."
+              : "No transcript template has been designed yet — a built-in layout will be used."
+          }
+        >
+          <SearchableSelect
+            name="templateId"
+            options={templates}
+            defaultValue={templates[0]?.value}
+            placeholder="Built-in layout"
+            emptyText="No transcript templates"
           />
         </Field>
 

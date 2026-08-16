@@ -58,9 +58,10 @@ export default async function CredentialsPage() {
       },
     }),
     db.documentTemplate.findMany({
-      where: { kind: "CERTIFICATE", isActive: true },
-      orderBy: { name: "asc" },
-      select: { id: true, name: true, isDefault: true },
+      where: { kind: { in: ["CERTIFICATE", "TRANSCRIPT"] }, isActive: true },
+      // Default first, so the picker preselects what the school chose.
+      orderBy: [{ isDefault: "desc" }, { name: "asc" }],
+      select: { id: true, name: true, isDefault: true, kind: true },
     }),
     db.transcript.findMany({
       orderBy: { issuedAt: "desc" },
@@ -146,18 +147,32 @@ export default async function CredentialsPage() {
                 title="Issue a transcript"
                 description="The academic record is frozen at issue and never recomputed."
               />
-              <TranscriptForm students={studentOptions} />
+              <TranscriptForm
+                students={studentOptions}
+                templates={templates
+                  .filter((template) => template.kind === "TRANSCRIPT")
+                  .map((template) => ({
+                    value: template.id,
+                    label: template.name,
+                    description: template.isDefault ? "Default" : undefined,
+                  }))}
+              />
             </Card>
           ) : null}
 
           {canCertificate ? (
             <Card>
               <CardHeader title="Issue a certificate" />
-              <CertificateForm students={studentOptions} templates={templates.map((template) => ({
-                value: template.id,
-                label: template.name,
-                description: template.isDefault ? "Default" : undefined,
-              }))} />
+              <CertificateForm
+                students={studentOptions}
+                templates={templates
+                  .filter((template) => template.kind === "CERTIFICATE")
+                  .map((template) => ({
+                    value: template.id,
+                    label: template.name,
+                    description: template.isDefault ? "Default" : undefined,
+                  }))}
+              />
             </Card>
           ) : null}
 

@@ -28,6 +28,7 @@ export default async function TranscriptPage({
   const transcript = await db.transcript.findUnique({
     where: { id },
     include: {
+      template: { select: { name: true } },
       student: {
         select: {
           firstName: true,
@@ -84,6 +85,14 @@ export default async function TranscriptPage({
           <h1 className="mt-1 text-xl font-semibold">Transcript — {fullName}</h1>
           <p className="numeric text-sm text-[var(--text-muted)]">
             {transcript.serialNumber}
+          </p>
+          {/* The page below is a readable web view. The template governs the
+              PDF, so say which one — otherwise a school that designed a layout
+              looks at this screen and concludes it was ignored. */}
+          <p className="no-print mt-0.5 text-xs text-[var(--text-subtle)]">
+            {transcript.template
+              ? `PDF uses the "${transcript.template.name}" template`
+              : "PDF uses the built-in layout — no transcript template was attached"}
           </p>
         </div>
         <div className="no-print flex items-center gap-2">

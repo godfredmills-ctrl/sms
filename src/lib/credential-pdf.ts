@@ -142,12 +142,23 @@ async function transcriptPdf(
   const record = await db.transcript.findUnique({
     where: { id },
     include: {
+      template: true,
       student: {
         select: {
           firstName: true,
           lastName: true,
           otherNames: true,
           admissionNo: true,
+          dateOfBirth: true,
+          enrollments: {
+            where: { status: "ACTIVE" },
+            take: 1,
+            select: {
+              classSection: {
+                select: { name: true, classLevel: { select: { name: true } } },
+              },
+            },
+          },
         },
       },
       lines: { orderBy: [{ academicYear: "asc" }, { termName: "asc" }] },
@@ -159,7 +170,80 @@ async function transcriptPdf(
   const existing = await cached(record.fileId, options.regenerate ?? false);
   if (existing) return existing;
 
-  const school = await db.school.findFirst({ select: { name: true } });
+  const school = await db.school.findFirst({
+    select: { name: true, motto: true, addressLine1: true, city: true, logoUrl: true },
+  });
+
+  const headers = ["Year", "Term", "Subject", "Score", "Grade", "Point", "Credits"];
+  const rows = record.lines.map((line) => [
+    line.academicYear,
+    line.termName,
+    line.subjectName,
+    toNumber(line.score)?.toFixed(1) ?? "—",
+    line.grade ?? "—",
+    toNumber(line.point)?.toFixed(2) ?? "—",
+    toNumber(line.credits)?.toFixed(1) ?? "—",
+  ]);
+
+  // A template is used when one is attached. The built-in layout below is the
+  // fallback for a school that has not designed one — not the default for a
+  // school that has.
+  if (record.template) {
+    const section = record.student.enrollments[0]?.classSection;
+
+    const templated = await renderTemplatePdf({
+      layout: record.template.layout,
+      pageSize: record.template.pageSize,
+      orientation: record.template.orientation,
+      table: { headers, rows },
+      context: {
+        student: {
+          fullName: fullName(record.student),
+          firstName: record.student.firstName,
+          lastName: record.student.lastName,
+          admissionNo: record.student.admissionNo,
+          dateOfBirth: formatDate(record.student.dateOfBirth),
+          className: section ? `${section.classLevel.name} ${section.name}` : "",
+        },
+        school: {
+          name: school?.name ?? "",
+          motto: school?.motto ?? "",
+          address: [school?.addressLine1, school?.city].filter(Boolean).join(", "),
+          logoUrl: school?.logoUrl ?? "",
+        },
+        document: {
+          title: record.purpose ?? "Academic Transcript",
+          serialNumber: record.serialNumber,
+          issuedOn: formatDate(record.issuedAt),
+          awardedFor: record.issuedTo ?? "",
+          verifyCode: record.verifyCode,
+          signedBy: "",
+          signatoryTitle: "",
+        },
+        academic: {
+          cumulativeGpa: toNumber(record.cumulativeGpa)?.toFixed(2) ?? "—",
+          classification: record.classification ?? "",
+          totalCredits: toNumber(record.totalCredits)?.toFixed(1) ?? "—",
+        },
+      },
+    });
+
+    const storedTemplated = await storeFile({
+      buffer: templated,
+      originalName: `${record.serialNumber.replace(/\//g, "-")}.pdf`,
+      mimeType: "application/pdf",
+      folder: "transcripts",
+      uploadedById: options.storedById ?? null,
+      trusted: true,
+    });
+
+    await db.transcript.update({
+      where: { id },
+      data: { fileId: storedTemplated.id },
+    });
+
+    return templated;
+  }
 
   const bytes = await renderTablePdf({
     title: `${school?.name ?? "School"} — Academic Transcript`,
@@ -172,16 +256,8 @@ async function transcriptPdf(
     ]
       .filter(Boolean)
       .join("  ·  "),
-    headers: ["Year", "Term", "Subject", "Score", "Grade", "Point", "Credits"],
-    rows: record.lines.map((line) => [
-      line.academicYear,
-      line.termName,
-      line.subjectName,
-      toNumber(line.score)?.toFixed(1) ?? "—",
-      line.grade ?? "—",
-      toNumber(line.point)?.toFixed(2) ?? "—",
-      toNumber(line.credits)?.toFixed(1) ?? "—",
-    ]),
+    headers,
+    rows,
     footer: `Cumulative GPA ${toNumber(record.cumulativeGpa)?.toFixed(2) ?? "—"}${
       record.classification ? ` · ${record.classification}` : ""
     } · Verify at /verify/${record.verifyCode} · This document is void if altered.`,
