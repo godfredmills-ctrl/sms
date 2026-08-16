@@ -6,6 +6,23 @@
  */
 import { PrismaClient } from "@prisma/client";
 
+// Load .env when running locally. On a platform the variables are already in
+// the environment, and there is no file — hence the catch. Node's own loader
+// is used rather than dotenv, which this project does not actually depend on;
+// relying on a transitive copy would make this script fail for a reason that
+// has nothing to do with the database.
+try {
+  process.loadEnvFile(".env");
+} catch {
+  // No .env, or an older Node without loadEnvFile. Either is fine.
+}
+
+if (!process.env.DATABASE_URL) {
+  console.log("UNREACHABLE");
+  console.log("DATABASE_URL is not set.");
+  process.exit(0);
+}
+
 const db = new PrismaClient();
 
 try {

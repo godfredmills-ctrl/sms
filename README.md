@@ -125,6 +125,11 @@ the same school every time.
    user already exists, and it runs *after* the server is listening so a long
    seed cannot fail the health check.
 
+   > That same safety means `SEED_ON_BOOT` will **not** re-seed a database that
+   > already has users — it exits quietly. To deliberately rebuild an existing
+   > demo, open the service's **Console** in Railway and run `npm run db:seed`
+   > (or `npm run db:seed:force` if `tsx` was pruned). That wipes first.
+
    If you have enabled the Postgres TCP proxy, `npm run db:seed` from your
    machine works too, using `DATABASE_PUBLIC_URL` as `DATABASE_URL`.
 6. **Set up file storage** — uploads written inside the container are lost on
@@ -313,7 +318,8 @@ src/app/
 | `npm run db:migrate` | Create/apply a migration in development |
 | `npm run db:deploy` | Apply migrations (production) |
 | `npm run db:check` | Non-destructive: is the database reachable, and what is in it? |
-| `npm run db:seed` | Rebuild the demo school |
+| `npm run db:seed` | Rebuild the demo school — **wipes first** |
+| `npm run db:seed:force` | Same, but fetches `tsx` on demand (for a container where dev dependencies were pruned) |
 | `npm run db:studio` | Prisma Studio |
 | `npm run typecheck` | TypeScript, no emit |
 | `node scripts/generate-icons.mjs` | Regenerate the PWA icon set |
