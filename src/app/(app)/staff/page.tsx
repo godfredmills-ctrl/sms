@@ -1,11 +1,14 @@
 import type { Metadata } from "next";
-import { BookOpen, TriangleAlert, UserCheck, UserPlus, Users } from "lucide-react";
+import { BookOpen, TriangleAlert, UserCheck, Users } from "lucide-react";
 
-import { Alert, LinkButton, PageHeader, StatCard } from "@/components/ui";
+import { Alert, PageHeader, StatCard } from "@/components/ui";
+import { RefreshButton } from "@/components/refresh-button";
 import { requirePermission, userCan } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { DOCUMENT_CATEGORIES } from "@/lib/person-documents";
 import { fullName } from "@/lib/utils";
 
+import { AddStaffButton } from "./add-staff-button";
 import { StaffTable, type StaffRow } from "./staff-table";
 
 export const metadata: Metadata = { title: "Staff" };
@@ -86,18 +89,35 @@ export default async function StaffPage() {
       ) / 10
     : 0;
 
+  // Subject options for the add-staff modal.
+  const subjectOptions = userCan(user, "staff.create")
+    ? (
+        await db.subject.findMany({
+          orderBy: { name: "asc" },
+          select: { name: true, code: true },
+        })
+      ).map((subject) => ({
+        value: subject.name,
+        label: subject.name,
+        description: subject.code,
+      }))
+    : [];
+
   return (
     <>
       <PageHeader
         title="Staff"
         description="Teaching and non-teaching records, contracts and teaching load."
         action={
-          userCan(user, "staff.create") ? (
-            <LinkButton href="/staff/new" size="sm">
-              <UserPlus className="size-4" />
-              Add staff
-            </LinkButton>
-          ) : null
+          <>
+            <RefreshButton />
+            {userCan(user, "staff.create") ? (
+              <AddStaffButton
+                subjects={subjectOptions}
+                documentCategories={DOCUMENT_CATEGORIES.staff}
+              />
+            ) : null}
+          </>
         }
       />
 

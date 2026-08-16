@@ -43,6 +43,40 @@ export type PersonDocument = {
 };
 
 /** Categories offered per person type, so the dropdown is never generic. */
+/**
+ * Parses the documents a create form attached, from its hidden inputs.
+ *
+ * Each entry is one JSON object; anything unparseable is skipped rather than
+ * failing the admission — the person record is the thing that must not be
+ * lost, and a mangled attachment row is re-uploadable from the profile.
+ */
+export function parseAttachedDocuments(
+  formData: FormData,
+): Array<{ fileId: string; category: string; title: string }> {
+  return formData
+    .getAll("documents")
+    .map(String)
+    .flatMap((raw) => {
+      try {
+        const entry = JSON.parse(raw) as {
+          fileId?: unknown;
+          category?: unknown;
+          title?: unknown;
+        };
+        if (typeof entry.fileId !== "string" || !entry.fileId) return [];
+        return [
+          {
+            fileId: entry.fileId,
+            category: typeof entry.category === "string" ? entry.category : "OTHER",
+            title: typeof entry.title === "string" && entry.title ? entry.title : "Document",
+          },
+        ];
+      } catch {
+        return [];
+      }
+    });
+}
+
 export const DOCUMENT_CATEGORIES: Record<
   PersonKind,
   Array<{ value: string; label: string; expires?: boolean }>

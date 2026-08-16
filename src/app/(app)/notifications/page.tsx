@@ -12,6 +12,7 @@ import {
 
 import { Badge, Button, Card, CardHeader, EmptyState, PageHeader, StatCard } from "@/components/ui";
 import { Pager, pageOf } from "@/components/pager";
+import { RefreshButton } from "@/components/refresh-button";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { cn, formatDateTime, relativeTime } from "@/lib/utils";
@@ -76,14 +77,17 @@ export default async function NotificationsPage({
         title="Notifications"
         description="Everything the system has sent you."
         action={
-          unreadCount ? (
-            <form action={markAllReadAction}>
-              <Button type="submit" variant="outline" size="sm">
-                <CheckCheck className="size-4" />
-                Mark all read
-              </Button>
-            </form>
-          ) : null
+          <>
+            <RefreshButton />
+            {unreadCount ? (
+              <form action={markAllReadAction}>
+                <Button type="submit" variant="outline" size="sm">
+                  <CheckCheck className="size-4" />
+                  Mark all read
+                </Button>
+              </form>
+            ) : null}
+          </>
         }
       />
 

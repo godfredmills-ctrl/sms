@@ -1,9 +1,10 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
 import { useFormStatus } from "react-dom";
 import { Save, UserPlus } from "lucide-react";
 
+import { DocumentsField } from "@/components/documents-field";
 import { ImageField } from "@/components/image-field";
 import { SearchableSelect, type SelectOption } from "@/components/select-search";
 import {
@@ -76,16 +77,26 @@ export type StaffValues = {
  */
 export function StaffForm({
   subjects,
+  documentCategories = [],
   values,
+  onSuccess,
 }: {
   subjects: SelectOption[];
+  /** From DOCUMENT_CATEGORIES.staff; empty hides the documents card. */
+  documentCategories?: Array<{ value: string; label: string }>;
   values?: StaffValues;
+  /** Lets a modal close itself once the record is saved. */
+  onSuccess?: () => void;
 }) {
   const editing = Boolean(values?.id);
   const [state, action] = useActionState<StaffState, FormData>(
     editing ? updateStaffAction : createStaffAction,
     {},
   );
+
+  useEffect(() => {
+    if (state.ok) onSuccess?.();
+  }, [state.ok, onSuccess]);
 
   return (
     <form action={action} className="space-y-4">
@@ -229,6 +240,18 @@ export function StaffForm({
           </Field>
         </CardBody>
       </Card>
+
+      {!editing && documentCategories.length ? (
+        <Card>
+          <CardHeader
+            title="Documents"
+            description="Contract, certificates, Ghana Card — filed with the record as it is created."
+          />
+          <CardBody>
+            <DocumentsField categories={documentCategories} />
+          </CardBody>
+        </Card>
+      ) : null}
 
       <Card>
         <CardHeader

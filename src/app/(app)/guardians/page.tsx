@@ -1,12 +1,15 @@
 import type { Metadata } from "next";
-import { Contact, MessageSquare, UserPlus, Users, Wallet } from "lucide-react";
+import { Contact, MessageSquare, Users, Wallet } from "lucide-react";
 
-import { Alert, LinkButton, PageHeader, StatCard } from "@/components/ui";
+import { Alert, PageHeader, StatCard } from "@/components/ui";
+import { RefreshButton } from "@/components/refresh-button";
 import { requirePermission, userCan } from "@/lib/auth";
+import { DOCUMENT_CATEGORIES } from "@/lib/person-documents";
 import { db } from "@/lib/db";
 import { formatMoney } from "@/lib/money";
 import { fullName } from "@/lib/utils";
 
+import { AddGuardianButton } from "./add-guardian-button";
 import { GuardiansTable, type GuardianRow } from "./guardians-table";
 
 export const metadata: Metadata = { title: "Guardians" };
@@ -119,12 +122,12 @@ export default async function GuardiansPage() {
         title="Guardians"
         description="Parents and guardians, who they are responsible for, and how to reach them."
         action={
-          userCan(user, "student.guardian.manage") ? (
-            <LinkButton href="/guardians/new" size="sm">
-              <UserPlus className="size-4" />
-              Add guardian
-            </LinkButton>
-          ) : null
+          <>
+            <RefreshButton />
+            {userCan(user, "student.guardian.manage") ? (
+              <AddGuardianButton documentCategories={DOCUMENT_CATEGORIES.guardian} />
+            ) : null}
+          </>
         }
       />
 

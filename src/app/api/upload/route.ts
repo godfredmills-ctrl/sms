@@ -27,7 +27,16 @@ export async function POST(request: Request) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Not signed in." }, { status: 401 });
 
-  if (!user.permissions.has("document.upload") && !user.roleKeys.includes("super_admin")) {
+  // The cabinet permission, or any of the person-file permissions: a registrar
+  // scanning a birth certificate during admission holds student.create and
+  // probably not document.upload, and refusing the scan at that moment is how
+  // records end up permanently paperless.
+  const mayUpload =
+    user.roleKeys.includes("super_admin") ||
+    ["document.upload", "student.document.manage", "student.create", "staff.update", "staff.create", "student.guardian.manage"].some(
+      (permission) => user.permissions.has(permission),
+    );
+  if (!mayUpload) {
     return NextResponse.json({ error: "You cannot upload documents." }, { status: 403 });
   }
 

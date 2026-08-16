@@ -23,6 +23,7 @@ import {
   StatusBadge,
 } from "@/components/ui";
 import { Pager, pageOf } from "@/components/pager";
+import { RefreshButton } from "@/components/refresh-button";
 import { requirePermission, userCan } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { formatBytes, formatDate, humanise, relativeTime } from "@/lib/utils";
@@ -211,6 +212,7 @@ export default async function MemosPage({
       <PageHeader
         title="Memos"
         description="Formal internal notices with reference numbers, attachments and acknowledgement tracking."
+        action={<RefreshButton />}
       />
 
       <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">

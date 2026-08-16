@@ -12,6 +12,7 @@ import {
   StatCard,
 } from "@/components/ui";
 import { Pager, pageOf } from "@/components/pager";
+import { RefreshButton } from "@/components/refresh-button";
 import { authorize, requirePermission } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { formatDate, relativeTime } from "@/lib/utils";
@@ -96,6 +97,7 @@ export default async function EnquiriesPage({
       <PageHeader
         title="Admission enquiries"
         description="Submitted from the public website. Convert the real ones with the admission form — an enquiry never becomes a student by itself."
+        action={<RefreshButton />}
       />
 
       <div className="mb-5 grid grid-cols-3 gap-3">

@@ -11,6 +11,7 @@ import {
   StatusBadge,
 } from "@/components/ui";
 import { Pager, pageOf } from "@/components/pager";
+import { RefreshButton } from "@/components/refresh-button";
 import { requirePermission, userCan } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { humanise, relativeTime } from "@/lib/utils";
@@ -68,6 +69,7 @@ export default async function AnnouncementsPage({
   return (
     <>
       <PageHeader
+        action={<RefreshButton />}
         title="Announcements"
         description={
           canManage

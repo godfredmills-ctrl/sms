@@ -1,10 +1,11 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
 import { useFormStatus } from "react-dom";
 import Link from "next/link";
 import { UserPlus } from "lucide-react";
 
+import { DocumentsField } from "@/components/documents-field";
 import { SearchableSelect, type SelectOption } from "@/components/select-search";
 import {
   Alert,
@@ -41,11 +42,23 @@ const REGIONS = [
   "Ahafo",
 ].map((region) => ({ value: region, label: region }));
 
-export function AdmissionForm({ sections }: { sections: SelectOption[] }) {
+export function AdmissionForm({
+  sections,
+  documentCategories = [],
+  onSuccess,
+}: {
+  sections: SelectOption[];
+  documentCategories?: Array<{ value: string; label: string }>;
+  onSuccess?: () => void;
+}) {
   const [state, action] = useActionState<AdmissionState, FormData>(
     admitStudentAction,
     {},
   );
+
+  useEffect(() => {
+    if (state.ok) onSuccess?.();
+  }, [state.ok, onSuccess]);
 
   if (state.ok) {
     return (
@@ -283,6 +296,18 @@ export function AdmissionForm({ sections }: { sections: SelectOption[] }) {
           </Field>
         </CardBody>
       </Card>
+
+      {documentCategories.length ? (
+        <Card>
+          <CardHeader
+            title="Documents"
+            description="The papers on your desk — birth certificate, photograph, previous report. Filed with the admission rather than promised to a tab later."
+          />
+          <CardBody>
+            <DocumentsField categories={documentCategories} />
+          </CardBody>
+        </Card>
+      ) : null}
 
       <div className="flex justify-end">
         <Submit />

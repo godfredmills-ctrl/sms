@@ -3,6 +3,7 @@ import { History, ShieldCheck, Users } from "lucide-react";
 
 import { PageHeader, StatCard } from "@/components/ui";
 import { Pager, pageOf } from "@/components/pager";
+import { RefreshButton } from "@/components/refresh-button";
 import { requirePermission } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { fullName } from "@/lib/utils";
@@ -81,6 +82,7 @@ export default async function AuditPage({
       <PageHeader
         title="Audit trail"
         description="Every consequential action, who took it and when."
+        action={<RefreshButton />}
       />
 
       <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">

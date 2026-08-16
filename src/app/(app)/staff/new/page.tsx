@@ -3,6 +3,7 @@ import Link from "next/link";
 
 import { PageHeader } from "@/components/ui";
 import { requirePermission } from "@/lib/auth";
+import { DOCUMENT_CATEGORIES } from "@/lib/person-documents";
 import { db } from "@/lib/db";
 
 import { StaffForm } from "../staff-form";
@@ -35,6 +36,7 @@ export default async function NewStaffPage() {
 
       <div className="mx-auto max-w-3xl">
         <StaffForm
+          documentCategories={DOCUMENT_CATEGORIES.staff}
           subjects={subjects.map((subject) => ({
             value: subject.name,
             label: subject.name,

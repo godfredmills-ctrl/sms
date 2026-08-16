@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { authorize, userCan } from "@/lib/auth";
 import { generateCode, hashPassword } from "@/lib/crypto";
 import { db } from "@/lib/db";
+import { parseAttachedDocuments } from "@/lib/person-documents";
 import { normalisePhone } from "@/lib/utils";
 
 export type GuardianState = {
@@ -89,6 +90,19 @@ export async function createGuardianAction(
   }
 
   const guardian = await db.guardian.create({ data: fields });
+
+  const attached = parseAttachedDocuments(formData);
+  if (attached.length) {
+    await db.guardianDocument.createMany({
+      data: attached.map((entry) => ({
+        guardianId: guardian.id,
+        fileId: entry.fileId,
+        category: entry.category,
+        title: entry.title,
+        uploadedById: user.id,
+      })),
+    });
+  }
 
   await db.auditLog.create({
     data: {

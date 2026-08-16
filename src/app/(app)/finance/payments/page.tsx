@@ -3,6 +3,7 @@ import { Banknote, Receipt, Smartphone, TriangleAlert } from "lucide-react";
 
 import { Alert, LinkButton, PageHeader, StatCard } from "@/components/ui";
 import { Pager, pageOf } from "@/components/pager";
+import { RefreshButton } from "@/components/refresh-button";
 import { requirePermission, userCan } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { formatMoney } from "@/lib/money";
@@ -149,12 +150,15 @@ export default async function PaymentsPage({
         title="Payments"
         description="Every receipt issued, how it was paid, and what it has been applied to."
         action={
-          userCan(user, "finance.payment.record") ? (
-            <LinkButton href="/finance/payments/new" size="sm">
-              <Receipt className="size-4" />
-              Record payment
-            </LinkButton>
-          ) : null
+          <>
+            <RefreshButton />
+            {userCan(user, "finance.payment.record") ? (
+              <LinkButton href="/finance/payments/new" size="sm">
+                <Receipt className="size-4" />
+                Record payment
+              </LinkButton>
+            ) : null}
+          </>
         }
       />
 

@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { authorize, userCan } from "@/lib/auth";
 import { generateCode, hashPassword } from "@/lib/crypto";
 import { db } from "@/lib/db";
+import { parseAttachedDocuments } from "@/lib/person-documents";
 import { normalisePhone } from "@/lib/utils";
 
 export type StaffState = {
@@ -130,6 +131,20 @@ export async function createStaffAction(
           status: (text(formData, "status") || "ACTIVE") as never,
         },
       });
+
+      // Papers scanned during hiring, filed with the record they belong to.
+      const attached = parseAttachedDocuments(formData);
+      if (attached.length) {
+        await db.staffDocument.createMany({
+          data: attached.map((entry) => ({
+            staffId: staff.id,
+            fileId: entry.fileId,
+            category: entry.category,
+            title: entry.title,
+            uploadedById: user.id,
+          })),
+        });
+      }
 
       await db.auditLog.create({
         data: {

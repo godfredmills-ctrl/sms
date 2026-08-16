@@ -3,6 +3,7 @@ import Link from "next/link";
 
 import { PageHeader } from "@/components/ui";
 import { requirePermission } from "@/lib/auth";
+import { DOCUMENT_CATEGORIES } from "@/lib/person-documents";
 
 import { GuardianForm } from "../guardian-form";
 
@@ -28,7 +29,7 @@ export default async function NewGuardianPage() {
       </div>
 
       <div className="mx-auto max-w-3xl">
-        <GuardianForm />
+        <GuardianForm documentCategories={DOCUMENT_CATEGORIES.guardian} />
       </div>
     </>
   );

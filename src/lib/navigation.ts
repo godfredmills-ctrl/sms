@@ -108,6 +108,11 @@ export const STAFF_NAVIGATION: NavGroup[] = [
             icon: "CalendarClock",
             permissions: ["academic.timetable.read"],
           },
+          {
+            label: "Calendar",
+            href: "/academics/calendar",
+            icon: "CalendarDays",
+          },
         ],
       },
       {

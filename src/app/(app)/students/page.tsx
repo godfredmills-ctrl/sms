@@ -9,10 +9,13 @@ import {
 } from "lucide-react";
 
 import { LinkButton, PageHeader, StatCard } from "@/components/ui";
+import { RefreshButton } from "@/components/refresh-button";
 import { requirePermission, userCan } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { DOCUMENT_CATEGORIES } from "@/lib/person-documents";
 import { toNumber } from "@/lib/utils";
 
+import { AdmitStudentButton } from "./admit-student-button";
 import { StudentsTable, type StudentRow } from "./students-table";
 
 export const metadata: Metadata = { title: "Students" };
@@ -145,6 +148,27 @@ export default async function StudentsPage() {
     (row) => row.attendanceRate !== null && row.attendanceRate < 85,
   ).length;
 
+  // For the admission modal: class options with room left shown alongside.
+  const admissionSections = userCan(user, "student.create")
+    ? (
+        await db.classSection.findMany({
+          where: { isActive: true },
+          orderBy: [{ classLevel: { sequence: "asc" } }, { name: "asc" }],
+          select: {
+            id: true,
+            name: true,
+            capacity: true,
+            classLevel: { select: { name: true } },
+            _count: { select: { enrollments: { where: { status: "ACTIVE" } } } },
+          },
+        })
+      ).map((section) => ({
+        value: section.id,
+        label: `${section.classLevel.name} ${section.name}`,
+        description: `${section._count.enrollments}/${section.capacity} enrolled`,
+      }))
+    : [];
+
   return (
     <>
       <PageHeader
@@ -156,6 +180,7 @@ export default async function StudentsPage() {
         }
         action={
           <>
+            <RefreshButton />
             {userCan(user, "student.import") ? (
               <LinkButton href="/students/import" variant="outline" size="sm">
                 <FileUp className="size-4" />
@@ -163,10 +188,10 @@ export default async function StudentsPage() {
               </LinkButton>
             ) : null}
             {userCan(user, "student.create") ? (
-              <LinkButton href="/students/new" size="sm">
-                <UserPlus className="size-4" />
-                Admit student
-              </LinkButton>
+              <AdmitStudentButton
+                sections={admissionSections}
+                documentCategories={DOCUMENT_CATEGORIES.student}
+              />
             ) : null}
           </>
         }

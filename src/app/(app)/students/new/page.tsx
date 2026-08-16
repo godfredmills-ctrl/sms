@@ -3,6 +3,7 @@ import Link from "next/link";
 
 import { Alert, PageHeader } from "@/components/ui";
 import { requirePermission } from "@/lib/auth";
+import { DOCUMENT_CATEGORIES } from "@/lib/person-documents";
 import { db } from "@/lib/db";
 
 import { AdmissionForm } from "./admission-form";
@@ -56,6 +57,7 @@ export default async function AdmissionsPage() {
       ) : null}
 
       <AdmissionForm
+        documentCategories={DOCUMENT_CATEGORIES.student}
         sections={sections.map((section) => ({
           value: section.id,
           label: `${section.classLevel.name} ${section.name}`,

@@ -479,3 +479,103 @@ export async function saveTimetableSlotAction(formData: FormData) {
 
   revalidatePath("/academics/timetable");
 }
+
+// -----------------------------------------------------------------------------
+// The academic calendar
+// -----------------------------------------------------------------------------
+
+export async function createCalendarEventAction(
+  _previous: AcademicState,
+  formData: FormData,
+): Promise<AcademicState> {
+  let user;
+  try {
+    user = await authorize("academic.year.manage");
+  } catch (error) {
+    return { error: (error as Error).message };
+  }
+
+  const title = text(formData, "title");
+  const startsAt = text(formData, "startsAt");
+  if (!title || !startsAt) return { error: "A title and a start date are both needed." };
+
+  const start = new Date(startsAt);
+  if (Number.isNaN(start.getTime())) return { error: "That start date is not valid." };
+
+  // A single-day event needs no end date typed in; an end before the start is
+  // always a slip of the keyboard rather than an intention.
+  const endsAtRaw = text(formData, "endsAt");
+  const end = endsAtRaw ? new Date(endsAtRaw) : start;
+  if (Number.isNaN(end.getTime())) return { error: "That end date is not valid." };
+  if (end < start) return { error: "The event cannot end before it starts." };
+
+  const audiences = formData.getAll("audiences").map(String).filter(Boolean);
+
+  const year = await db.academicYear.findFirst({
+    where: { isCurrent: true },
+    select: { id: true },
+  });
+
+  await db.calendarEvent.create({
+    data: {
+      academicYearId: year?.id ?? null,
+      title,
+      description: text(formData, "description") || null,
+      category: text(formData, "category") || "GENERAL",
+      startsAt: start,
+      endsAt: end,
+      allDay: true,
+      location: text(formData, "location") || null,
+      isHoliday: formData.get("isHoliday") === "on",
+      audiences: (audiences.length
+        ? audiences
+        : ["STAFF", "STUDENT", "GUARDIAN"]) as never,
+      createdById: user.id,
+    },
+  });
+
+  await db.auditLog.create({
+    data: {
+      userId: user.id,
+      actorLabel: user.fullName,
+      action: "academic.calendar.create",
+      entity: "CalendarEvent",
+      summary: `Added "${title}" to the calendar`,
+    },
+  });
+
+  // Every portal shows the calendar, so every calendar view is refreshed.
+  revalidatePath("/academics/calendar");
+  revalidatePath("/portal/guardian/calendar");
+  revalidatePath("/dashboard");
+  return { ok: true, message: "Added to the calendar." };
+}
+
+export async function deleteCalendarEventAction(formData: FormData) {
+  const user = await authorize("academic.year.manage");
+
+  const id = String(formData.get("id") ?? "");
+  if (!id) return;
+
+  const event = await db.calendarEvent.findUnique({
+    where: { id },
+    select: { title: true },
+  });
+  if (!event) return;
+
+  await db.calendarEvent.delete({ where: { id } });
+
+  await db.auditLog.create({
+    data: {
+      userId: user.id,
+      actorLabel: user.fullName,
+      action: "academic.calendar.delete",
+      entity: "CalendarEvent",
+      entityId: id,
+      summary: `Removed "${event.title}" from the calendar`,
+    },
+  });
+
+  revalidatePath("/academics/calendar");
+  revalidatePath("/portal/guardian/calendar");
+}

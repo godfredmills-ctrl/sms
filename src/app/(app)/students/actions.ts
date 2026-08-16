@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { authorize } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { hashPassword } from "@/lib/crypto";
+import { parseAttachedDocuments } from "@/lib/person-documents";
 import { normalisePhone, slugify } from "@/lib/utils";
 
 export type AdmissionState = {
@@ -175,6 +176,21 @@ export async function admitStudentAction(
               },
             });
           }
+        }
+
+        // The papers on the registrar's desk, filed as part of the admission
+        // rather than promised to a Documents tab later.
+        const attached = parseAttachedDocuments(formData);
+        if (attached.length) {
+          await tx.studentDocument.createMany({
+            data: attached.map((entry) => ({
+              studentId: created.id,
+              fileId: entry.fileId,
+              category: entry.category,
+              title: entry.title,
+              uploadedById: user.id,
+            })),
+          });
         }
 
         return created;

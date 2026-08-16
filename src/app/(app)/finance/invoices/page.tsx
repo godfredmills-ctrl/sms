@@ -3,6 +3,7 @@ import { AlertTriangle, FileText, Receipt, Wallet } from "lucide-react";
 
 import { Alert, Card, CardHeader, PageHeader, StatCard } from "@/components/ui";
 import { Pager, pageOf } from "@/components/pager";
+import { RefreshButton } from "@/components/refresh-button";
 import { requirePermission, userCan } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { formatMoney, percentOf } from "@/lib/money";
@@ -142,6 +143,7 @@ export default async function InvoicesPage({
       <PageHeader
         title="Invoices"
         description="Every bill raised, what has been paid against it, and what is still owed."
+        action={<RefreshButton />}
       />
 
       <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">

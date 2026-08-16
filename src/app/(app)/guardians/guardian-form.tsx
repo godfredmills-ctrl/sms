@@ -1,9 +1,10 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
 import { useFormStatus } from "react-dom";
 import { Save, UserPlus } from "lucide-react";
 
+import { DocumentsField } from "@/components/documents-field";
 import { SearchableSelect } from "@/components/select-search";
 import {
   Alert,
@@ -51,12 +52,24 @@ export type GuardianValues = {
   notes: string;
 };
 
-export function GuardianForm({ values }: { values?: GuardianValues }) {
+export function GuardianForm({
+  values,
+  documentCategories = [],
+  onSuccess,
+}: {
+  values?: GuardianValues;
+  documentCategories?: Array<{ value: string; label: string }>;
+  onSuccess?: () => void;
+}) {
   const editing = Boolean(values?.id);
   const [state, action] = useActionState<GuardianState, FormData>(
     editing ? updateGuardianAction : createGuardianAction,
     {},
   );
+
+  useEffect(() => {
+    if (state.ok) onSuccess?.();
+  }, [state.ok, onSuccess]);
 
   return (
     <form action={action} className="space-y-4">
@@ -162,6 +175,18 @@ export function GuardianForm({ values }: { values?: GuardianValues }) {
           </div>
         </CardBody>
       </Card>
+
+      {!editing && documentCategories.length ? (
+        <Card>
+          <CardHeader
+            title="Documents"
+            description="Ghana Card or other identification, filed with the record."
+          />
+          <CardBody>
+            <DocumentsField categories={documentCategories} />
+          </CardBody>
+        </Card>
+      ) : null}
 
       <Submit editing={editing} />
     </form>
