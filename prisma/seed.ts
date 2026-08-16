@@ -932,8 +932,13 @@ async function seedOfferings(
     }
   }
 
-  // A simple timetable for the current term's offerings.
-  const currentOfferings = offerings.slice(0, 60);
+  // A timetable for every class, not for the first sixty offerings.
+  //
+  // The slice was a rough cap on how much to generate, and it cut across
+  // classes rather than within them: offerings come out grouped by section, so
+  // sixty covered the first ten or so and left every class after that — all of
+  // JHS — with an empty timetable. A blank timetable does not look like a
+  // seeding limit to anyone; it looks like the module is broken.
   const periods = [
     { index: 1, start: "08:00", end: "08:40" },
     { index: 2, start: "08:40", end: "09:20" },
@@ -942,22 +947,41 @@ async function seedOfferings(
     { index: 5, start: "11:00", end: "11:40" },
   ];
 
-  for (const offering of currentOfferings) {
-    const day = between(1, 5);
-    const period = pick(periods);
-    await db.timetableSlot
-      .create({
-        data: {
-          classSectionId: offering.classSectionId,
-          offeringId: offering.id,
-          dayOfWeek: day,
-          periodIndex: period.index,
-          startTime: period.start,
-          endTime: period.end,
-          room: offering.room,
-        },
-      })
-      .catch(() => undefined); // Slot already taken — fine for demo data.
+  // Laid out per class so each one gets a spread of subjects across the week
+  // rather than a random scattering that leaves gaps in some and clashes in
+  // others. Walking the grid in order and taking the next subject each time
+  // gives every class a full, conflict-free timetable.
+  const bySection = new Map<string, typeof offerings>();
+  for (const offering of offerings) {
+    const list = bySection.get(offering.classSectionId) ?? [];
+    list.push(offering);
+    bySection.set(offering.classSectionId, list);
+  }
+
+  for (const [classSectionId, sectionOfferings] of bySection) {
+    if (!sectionOfferings.length) continue;
+    let cursor = 0;
+
+    for (let day = 1; day <= 5; day += 1) {
+      for (const period of periods) {
+        const offering = sectionOfferings[cursor % sectionOfferings.length];
+        cursor += 1;
+
+        await db.timetableSlot
+          .create({
+            data: {
+              classSectionId,
+              offeringId: offering.id,
+              dayOfWeek: day,
+              periodIndex: period.index,
+              startTime: period.start,
+              endTime: period.end,
+              room: offering.room,
+            },
+          })
+          .catch(() => undefined); // Slot already taken — fine for demo data.
+      }
+    }
   }
 
   return offerings;
@@ -2057,13 +2081,28 @@ async function seedCommunications(roles: Record<string, string>) {
 async function seedElections(sections: SectionRow[]) {
   console.log("  Elections…");
 
+  // Matched on the class LEVEL, not the section. This filtered on section names
+  // beginning with "J" back when a section was called "J3A"; sections now hold
+  // only the stream letter — "A", "B" — so nothing matched, fewer than six
+  // candidates came back, and the function returned before creating anything.
+  // The elections module has been seeding an empty page ever since, and the
+  // early return meant it did so silently.
   const candidateStudents = await db.student.findMany({
-    where: { enrollments: { some: { classSection: { name: { startsWith: "J" } } } } },
+    where: {
+      enrollments: {
+        some: { classSection: { classLevel: { name: { startsWith: "JHS" } } } },
+      },
+    },
     take: 12,
     select: { id: true, firstName: true, lastName: true, photoUrl: true },
   });
 
-  if (candidateStudents.length < 6) return;
+  if (candidateStudents.length < 6) {
+    console.warn(
+      `    ! Only ${candidateStudents.length} JHS students found — skipping elections.`,
+    );
+    return;
+  }
 
   const election = await db.election.create({
     data: {

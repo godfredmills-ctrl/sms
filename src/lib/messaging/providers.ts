@@ -129,13 +129,25 @@ export async function sendSms(input: {
         return await sendViaMnotify(recipient, input.message, sender, segments, costMinor);
       case "hubtel":
         return await sendViaHubtel(recipient, input.message, sender, segments, costMinor);
-      default:
+      case "mock":
         console.info(`[sms:mock] to=${recipient} segments=${segments} :: ${input.message}`);
         return {
           ok: true,
           providerMessageId: `mock-sms-${Date.now()}`,
           segments,
           costMinor,
+        };
+      default:
+        // A name we do not recognise is a mistake, not a request for the mock.
+        // It used to fall through to the logger and return ok, so every
+        // recipient was recorded SENT, a delivery cost was charged, and the
+        // run reported "412 reminders sent" while no phone rang. Reported as a
+        // failure, the school sees it on the first send instead of when a
+        // parent says they were never told.
+        return {
+          ok: false,
+          error: `SMS_PROVIDER is set to "${env.sms.provider}", which is not one of arkesel, mnotify, hubtel or mock. Nothing was sent.`,
+          segments,
         };
     }
   } catch (error) {

@@ -597,6 +597,29 @@ async function checkStructure() {
     pass(g, "Published courses have lessons");
   }
 
+  // A class with no timetable and an elections page with no election both look
+  // like a broken module rather than absent demo data, and both were caused by
+  // a seed filter that stopped matching after something was renamed.
+  const sectionsWithoutTimetable = await db.classSection.count({
+    where: { isActive: true, timetableSlots: { none: {} } },
+  });
+  if (sectionsWithoutTimetable) {
+    fail(
+      g,
+      "Every class has a timetable",
+      `${sectionsWithoutTimetable} active section(s) with no slots — those timetables render empty.`,
+    );
+  } else {
+    pass(g, "Every class has a timetable");
+  }
+
+  const elections = await db.election.count();
+  if (elections === 0) {
+    warn(g, "Elections exist", "The elections module has nothing to show.");
+  } else {
+    pass(g, "Elections exist", `${elections}`);
+  }
+
   const noGuardian = await db.student.count({
     where: { status: "ENROLLED", guardians: { none: {} } },
   });

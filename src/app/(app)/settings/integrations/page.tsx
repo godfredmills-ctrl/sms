@@ -44,18 +44,34 @@ export default async function IntegrationsPage() {
     checkStorage(),
   ]);
 
+  // "Not mock" is not the same as "recognised". These cards used to report a
+  // provider as live whenever the name was anything other than "mock", while
+  // the code that dispatches switches on a fixed list — so a typo in
+  // SMS_PROVIDER produced a green badge here and nothing delivered anywhere.
+  // The card now answers the question the dispatcher answers.
+  const KNOWN_PAYMENT = ["paystack", "hubtel"];
+  const KNOWN_SMS = ["arkesel", "mnotify", "hubtel"];
+
+  const paymentKnown = KNOWN_PAYMENT.includes(env.payments.provider);
+  const smsKnown = KNOWN_SMS.includes(env.sms.provider);
+
+  const unknown = (name: string, value: string, known: string[]) =>
+    `"${value}" is not a ${name} provider this system knows. Expected one of ${known.join(", ")} or mock. Nothing will be sent until this is corrected.`;
+
   const providers: Provider[] = [
     {
       name: "Payments",
       icon: <CreditCard className="size-4" />,
-      configured: env.payments.provider !== "mock",
+      configured: paymentKnown,
       active: env.payments.provider,
       detail:
         env.payments.provider === "paystack"
           ? "Mobile money, card, bank transfer and USSD through Paystack."
           : env.payments.provider === "hubtel"
             ? "Mobile money and card through Hubtel."
-            : "Simulated checkout. Payments are recorded but no money moves.",
+            : env.payments.provider === "mock"
+              ? "Simulated checkout. Payments are recorded but no money moves."
+              : unknown("payment", env.payments.provider, KNOWN_PAYMENT),
       vars:
         env.payments.provider === "hubtel"
           ? ["HUBTEL_CLIENT_ID", "HUBTEL_CLIENT_SECRET", "HUBTEL_MERCHANT_ACCOUNT"]
@@ -64,12 +80,14 @@ export default async function IntegrationsPage() {
     {
       name: "SMS",
       icon: <MessageSquare className="size-4" />,
-      configured: env.sms.provider !== "mock",
+      configured: smsKnown,
       active: env.sms.provider,
       detail:
         env.sms.provider === "mock"
           ? "Messages are logged, not delivered. Costs are still estimated so broadcasts can be rehearsed."
-          : `Delivered through ${env.sms.provider}.`,
+          : smsKnown
+            ? `Delivered through ${env.sms.provider}.`
+            : unknown("SMS", env.sms.provider, KNOWN_SMS),
       vars:
         env.sms.provider === "arkesel"
           ? ["ARKESEL_API_KEY"]

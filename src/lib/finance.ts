@@ -141,6 +141,11 @@ export async function generateTermInvoices(options: {
     errors: [],
   };
 
+  // The date a discount is judged against. One value for the whole run, so a
+  // batch that starts before midnight and finishes after it bills every student
+  // on the same terms.
+  const billedOn = new Date();
+
   const structures = await db.feeStructure.findMany({
     where: {
       academicYearId: options.academicYearId,
@@ -184,6 +189,17 @@ export async function generateTermInvoices(options: {
       discounts: {
         where: {
           isActive: true,
+          // The award's own dates were captured on the form, shown on the
+          // discounts screen, and never consulted when billing. A one-year
+          // scholarship, a bursary for a term of hardship, a sibling discount
+          // that ends when the older child leaves — all of them kept coming
+          // off every future invoice until somebody noticed and withdrew them
+          // by hand. Undercharging is the quiet direction to be wrong in: a
+          // family does not query a bill that is too small.
+          AND: [
+            { OR: [{ startsOn: null }, { startsOn: { lte: billedOn } }] },
+            { OR: [{ endsOn: null }, { endsOn: { gte: billedOn } }] },
+          ],
           OR: [
             { academicYearId: options.academicYearId },
             { academicYearId: null },

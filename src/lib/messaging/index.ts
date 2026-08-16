@@ -192,7 +192,17 @@ export async function resolveAudience(filter: AudienceFilter): Promise<Recipient
         },
         invoices: {
           where: { balanceMinor: { gt: 0 } },
-          select: { balanceMinor: true },
+          // Ordered so the soonest deadline is the one quoted. A parent with
+          // two unpaid terms needs the date they are about to miss, not the
+          // one they already have.
+          orderBy: { dueDate: "asc" },
+          select: {
+            balanceMinor: true,
+            totalMinor: true,
+            invoiceNo: true,
+            dueDate: true,
+            term: { select: { name: true } },
+          },
         },
         guardians: {
           where: filter.billPayersOnly ? { isBillPayer: true } : {},
@@ -221,6 +231,9 @@ export async function resolveAudience(filter: AudienceFilter): Promise<Recipient
         0,
       );
 
+      // The soonest unpaid invoice is the one the message is about.
+      const nextDue = student.invoices[0];
+
       const studentVars = {
         ...base,
         "student.firstName": student.firstName,
@@ -229,6 +242,16 @@ export async function resolveAudience(filter: AudienceFilter): Promise<Recipient
         "student.admissionNo": student.admissionNo,
         "student.class": className,
         "invoice.balance": formatMoney(balance),
+        // These four were listed as available placeholders and never given a
+        // value, so every template that used one rendered it as nothing. The
+        // seeded reminder reads "fees for Ama Boateng (JHS 3 A) are due ." —
+        // a fee demand with no date, sent to a parent, over SMS. The gap was
+        // invisible in the composer, which shows the placeholder rather than
+        // the result.
+        "invoice.number": nextDue?.invoiceNo ?? "",
+        "invoice.total": nextDue ? formatMoney(nextDue.totalMinor) : "",
+        "invoice.dueDate": nextDue?.dueDate ? formatDate(nextDue.dueDate) : "",
+        "term.name": nextDue?.term?.name ?? "",
       };
 
       if (wantsStudents) {
@@ -617,21 +640,23 @@ export async function runFeeReminders(): Promise<{
         status: { in: ["ISSUED", "PART_PAID", "OVERDUE"] },
         balanceMinor: { gt: rule.minBalanceMinor },
         ...(dueWindow ? { dueDate: dueWindow } : {}),
-        remindersSent: { lt: rule.maxReminders },
-        ...(rule.repeatEveryDays > 0
-          ? {
-              OR: [
-                { lastReminderAt: null },
-                {
-                  lastReminderAt: {
-                    lt: new Date(now.getTime() - rule.repeatEveryDays * 86_400_000),
-                  },
-                },
-              ],
-            }
-          : { reminders: { none: { ruleId: rule.id } } }),
+        // `remindersSent` and `lastReminderAt` are single per-invoice counters
+        // covering every rule and every manual nudge together. Checking a
+        // rule's own maxReminders against them meant the rules cancelled each
+        // other out: three sends from "a week before" left the "on the due
+        // date" rule looking exhausted before it ever ran, and one manual
+        // nudge from the bursar could silence the whole schedule. So the
+        // school configured an escalating series and only the first step ever
+        // went out. This rule's own history is what governs this rule, and
+        // FeeReminder records it per rule.
+        ...(rule.repeatEveryDays > 0 ? {} : { reminders: { none: { ruleId: rule.id } } }),
       },
       include: {
+        reminders: {
+          where: { ruleId: rule.id },
+          orderBy: { sentAt: "desc" },
+          select: { sentAt: true },
+        },
         student: {
           select: {
             id: true,
@@ -645,7 +670,16 @@ export async function runFeeReminders(): Promise<{
       take: 500,
     });
 
-    if (!invoices.length) continue;
+    // The two limits this rule sets on itself, judged against its own sends.
+    const repeatCutoff = new Date(now.getTime() - rule.repeatEveryDays * 86_400_000);
+    const due = invoices.filter((invoice) => {
+      if (invoice.reminders.length >= rule.maxReminders) return false;
+      if (rule.repeatEveryDays <= 0) return true;
+      const last = invoice.reminders[0];
+      return !last || last.sentAt < repeatCutoff;
+    });
+
+    if (!due.length) continue;
 
     const body =
       rule.template?.smsBody ??
@@ -661,7 +695,7 @@ export async function runFeeReminders(): Promise<{
         templateId: rule.templateId,
         audience: {
           ...reminderAudienceFilter(rule.audience),
-          studentIds: invoices.map((invoice) => invoice.student.id),
+          studentIds: due.map((invoice) => invoice.student.id),
           withOutstandingBalance: true,
         },
       });
@@ -673,7 +707,7 @@ export async function runFeeReminders(): Promise<{
 
     await db.$transaction([
       db.feeReminder.createMany({
-        data: invoices.map((invoice) => ({
+        data: due.map((invoice) => ({
           invoiceId: invoice.id,
           ruleId: rule.id,
           kind: rule.trigger,
@@ -682,7 +716,7 @@ export async function runFeeReminders(): Promise<{
         })),
       }),
       db.invoice.updateMany({
-        where: { id: { in: invoices.map((invoice) => invoice.id) } },
+        where: { id: { in: due.map((invoice) => invoice.id) } },
         data: { remindersSent: { increment: 1 }, lastReminderAt: new Date() },
       }),
       db.reminderRule.update({
