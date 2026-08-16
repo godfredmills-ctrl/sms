@@ -8,6 +8,7 @@ import {
   FolderOpen,
   GraduationCap,
   Home,
+  Pencil,
   Phone,
   ShieldAlert,
 } from "lucide-react";
@@ -24,9 +25,12 @@ import {
   CardHeader,
   DescriptionList,
   EmptyState,
+  LinkButton,
   StatCard,
   StatusBadge,
 } from "@/components/ui";
+
+import { DeleteStaffCard, StaffAccountCard, StaffStatusCard } from "../profile-cards";
 import { requirePermission, userCan } from "@/lib/auth";
 import { db } from "@/lib/db";
 import {
@@ -134,6 +138,15 @@ export default async function StaffProfilePage({
 
   if (!staff) notFound();
 
+  // For the account card: staff logins get staff-portal roles.
+  const staffRoles = staff.user
+    ? []
+    : await db.role.findMany({
+        where: { portal: "STAFF" },
+        orderBy: { rank: "asc" },
+        select: { id: true, name: true },
+      });
+
   const name = fullName(staff);
   const qualifications =
     (staff.qualifications as Array<{
@@ -175,6 +188,12 @@ export default async function StaffProfilePage({
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            {userCan(user, "staff.update") ? (
+              <LinkButton href={`/staff/${staff.id}/edit`} variant="outline" size="sm">
+                <Pencil className="size-3.5" />
+                Edit record
+              </LinkButton>
+            ) : null}
             <StatusBadge status={staff.status} />
             <Badge tone={staff.isTeaching ? "info" : "neutral"}>
               {staff.isTeaching ? "Teaching" : "Non-teaching"}
@@ -187,7 +206,7 @@ export default async function StaffProfilePage({
       {!staff.user ? (
         <Alert tone="warning" className="mb-4">
           This staff member has no user account, so they cannot sign in, take a
-          register or enter marks. Create one under Users &amp; roles.
+          register or enter marks. Use the card on the Employment tab to create one.
         </Alert>
       ) : null}
 
@@ -402,6 +421,37 @@ export default async function StaffProfilePage({
               />
             )}
           </Card>
+
+          {userCan(user, "staff.update") ? (
+            <StaffStatusCard
+              staffId={staff.id}
+              status={staff.status}
+              exitDate={staff.exitDate?.toISOString().slice(0, 10) ?? ""}
+              exitReason={staff.exitReason ?? ""}
+            />
+          ) : null}
+
+          {!staff.user && userCan(user, "user.manage") ? (
+            <StaffAccountCard
+              staffId={staff.id}
+              roles={staffRoles.map((role) => ({ value: role.id, label: role.name }))}
+              suggestedEmail={staff.email ?? ""}
+              suggestedPhone={staff.phone ?? ""}
+            />
+          ) : null}
+
+          {userCan(user, "staff.delete") ? (
+            <DeleteStaffCard
+              staffId={staff.id}
+              name={name}
+              historyCount={
+                staff._count.takenAttendance +
+                staff._count.gradedScores +
+                staff.offerings.length +
+                staff.formClasses.length
+              }
+            />
+          ) : null}
         </div>
       ) : null}
 

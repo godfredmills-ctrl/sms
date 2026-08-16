@@ -73,6 +73,15 @@ export const STAFF_NAVIGATION: NavGroup[] = [
         href: "/staff",
         icon: "Users",
         permissions: ["staff.read"],
+        children: [
+          { label: "All staff", href: "/staff", icon: "Users" },
+          {
+            label: "Add staff",
+            href: "/staff/new",
+            icon: "UserPlus",
+            permissions: ["staff.create"],
+          },
+        ],
       },
     ],
   },

@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
-import { BookOpen, TriangleAlert, UserCheck, Users } from "lucide-react";
+import { BookOpen, TriangleAlert, UserCheck, UserPlus, Users } from "lucide-react";
 
-import { Alert, PageHeader, StatCard } from "@/components/ui";
-import { requirePermission } from "@/lib/auth";
+import { Alert, LinkButton, PageHeader, StatCard } from "@/components/ui";
+import { requirePermission, userCan } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { fullName } from "@/lib/utils";
 
@@ -12,7 +12,7 @@ export const metadata: Metadata = { title: "Staff" };
 export const dynamic = "force-dynamic";
 
 export default async function StaffPage() {
-  await requirePermission("staff.read");
+  const user = await requirePermission("staff.read");
 
   const staff = await db.staff.findMany({
     orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
@@ -91,6 +91,14 @@ export default async function StaffPage() {
       <PageHeader
         title="Staff"
         description="Teaching and non-teaching records, contracts and teaching load."
+        action={
+          userCan(user, "staff.create") ? (
+            <LinkButton href="/staff/new" size="sm">
+              <UserPlus className="size-4" />
+              Add staff
+            </LinkButton>
+          ) : null
+        }
       />
 
       <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -126,8 +134,8 @@ export default async function StaffPage() {
       {withoutLogin > 0 ? (
         <Alert tone="warning" className="mb-4">
           {withoutLogin} active staff member{withoutLogin === 1 ? " has" : "s have"} no
-          user account, so they cannot sign in, take a register or enter marks. Create
-          accounts for them under Users &amp; roles.
+          user account, so they cannot sign in, take a register or enter marks. Open a
+          staff profile to create the account — it links the login to the person.
         </Alert>
       ) : null}
 
