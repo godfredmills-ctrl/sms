@@ -1,11 +1,56 @@
 import Link from "next/link";
+import {
+  Award,
+  GraduationCap,
+  Globe2,
+  Lightbulb,
+  MapPin,
+  Phone,
+  Mail,
+  Clock,
+  ShieldCheck,
+  Users,
+} from "lucide-react";
 
 import { parseRows, propText, type Block } from "@/lib/site-blocks";
 import { formatDate } from "@/lib/utils";
 
 import { EnquiryForm } from "./enquiry-form";
 
-export type NewsItem = { id: string; title: string; summary: string | null; publishedAt: Date | null };
+export type NewsItem = {
+  id: string;
+  title: string;
+  summary: string | null;
+  publishedAt: Date | null;
+};
+
+/**
+ * Link targets typed into content fields, allowed by shape.
+ *
+ * Anything a page relatively links, plus the schemes a school legitimately
+ * uses. "javascript:" and friends come out as nothing — a content field on a
+ * public website must never become a script vector, and the person typing
+ * into it is not always the person who set the site up.
+ */
+function safeHref(value: string): string {
+  const href = value.trim();
+  if (!href) return "";
+  if (href.startsWith("/") || href.startsWith("#")) return href;
+  if (/^(https?:|mailto:|tel:)/i.test(href)) return href;
+  return "";
+}
+
+/** The theme colours every block draws from, resolved once in the frame. */
+export type SiteTheme = {
+  /** Links and general interactive colour. */
+  primary: string;
+  /** The deep brand colour — bands, headings, the footer. */
+  navy: string;
+  /** The warm highlight — second heading lines, tags, the apply button. */
+  gold: string;
+  /** The soft wash behind alternating sections. */
+  cream: string;
+};
 
 /**
  * The public renderer for a page's blocks.
@@ -13,19 +58,25 @@ export type NewsItem = { id: string; title: string; summary: string | null; publ
  * Every value is rendered as text through JSX, never through
  * dangerouslySetInnerHTML. That is what keeps a school's public site safe from
  * whatever ends up typed into a content field.
+ *
+ * The look is the classic international-school template: serif display
+ * headings in the deep brand colour with a gold second line, navy bands for
+ * features and figures, photographs with a soft radius. All of it derives
+ * from four theme colours a school can change, so "fully customisable" means
+ * the colours, the type and every word — not a fixed picture of someone
+ * else's school.
  */
 export function RenderBlock({
   block,
   news,
   contact,
-  accent = "#2C66CE",
+  theme,
 }: {
   block: Block;
   news: NewsItem[];
   /** The site's own contact details, used when a contact block carries none. */
   contact?: Record<string, string>;
-  /** The theme's primary colour, for blocks that carry interactive elements. */
-  accent?: string;
+  theme: SiteTheme;
 }) {
   const raw = (block.props ?? {}) as Record<string, unknown>;
   const props = new Proxy(raw, {
@@ -36,148 +87,151 @@ export function RenderBlock({
   // costs three lines and means an older page still renders its button.
   const nestedCta = (raw.cta ?? {}) as Record<string, unknown>;
   const ctaLabel = propText(raw.ctaLabel) || propText(nestedCta.label);
-  const ctaHref = propText(raw.ctaHref) || propText(nestedCta.href);
+  const ctaHref = safeHref(propText(raw.ctaHref) || propText(nestedCta.href));
+
+  const heading = { fontFamily: "var(--heading-font)" } as const;
+
+  /** The small gold label above a heading. */
+  const eyebrow = (text: string) =>
+    text ? (
+      <p
+        className="mb-2 text-xs font-bold tracking-[0.2em] uppercase"
+        style={{ color: theme.gold }}
+      >
+        {text}
+      </p>
+    ) : null;
+
+  const goldButton = (label: string, href: string) =>
+    label && href ? (
+      <Link
+        href={href}
+        className="inline-flex h-11 items-center rounded-md px-6 text-sm font-semibold shadow-sm transition-opacity hover:opacity-90"
+        style={{ background: theme.gold, color: theme.navy }}
+      >
+        {label}
+      </Link>
+    ) : null;
+
+  const navyButton = (label: string, href: string) =>
+    label && href ? (
+      <Link
+        href={href}
+        className="inline-flex h-11 items-center rounded-md px-6 text-sm font-semibold text-white transition-opacity hover:opacity-90"
+        style={{ background: theme.navy }}
+      >
+        {label}
+      </Link>
+    ) : null;
+
+  const outlineButton = (label: string, href: string) =>
+    label && href ? (
+      <Link
+        href={href}
+        className="inline-flex h-11 items-center rounded-md border-2 px-6 text-sm font-semibold transition-colors"
+        style={{ borderColor: theme.navy, color: theme.navy }}
+      >
+        {label}
+      </Link>
+    ) : null;
 
   switch (block.type) {
-    case "hero":
+    case "hero": {
+      const imageUrl = props.imageUrl;
       return (
-        <section
-          className="relative flex min-h-[420px] items-center justify-center overflow-hidden px-6 py-24 text-center text-white"
-          style={{
-            background: props.imageUrl
-              ? `linear-gradient(rgba(15,23,42,.62), rgba(15,23,42,.62)), url('${encodeURI(props.imageUrl)}') center/cover`
-              : "linear-gradient(168deg,#3d7ae4,#2c66ce 42%,#1e4c9e 78%,#163a7a)",
-          }}
-        >
-          <div className="max-w-3xl">
-            <h1 className="text-3xl font-semibold tracking-tight text-balance sm:text-5xl">
-              {props.heading}
-            </h1>
-            {props.subheading ? (
-              <p className="mx-auto mt-4 max-w-xl text-base text-white/85 sm:text-lg">
-                {props.subheading}
-              </p>
-            ) : null}
-            {ctaLabel && ctaHref ? (
-              <Link
-                href={ctaHref}
-                className="mt-7 inline-flex h-11 items-center rounded-full bg-white px-6 text-sm font-semibold text-[#1e4c9e] transition-opacity hover:opacity-90"
+        <section style={{ background: theme.cream }}>
+          <div className="mx-auto grid max-w-6xl items-center gap-10 px-6 py-16 lg:grid-cols-2 lg:py-20">
+            <div>
+              <h1
+                className="text-4xl leading-tight font-bold sm:text-5xl"
+                style={{ ...heading, color: theme.navy }}
               >
-                {ctaLabel}
-              </Link>
-            ) : null}
-          </div>
-        </section>
-      );
-
-    case "richText":
-      return (
-        <section className="mx-auto max-w-3xl px-6 py-14">
-          {props.heading ? (
-            <h2 className="mb-4 text-2xl font-semibold tracking-tight">
-              {props.heading}
-            </h2>
-          ) : null}
-          <div className="space-y-4 text-[15px] leading-relaxed text-[var(--text-muted)]">
-            {(props.body ?? "").split(/\n{2,}/).filter(Boolean).map((paragraph, index) => (
-              <p key={index}>{paragraph}</p>
-            ))}
-          </div>
-        </section>
-      );
-
-    case "imageText": {
-      const imageFirst = (props.imagePosition ?? "left").toLowerCase() !== "right";
-      return (
-        <section className="mx-auto grid max-w-5xl items-center gap-8 px-6 py-14 md:grid-cols-2">
-          {props.imageUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={props.imageUrl}
-              alt={props.heading || ""}
-              className={`w-full rounded-2xl object-cover ${imageFirst ? "" : "md:order-2"}`}
-            />
-          ) : null}
-          <div>
-            {props.heading ? (
-              <h2 className="mb-3 text-2xl font-semibold tracking-tight">
                 {props.heading}
-              </h2>
-            ) : null}
-            <div className="space-y-3 text-[15px] leading-relaxed text-[var(--text-muted)]">
-              {(props.body ?? "").split(/\n{2,}/).filter(Boolean).map((paragraph, index) => (
-                <p key={index}>{paragraph}</p>
-              ))}
+                {props.headingAccent ? (
+                  <>
+                    <br />
+                    <span style={{ color: theme.gold }}>{props.headingAccent}</span>
+                  </>
+                ) : null}
+              </h1>
+              {props.subheading ? (
+                <p className="mt-5 max-w-md text-base leading-relaxed text-slate-600">
+                  {props.subheading}
+                </p>
+              ) : null}
+              <div className="mt-8 flex flex-wrap gap-3">
+                {navyButton(ctaLabel, ctaHref)}
+                {goldButton(props.secondaryCtaLabel, safeHref(props.secondaryCtaHref))}
+              </div>
             </div>
+
+            {imageUrl ? (
+              <div className="relative">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={imageUrl}
+                  alt=""
+                  className="aspect-[4/3] w-full rounded-2xl object-cover shadow-lg"
+                />
+                {props.badgeTitle ? (
+                  <div className="absolute -bottom-5 right-6 flex items-center gap-3 rounded-xl bg-white px-4 py-3 shadow-lg">
+                    <span
+                      className="flex size-10 items-center justify-center rounded-full"
+                      style={{ background: `${theme.gold}26`, color: theme.gold }}
+                    >
+                      <Award className="size-5" />
+                    </span>
+                    <div>
+                      <p className="text-xs text-slate-500">{props.badgeTitle}</p>
+                      <p
+                        className="text-sm font-bold"
+                        style={{ ...heading, color: theme.navy }}
+                      >
+                        {props.badgeText}
+                      </p>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
           </div>
         </section>
       );
     }
 
-    case "gallery": {
-      const images = (props.images ?? "")
-        .split("\n")
-        .map((line) => line.trim())
-        .filter(Boolean);
+    case "features": {
+      // Icons rotate through a fixed set — a school edits the words, and the
+      // pictures stay tasteful without anyone choosing them.
+      const icons = [GraduationCap, Users, Lightbulb, Globe2, ShieldCheck];
+      const rows = parseRows(raw.items, ["title", "description"]);
+      if (!rows.length) return null;
 
       return (
-        <section className="mx-auto max-w-6xl px-6 py-14">
-          {props.heading ? (
-            <h2 className="mb-6 text-2xl font-semibold tracking-tight">
-              {props.heading}
-            </h2>
-          ) : null}
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {images.map((src, index) => (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                key={index}
-                src={src}
-                alt=""
-                className="aspect-4/3 w-full rounded-xl object-cover"
-              />
-            ))}
-          </div>
-        </section>
-      );
-    }
-
-    case "cards": {
-      const rows = parseRows(raw.items, ["title", "description", "href"]);
-      return (
-        <section className="mx-auto max-w-6xl px-6 py-14">
-          {props.heading ? (
-            <h2 className="mb-6 text-2xl font-semibold tracking-tight">
-              {props.heading}
-            </h2>
-          ) : null}
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {rows.map(([title, description, href], index) => {
-              const inner = (
-                <>
-                  <h3 className="text-base font-semibold">{title}</h3>
-                  {description ? (
-                    <p className="mt-1.5 text-sm text-[var(--text-muted)]">
-                      {description}
-                    </p>
-                  ) : null}
-                </>
-              );
-
-              return href ? (
-                <Link
-                  key={index}
-                  href={href}
-                  className="rounded-2xl border border-[var(--border)] p-5 transition-colors hover:border-[var(--primary)]"
-                >
-                  {inner}
-                </Link>
-              ) : (
-                <div
-                  key={index}
-                  className="rounded-2xl border border-[var(--border)] p-5"
-                >
-                  {inner}
+        <section style={{ background: theme.navy }}>
+          <div
+            className="mx-auto grid max-w-6xl gap-x-6 gap-y-8 px-6 py-10"
+            style={{
+              gridTemplateColumns: `repeat(auto-fit, minmax(170px, 1fr))`,
+            }}
+          >
+            {rows.map((row, index) => {
+              const Icon = icons[index % icons.length];
+              return (
+                <div key={index} className="flex items-start gap-3">
+                  <span
+                    className="mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-full"
+                    style={{ background: "rgb(255 255 255 / 0.1)", color: theme.gold }}
+                  >
+                    <Icon className="size-5" />
+                  </span>
+                  <div>
+                    <p className="text-sm font-semibold text-white">{row[0]}</p>
+                    {row[1] ? (
+                      <p className="mt-0.5 text-xs leading-relaxed text-white/65">
+                        {row[1]}
+                      </p>
+                    ) : null}
+                  </div>
                 </div>
               );
             })}
@@ -186,23 +240,269 @@ export function RenderBlock({
       );
     }
 
-    case "stats": {
-      const rows = parseRows(raw.items, ["value", "label"]);
+    case "richText":
       return (
-        <section className="bg-[var(--bg-subtle)] px-6 py-14">
-          <div className="mx-auto max-w-5xl">
+        <section className="mx-auto max-w-3xl px-6 py-14">
+          {eyebrow(props.eyebrow)}
+          {props.heading ? (
+            <h2
+              className="mb-4 text-3xl font-bold"
+              style={{ ...heading, color: theme.navy }}
+            >
+              {props.heading}
+            </h2>
+          ) : null}
+          <div className="space-y-4 text-[15px] leading-relaxed whitespace-pre-line text-slate-600">
+            {props.body}
+          </div>
+        </section>
+      );
+
+    case "imageText": {
+      const imageLeft = props.imagePosition === "left";
+      const stats = parseRows(raw.stats, ["value", "label"]);
+      const facts = parseRows(raw.facts, ["value", "label"]);
+      const factIcons = [GraduationCap, Users, Globe2, Award];
+
+      return (
+        <section className="mx-auto max-w-6xl px-6 py-16">
+          <div
+            className={`grid items-center gap-10 lg:grid-cols-2 ${
+              imageLeft ? "" : "lg:[direction:rtl]"
+            }`}
+          >
+            {/* Image side, with fact cards stacked beside it. */}
+            <div className="lg:[direction:ltr]">
+              <div className="flex gap-4">
+                {props.imageUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={props.imageUrl}
+                    alt=""
+                    className="min-w-0 flex-1 self-start rounded-2xl object-cover shadow-md"
+                  />
+                ) : null}
+                {facts.length ? (
+                  <div className="flex w-44 shrink-0 flex-col gap-3">
+                    {facts.map((fact, index) => {
+                      const Icon = factIcons[index % factIcons.length];
+                      return (
+                        <div
+                          key={index}
+                          className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-3 py-3 shadow-sm"
+                        >
+                          <span
+                            className="flex size-9 shrink-0 items-center justify-center rounded-lg"
+                            style={{ background: `${theme.gold}1f`, color: theme.gold }}
+                          >
+                            <Icon className="size-4" />
+                          </span>
+                          <div className="min-w-0">
+                            <p
+                              className="numeric text-sm leading-tight font-bold"
+                              style={{ color: theme.navy }}
+                            >
+                              {fact[0]}
+                            </p>
+                            <p className="text-[11px] leading-tight text-slate-500">
+                              {fact[1]}
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : null}
+              </div>
+            </div>
+
+            {/* Copy side */}
+            <div className="lg:[direction:ltr]">
+              {eyebrow(props.eyebrow)}
+              <h2
+                className="text-3xl leading-tight font-bold"
+                style={{ ...heading, color: theme.navy }}
+              >
+                {props.heading}
+                {props.headingAccent ? (
+                  <>
+                    <br />
+                    <span style={{ color: theme.gold }}>{props.headingAccent}</span>
+                  </>
+                ) : null}
+              </h2>
+              {props.body ? (
+                <p className="mt-4 text-[15px] leading-relaxed whitespace-pre-line text-slate-600">
+                  {props.body}
+                </p>
+              ) : null}
+              {ctaLabel && ctaHref ? (
+                <div className="mt-6">{navyButton(ctaLabel, ctaHref)}</div>
+              ) : null}
+
+              {stats.length ? (
+                <div className="mt-8 flex flex-wrap gap-x-8 gap-y-4 border-t border-slate-200 pt-6">
+                  {stats.map((stat, index) => (
+                    <div key={index}>
+                      <p
+                        className="numeric text-2xl font-bold"
+                        style={{ ...heading, color: theme.navy }}
+                      >
+                        {stat[0]}
+                      </p>
+                      <p className="text-xs text-slate-500">{stat[1]}</p>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          </div>
+        </section>
+      );
+    }
+
+    case "gallery": {
+      const images = parseRows(raw.images)
+        .map((row) => row[0])
+        .filter(Boolean);
+      if (!images.length) return null;
+
+      return (
+        <section className="mx-auto max-w-6xl px-6 py-14">
+          {props.heading ? (
+            <h2
+              className="mb-6 text-center text-3xl font-bold"
+              style={{ ...heading, color: theme.navy }}
+            >
+              {props.heading}
+            </h2>
+          ) : null}
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            {images.map((url, index) => (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                key={index}
+                src={url}
+                alt=""
+                className="aspect-[4/3] w-full rounded-xl object-cover"
+              />
+            ))}
+          </div>
+        </section>
+      );
+    }
+
+    case "cards": {
+      const rows = parseRows(raw.items, ["title", "description", "href", "imageUrl", "tag"]);
+      if (!rows.length) return null;
+
+      return (
+        <section className="mx-auto max-w-6xl px-6 py-16">
+          <div className="mx-auto max-w-2xl text-center">
+            {eyebrow(props.eyebrow)}
             {props.heading ? (
-              <h2 className="mb-6 text-center text-2xl font-semibold tracking-tight">
+              <h2
+                className="text-3xl font-bold"
+                style={{ ...heading, color: theme.navy }}
+              >
                 {props.heading}
               </h2>
             ) : null}
-            <div className="grid gap-6 text-center sm:grid-cols-3">
-              {rows.map(([value, label], index) => (
+            {props.intro ? (
+              <p className="mt-2 text-sm text-slate-500">{props.intro}</p>
+            ) : null}
+          </div>
+
+          <div
+            className="mt-8 grid gap-5"
+            style={{ gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))" }}
+          >
+            {rows.map((row, index) => {
+              const [title, description, rawHref, imageUrl, tag] = row;
+              const href = safeHref(rawHref ?? "");
+              const body = (
+                <article className="group h-full overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition-shadow hover:shadow-md">
+                  {imageUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={imageUrl}
+                      alt=""
+                      className="aspect-[4/3] w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
+                    />
+                  ) : (
+                    <div
+                      className="flex aspect-[4/3] w-full items-center justify-center"
+                      style={{ background: theme.cream }}
+                    >
+                      <GraduationCap className="size-8" style={{ color: theme.gold }} />
+                    </div>
+                  )}
+                  <div className="p-4">
+                    <h3 className="text-sm font-bold" style={{ color: theme.navy }}>
+                      {title}
+                    </h3>
+                    {description ? (
+                      <p className="mt-1 text-xs leading-relaxed text-slate-500">
+                        {description}
+                      </p>
+                    ) : null}
+                    {tag ? (
+                      <p
+                        className="mt-2 text-xs font-semibold"
+                        style={{ color: theme.gold }}
+                      >
+                        {tag}
+                      </p>
+                    ) : null}
+                  </div>
+                </article>
+              );
+
+              return href ? (
+                <Link key={index} href={href}>
+                  {body}
+                </Link>
+              ) : (
+                <div key={index}>{body}</div>
+              );
+            })}
+          </div>
+
+          {ctaLabel && ctaHref ? (
+            <div className="mt-8 text-center">{navyButton(ctaLabel, ctaHref)}</div>
+          ) : null}
+        </section>
+      );
+    }
+
+    case "stats": {
+      const rows = parseRows(raw.items, ["value", "label"]);
+      if (!rows.length) return null;
+
+      return (
+        <section style={{ background: theme.navy }}>
+          <div className="mx-auto max-w-6xl px-6 py-12">
+            {props.heading ? (
+              <h2
+                className="mb-8 text-center text-2xl font-bold text-white"
+                style={heading}
+              >
+                {props.heading}
+              </h2>
+            ) : null}
+            <div
+              className="grid gap-8 text-center"
+              style={{ gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))" }}
+            >
+              {rows.map((row, index) => (
                 <div key={index}>
-                  <p className="numeric text-3xl font-semibold text-[var(--primary)] sm:text-4xl">
-                    {value}
+                  <p
+                    className="numeric text-3xl font-bold sm:text-4xl"
+                    style={{ ...heading, color: theme.gold }}
+                  >
+                    {row[0]}
                   </p>
-                  <p className="mt-1 text-sm text-[var(--text-muted)]">{label}</p>
+                  <p className="mt-1 text-xs text-white/70">{row[1]}</p>
                 </div>
               ))}
             </div>
@@ -212,122 +512,176 @@ export function RenderBlock({
     }
 
     case "quote":
+      if (!props.quote) return null;
       return (
-        <section className="mx-auto max-w-3xl px-6 py-14 text-center">
-          <blockquote className="text-xl leading-relaxed font-medium text-balance italic sm:text-2xl">
-            &ldquo;{props.quote}&rdquo;
-          </blockquote>
-          {props.attribution ? (
-            <p className="mt-4 text-sm text-[var(--text-muted)]">
-              — {props.attribution}
+        <section style={{ background: theme.cream }}>
+          <div className="mx-auto max-w-3xl px-6 py-16 text-center">
+            <p
+              className="text-6xl leading-none"
+              style={{ ...heading, color: theme.gold }}
+              aria-hidden
+            >
+              “
             </p>
-          ) : null}
-        </section>
-      );
-
-    case "cta":
-      return (
-        <section className="px-6 py-14">
-          <div className="mx-auto max-w-4xl rounded-3xl bg-[var(--primary)] px-8 py-12 text-center text-white">
-            <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">
-              {props.heading}
-            </h2>
-            {props.body ? (
-              <p className="mx-auto mt-3 max-w-xl text-white/85">{props.body}</p>
-            ) : null}
-            {ctaLabel && ctaHref ? (
-              <Link
-                href={ctaHref}
-                className="mt-6 inline-flex h-11 items-center rounded-full bg-white px-6 text-sm font-semibold text-[var(--primary)] hover:opacity-90"
-              >
-                {ctaLabel}
-              </Link>
+            <blockquote
+              className="text-xl leading-relaxed font-medium"
+              style={{ ...heading, color: theme.navy }}
+            >
+              {props.quote}
+            </blockquote>
+            {props.attribution ? (
+              <p className="mt-4 text-sm font-semibold" style={{ color: theme.gold }}>
+                — {props.attribution}
+              </p>
             ) : null}
           </div>
         </section>
       );
 
-    case "contact":
-      // A contact block left empty falls back to the site's own details rather
-      // than rendering an empty definition list. The school already entered
-      // them once in site settings; asking again to fill a blank panel is the
-      // kind of thing that makes a page look broken.
-      const address = props.address || contact?.address || "";
-      const phone = props.phone || contact?.phone || "";
-      const email = props.email || contact?.email || "";
-      const hours = props.hours || "";
+    case "cta": {
+      // With a photograph it is a split banner; without one, a navy band.
+      if (props.imageUrl) {
+        return (
+          <section style={{ background: theme.cream }}>
+            <div className="mx-auto grid max-w-6xl items-stretch gap-0 overflow-hidden px-6 py-16 lg:grid-cols-2">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={props.imageUrl}
+                alt=""
+                className="h-full max-h-96 w-full rounded-t-2xl object-cover lg:rounded-t-none lg:rounded-l-2xl"
+              />
+              <div className="flex flex-col justify-center rounded-b-2xl bg-white p-8 shadow-sm lg:rounded-b-none lg:rounded-r-2xl lg:p-12">
+                {eyebrow(props.eyebrow)}
+                <h2
+                  className="text-3xl leading-tight font-bold"
+                  style={{ ...heading, color: theme.navy }}
+                >
+                  {props.heading}
+                </h2>
+                {props.body ? (
+                  <p className="mt-3 text-[15px] leading-relaxed text-slate-600">
+                    {props.body}
+                  </p>
+                ) : null}
+                <div className="mt-6 flex flex-wrap gap-3">
+                  {goldButton(ctaLabel, ctaHref)}
+                  {outlineButton(props.secondaryCtaLabel, safeHref(props.secondaryCtaHref))}
+                </div>
+              </div>
+            </div>
+          </section>
+        );
+      }
+
+      return (
+        <section className="px-6 py-14">
+          <div
+            className="mx-auto max-w-4xl rounded-3xl px-8 py-12 text-center"
+            style={{ background: theme.navy }}
+          >
+            {props.eyebrow ? (
+              <p
+                className="mb-2 text-xs font-bold tracking-[0.2em] uppercase"
+                style={{ color: theme.gold }}
+              >
+                {props.eyebrow}
+              </p>
+            ) : null}
+            <h2 className="text-3xl font-bold text-white" style={heading}>
+              {props.heading}
+            </h2>
+            {props.body ? (
+              <p className="mx-auto mt-3 max-w-xl text-sm text-white/75">{props.body}</p>
+            ) : null}
+            <div className="mt-6 flex flex-wrap justify-center gap-3">
+              {goldButton(ctaLabel, ctaHref)}
+            </div>
+          </div>
+        </section>
+      );
+    }
+
+    case "contact": {
+      const details = [
+        { icon: MapPin, value: props.address || contact?.address },
+        { icon: Phone, value: props.phone || contact?.phone },
+        { icon: Mail, value: props.email || contact?.email },
+        { icon: Clock, value: props.hours },
+      ].filter((entry) => entry.value);
 
       return (
         <section className="mx-auto max-w-4xl px-6 py-14">
-          <h2 className="mb-6 text-2xl font-semibold tracking-tight">
-            {props.heading || "Contact us"}
-          </h2>
-          <dl className="grid gap-5 sm:grid-cols-2">
-            {address ? (
-              <div>
-                <dt className="text-xs font-medium tracking-wide text-[var(--text-subtle)] uppercase">
-                  Address
-                </dt>
-                <dd className="mt-1 text-sm whitespace-pre-wrap">{address}</dd>
-              </div>
-            ) : null}
-            {phone ? (
-              <div>
-                <dt className="text-xs font-medium tracking-wide text-[var(--text-subtle)] uppercase">
-                  Phone
-                </dt>
-                <dd className="mt-1 text-sm">
-                  <a href={`tel:${phone}`} className="hover:underline">
-                    {phone}
-                  </a>
-                </dd>
-              </div>
-            ) : null}
-            {email ? (
-              <div>
-                <dt className="text-xs font-medium tracking-wide text-[var(--text-subtle)] uppercase">
-                  Email
-                </dt>
-                <dd className="mt-1 text-sm">
-                  <a href={`mailto:${email}`} className="hover:underline">
-                    {email}
-                  </a>
-                </dd>
-              </div>
-            ) : null}
-            {hours ? (
-              <div>
-                <dt className="text-xs font-medium tracking-wide text-[var(--text-subtle)] uppercase">
-                  Opening hours
-                </dt>
-                <dd className="mt-1 text-sm">{hours}</dd>
-              </div>
-            ) : null}
-          </dl>
-        </section>
-      );
-
-    case "news":
-      return (
-        <section className="mx-auto max-w-5xl px-6 py-14">
           {props.heading ? (
-            <h2 className="mb-6 text-2xl font-semibold tracking-tight">
+            <h2
+              className="mb-6 text-center text-3xl font-bold"
+              style={{ ...heading, color: theme.navy }}
+            >
               {props.heading}
             </h2>
           ) : null}
+          <dl
+            className="grid gap-4"
+            style={{ gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))" }}
+          >
+            {details.map((entry, index) => {
+              const Icon = entry.icon;
+              return (
+                <div
+                  key={index}
+                  className="flex items-start gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm"
+                >
+                  <span
+                    className="flex size-9 shrink-0 items-center justify-center rounded-lg"
+                    style={{ background: `${theme.gold}1f`, color: theme.gold }}
+                  >
+                    <Icon className="size-4" />
+                  </span>
+                  <dd className="text-sm leading-relaxed whitespace-pre-wrap text-slate-600">
+                    {entry.value}
+                  </dd>
+                </div>
+              );
+            })}
+          </dl>
+        </section>
+      );
+    }
+
+    case "news":
+      return (
+        <section className="mx-auto max-w-6xl px-6 py-14">
+          <div className="mx-auto max-w-2xl text-center">
+            {eyebrow(props.eyebrow)}
+            {props.heading ? (
+              <h2
+                className="text-3xl font-bold"
+                style={{ ...heading, color: theme.navy }}
+              >
+                {props.heading}
+              </h2>
+            ) : null}
+          </div>
           {news.length ? (
-            <div className="grid gap-4 sm:grid-cols-3">
+            <div
+              className="mt-8 grid gap-4"
+              style={{ gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))" }}
+            >
               {news.map((item) => (
                 <article
                   key={item.id}
-                  className="rounded-2xl border border-[var(--border)] p-5"
+                  className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm"
                 >
-                  <p className="text-xs text-[var(--text-subtle)]">
+                  <p className="text-xs font-semibold" style={{ color: theme.gold }}>
                     {formatDate(item.publishedAt)}
                   </p>
-                  <h3 className="mt-1 text-base font-semibold">{item.title}</h3>
+                  <h3
+                    className="mt-1 text-base font-bold"
+                    style={{ color: theme.navy }}
+                  >
+                    {item.title}
+                  </h3>
                   {item.summary ? (
-                    <p className="mt-1.5 text-sm text-[var(--text-muted)]">
+                    <p className="mt-1.5 text-sm leading-relaxed text-slate-500">
                       {item.summary}
                     </p>
                   ) : null}
@@ -335,7 +689,7 @@ export function RenderBlock({
               ))}
             </div>
           ) : (
-            <p className="text-sm text-[var(--text-muted)]">
+            <p className="mt-6 text-center text-sm text-slate-500">
               No announcements have been published yet.
             </p>
           )}
@@ -343,8 +697,6 @@ export function RenderBlock({
       );
 
     case "admissionForm": {
-      // "One level per line" in the editor; parseRows already tolerates the
-      // shapes JSON actually arrives in.
       const levels = parseRows(raw.levels)
         .map((row) => row[0])
         .filter(Boolean);
@@ -352,12 +704,15 @@ export function RenderBlock({
       return (
         <section className="mx-auto max-w-3xl px-6 py-14">
           {props.heading ? (
-            <h2 className="mb-2 text-2xl font-semibold tracking-tight">
+            <h2
+              className="mb-2 text-3xl font-bold"
+              style={{ ...heading, color: theme.navy }}
+            >
               {props.heading}
             </h2>
           ) : null}
           {props.intro ? (
-            <p className="mb-6 text-sm text-[var(--text-muted)]">{props.intro}</p>
+            <p className="mb-6 text-sm text-slate-500">{props.intro}</p>
           ) : null}
           <EnquiryForm
             levels={levels.length ? levels : ["Nursery", "Primary", "JHS"]}
@@ -365,7 +720,7 @@ export function RenderBlock({
               props.thanks ||
               "Thank you — your enquiry has been received. The admissions office will contact you shortly."
             }
-            accent={accent}
+            accent={theme.navy}
           />
         </section>
       );

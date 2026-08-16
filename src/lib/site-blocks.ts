@@ -1,17 +1,20 @@
 /**
- * The block vocabulary the website builder edits and the public site renders.
+ * The website block catalogue.
  *
- * Blocks are stored as plain JSON on `SitePage.blocks`, which keeps the editor
- * and the renderer honest: neither can hold state the other cannot see, and a
- * page is portable between environments without a migration.
+ * One list drives three things: the palette the editor offers, the fields each
+ * block's form shows, and the shape the public renderer expects. Keeping them
+ * in one file is what stops the editor writing props the renderer never reads
+ * — which has happened, and looked like a broken website rather than a stale
+ * catalogue.
  *
- * There is deliberately no raw-HTML block. A school administrator pasting
- * markup from anywhere would be an XSS hole in the public site, and the
- * blocks below cover what a school page actually needs.
+ * List fields hold one entry per line, with cells divided by " | ". That is a
+ * shape a school secretary can edit in a plain textarea, and `parseRows`
+ * tolerates the other shapes JSON has historically stored.
  */
 
 export type BlockType =
   | "hero"
+  | "features"
   | "richText"
   | "imageText"
   | "gallery"
@@ -48,19 +51,58 @@ export const BLOCK_DEFS: BlockDef[] = [
   {
     type: "hero",
     label: "Hero banner",
-    description: "Full-width headline with a background image and a button.",
+    description:
+      "The opening statement: a two-tone headline, supporting text, buttons and a photograph.",
     fields: [
-      { key: "heading", label: "Heading", kind: "text" },
-      { key: "subheading", label: "Subheading", kind: "textarea" },
-      { key: "imageUrl", label: "Background image", kind: "image" },
+      { key: "heading", label: "Headline", kind: "text" },
+      {
+        key: "headingAccent",
+        label: "Headline second line",
+        kind: "text",
+        hint: "Rendered in the accent colour.",
+      },
+      { key: "subheading", label: "Supporting text", kind: "textarea" },
+      { key: "imageUrl", label: "Photograph", kind: "image" },
       { key: "ctaLabel", label: "Button text", kind: "text" },
       { key: "ctaHref", label: "Button link", kind: "url" },
+      { key: "secondaryCtaLabel", label: "Second button text", kind: "text" },
+      { key: "secondaryCtaHref", label: "Second button link", kind: "url" },
+      {
+        key: "badgeTitle",
+        label: "Badge heading",
+        kind: "text",
+        hint: "The small card over the photograph — e.g. “A Legacy of Excellence”.",
+      },
+      { key: "badgeText", label: "Badge detail", kind: "text", hint: "e.g. “Since 1998”." },
     ],
     defaults: {
-      heading: "Excellence, character, service",
-      subheading: "An international school in the heart of Accra.",
-      ctaLabel: "Apply for admission",
-      ctaHref: "/site/admissions",
+      heading: "Inspiring Minds.",
+      headingAccent: "Shaping Futures.",
+      subheading:
+        "A nurturing environment where students learn, grow, and thrive to become tomorrow's leaders.",
+      ctaLabel: "Discover our school",
+      ctaHref: "/site/about",
+      secondaryCtaLabel: "Apply for admission",
+      secondaryCtaHref: "/site/admissions",
+      badgeTitle: "A Legacy of Excellence",
+      badgeText: "Since 2011",
+    },
+  },
+  {
+    type: "features",
+    label: "Feature band",
+    description: "A dark band of the school's strengths, three to five across.",
+    fields: [
+      {
+        key: "items",
+        label: "Features",
+        kind: "list",
+        hint: "One per line: Title | Description",
+      },
+    ],
+    defaults: {
+      items:
+        "Holistic Education | Nurturing academic, emotional and social growth.\nExpert Educators | Passionate teachers dedicated to excellence.\nInnovative Learning | Modern facilities and creative teaching methods.\nGlobal Perspective | Preparing students for a global future.\nSafe & Supportive Campus | A secure environment where every child thrives.",
     },
   },
   {
@@ -68,22 +110,45 @@ export const BLOCK_DEFS: BlockDef[] = [
     label: "Text section",
     description: "A heading and body copy.",
     fields: [
+      { key: "eyebrow", label: "Eyebrow", kind: "text", hint: "The small label above the heading." },
       { key: "heading", label: "Heading", kind: "text" },
       { key: "body", label: "Body", kind: "textarea" },
     ],
-    defaults: { heading: "About the school", body: "" },
+    defaults: { eyebrow: "", heading: "About the school", body: "" },
   },
   {
     type: "imageText",
     label: "Image and text",
-    description: "An image beside a block of copy.",
+    description:
+      "A photograph beside copy, with optional statistics and fact cards — the classic “about our school” section.",
     fields: [
+      { key: "eyebrow", label: "Eyebrow", kind: "text", hint: "e.g. “ABOUT OUR SCHOOL”." },
       { key: "heading", label: "Heading", kind: "text" },
+      {
+        key: "headingAccent",
+        label: "Heading second line",
+        kind: "text",
+        hint: "Rendered in the accent colour.",
+      },
       { key: "body", label: "Body", kind: "textarea" },
-      { key: "imageUrl", label: "Image", kind: "image" },
+      { key: "imageUrl", label: "Photograph", kind: "image" },
       { key: "imagePosition", label: "Image on", kind: "text", hint: "left or right" },
+      { key: "ctaLabel", label: "Button text", kind: "text" },
+      { key: "ctaHref", label: "Button link", kind: "url" },
+      {
+        key: "stats",
+        label: "Statistics row",
+        kind: "list",
+        hint: "One per line: 25+ | Years of Excellence",
+      },
+      {
+        key: "facts",
+        label: "Fact cards beside the image",
+        kind: "list",
+        hint: "One per line: 15:1 | Student-Teacher Ratio",
+      },
     ],
-    defaults: { heading: "", body: "", imagePosition: "left" },
+    defaults: { eyebrow: "", heading: "", headingAccent: "", body: "", imagePosition: "right" },
   },
   {
     type: "gallery",
@@ -103,22 +168,26 @@ export const BLOCK_DEFS: BlockDef[] = [
   {
     type: "cards",
     label: "Card row",
-    description: "Three or more linked cards — programmes, departments, news.",
+    description: "Linked cards with pictures — programmes, departments, houses.",
     fields: [
+      { key: "eyebrow", label: "Eyebrow", kind: "text", hint: "e.g. “ACADEMICS”." },
       { key: "heading", label: "Heading", kind: "text" },
+      { key: "intro", label: "Introduction", kind: "textarea" },
       {
         key: "items",
         label: "Cards",
         kind: "list",
-        hint: "One per line: Title | Description | Link",
+        hint: "One per line: Title | Description | Link | Image URL | Tag",
       },
+      { key: "ctaLabel", label: "Button under the cards", kind: "text" },
+      { key: "ctaHref", label: "Button link", kind: "url" },
     ],
-    defaults: { heading: "What we offer", items: "" },
+    defaults: { eyebrow: "", heading: "What we offer", intro: "", items: "" },
   },
   {
     type: "stats",
     label: "Key figures",
-    description: "Numbers the school wants to lead with.",
+    description: "A dark band of the numbers the school leads with.",
     fields: [
       { key: "heading", label: "Heading", kind: "text" },
       {
@@ -130,7 +199,8 @@ export const BLOCK_DEFS: BlockDef[] = [
     ],
     defaults: {
       heading: "",
-      items: "1,200 | Students\n85 | Teachers\n98% | WASSCE pass rate",
+      items:
+        "25+ | Years of Excellence\n1,500+ | Students Enrolled\n120+ | Qualified Teachers\n98% | BECE pass rate",
     },
   },
   {
@@ -146,17 +216,26 @@ export const BLOCK_DEFS: BlockDef[] = [
   {
     type: "cta",
     label: "Call to action",
-    description: "A band with a single clear action.",
+    description:
+      "A section with one clear action — with a photograph it becomes a split banner, without one a coloured band.",
     fields: [
+      { key: "eyebrow", label: "Eyebrow", kind: "text", hint: "e.g. “ADMISSIONS”." },
       { key: "heading", label: "Heading", kind: "text" },
       { key: "body", label: "Supporting text", kind: "textarea" },
+      { key: "imageUrl", label: "Photograph", kind: "image" },
       { key: "ctaLabel", label: "Button text", kind: "text" },
       { key: "ctaHref", label: "Button link", kind: "url" },
+      { key: "secondaryCtaLabel", label: "Second button text", kind: "text" },
+      { key: "secondaryCtaHref", label: "Second button link", kind: "url" },
     ],
     defaults: {
-      heading: "Admissions are open",
-      ctaLabel: "Start an application",
+      eyebrow: "Admissions",
+      heading: "Begin your journey toward a bright future",
+      body: "Join a community where your child will be inspired, supported, and empowered to achieve their dreams.",
+      ctaLabel: "Apply now",
       ctaHref: "/site/admissions",
+      secondaryCtaLabel: "Contact the office",
+      secondaryCtaHref: "/site/contact",
     },
   },
   {
@@ -177,10 +256,11 @@ export const BLOCK_DEFS: BlockDef[] = [
     label: "Latest announcements",
     description: "Pulls the school's published announcements automatically.",
     fields: [
+      { key: "eyebrow", label: "Eyebrow", kind: "text" },
       { key: "heading", label: "Heading", kind: "text" },
       { key: "count", label: "How many", kind: "text" },
     ],
-    defaults: { heading: "School news", count: "3" },
+    defaults: { eyebrow: "News & events", heading: "School news", count: "3" },
   },
   {
     type: "admissionForm",
@@ -210,15 +290,13 @@ export const BLOCK_DEFS: BlockDef[] = [
 ];
 
 export function blockDef(type: string): BlockDef | undefined {
-  return BLOCK_DEFS.find((def) => def.type === type);
+  return BLOCK_DEFS.find((entry) => entry.type === type);
 }
 
 /**
- * Parses a list of rows out of whatever is stored on the block.
+ * Reads a "rows" prop, whatever shape JSON actually holds.
  *
- * The editor writes "a | b | c" lines, but page JSON is untrusted input — it
- * may predate the editor, or have been written by an earlier version with a
- * different shape. A public website must not 500 because a block holds an
+ * The editor writes newline-delimited "a | b" strings; older pages carried an
  * array where a string was expected, so every plausible shape is accepted and
  * anything unrecognisable yields no rows.
  *

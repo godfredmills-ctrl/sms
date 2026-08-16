@@ -2664,6 +2664,95 @@ async function seedBranding(school: { id: string }, siteId: string) {
   }
 }
 
+/**
+ * Geometric artwork for the demo site, drawn rather than shipped.
+ *
+ * The design is image-hungry — hero photograph, programme cards, an
+ * admissions banner — and a seed cannot ship photographs of children who do
+ * not exist. These are abstract campus scenes in the brand palette: layered
+ * shapes, an arch, a sun. Deterministic (no RNG), so the seed stays
+ * repeatable, and registered in the media library so the public site can
+ * serve them without a session.
+ */
+async function seedSiteArt(siteId: string): Promise<Record<string, string>> {
+  console.log("  Site artwork…");
+
+  const NAVY = "#0B2447";
+  const BLUE = "#2C66CE";
+  const GOLD = "#E9A319";
+  const CREAM = "#FAF6EE";
+
+  // Each scene: a soft field, a horizon band, buildings, a sun, an accent
+  // arc. The `shift` parameter moves the composition so five images read as
+  // five pictures rather than one copied about.
+  const scene = (width: number, height: number, shift: number, dark: boolean) => `
+  <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
+    <rect width="${width}" height="${height}" fill="${dark ? NAVY : CREAM}"/>
+    <circle cx="${width * (0.72 + shift * 0.05)}" cy="${height * 0.24}" r="${height * 0.13}" fill="${GOLD}" opacity="0.9"/>
+    <rect x="${-width * 0.05}" y="${height * 0.62}" width="${width * 1.1}" height="${height * 0.38}" fill="${dark ? "#132F5C" : "#EADFC8"}"/>
+    <rect x="${width * (0.08 + shift * 0.08)}" y="${height * 0.38}" width="${width * 0.2}" height="${height * 0.32}" rx="${width * 0.012}" fill="${BLUE}"/>
+    <rect x="${width * (0.32 + shift * 0.08)}" y="${height * 0.3}" width="${width * 0.26}" height="${height * 0.4}" rx="${width * 0.012}" fill="${dark ? "#1C3F7D" : NAVY}"/>
+    <rect x="${width * (0.62 + shift * 0.04)}" y="${height * 0.46}" width="${width * 0.18}" height="${height * 0.24}" rx="${width * 0.012}" fill="${dark ? "#2C66CE" : "#1C3F7D"}"/>
+    <path d="M ${width * (0.35 + shift * 0.08)} ${height * 0.3}
+             A ${width * 0.1} ${width * 0.1} 0 0 1 ${width * (0.55 + shift * 0.08)} ${height * 0.3}"
+          fill="${GOLD}"/>
+    ${[0, 1, 2, 3]
+      .map(
+        (column) => `
+    <rect x="${width * (0.345 + shift * 0.08) + column * width * 0.055}" y="${height * 0.38}"
+          width="${width * 0.028}" height="${height * 0.1}" rx="${width * 0.008}"
+          fill="${dark ? CREAM : "#FFFFFF"}" opacity="0.85"/>`,
+      )
+      .join("")}
+    <circle cx="${width * (0.14 + shift * 0.06)}" cy="${height * 0.78}" r="${height * 0.075}" fill="${GOLD}" opacity="0.35"/>
+    <circle cx="${width * 0.88}" cy="${height * 0.82}" r="${height * 0.1}" fill="${BLUE}" opacity="${dark ? 0.4 : 0.18}"/>
+  </svg>`;
+
+  const pieces: Array<{ key: string; width: number; height: number; shift: number; dark: boolean; alt: string }> = [
+    { key: "hero", width: 1200, height: 900, shift: 0, dark: false, alt: "Campus scene" },
+    { key: "campus", width: 1000, height: 750, shift: 1, dark: false, alt: "School buildings" },
+    { key: "programmeA", width: 800, height: 600, shift: -1, dark: false, alt: "Early years" },
+    { key: "programmeB", width: 800, height: 600, shift: 2, dark: true, alt: "Primary school" },
+    { key: "programmeC", width: 800, height: 600, shift: 0.5, dark: false, alt: "Junior high" },
+    { key: "admissions", width: 1000, height: 750, shift: -0.5, dark: true, alt: "Admissions" },
+  ];
+
+  const urls: Record<string, string> = {};
+
+  for (const piece of pieces) {
+    try {
+      const png = await sharp(Buffer.from(scene(piece.width, piece.height, piece.shift, piece.dark)))
+        .png({ compressionLevel: 9 })
+        .toBuffer();
+
+      const stored = await storeFile({
+        buffer: png,
+        originalName: `site-${piece.key}.png`,
+        mimeType: "image/png",
+        folder: "site-art",
+      });
+
+      const media = await db.siteMedia.create({
+        data: {
+          siteId,
+          fileId: stored.id,
+          altText: piece.alt,
+          folder: "site-art",
+          transforms: {} as never,
+        },
+      });
+
+      urls[piece.key] = `/api/media/${media.id}`;
+    } catch (error) {
+      // Cosmetic: a school seeded before storage is configured still gets a
+      // working site, with the imageless layouts.
+      console.warn(`    ! Could not store site art "${piece.key}": ${(error as Error).message}`);
+    }
+  }
+
+  return urls;
+}
+
 async function seedWebsite(school: { id: string; name: string; motto: string | null }) {
   console.log("  Public website…");
 
@@ -2672,15 +2761,18 @@ async function seedWebsite(school: { id: string; name: string; motto: string | n
       name: school.name,
       slug: "main",
       isPublished: true,
+      // The four colours the public design derives from: links, the deep
+      // brand, the warm highlight, and the wash behind soft sections.
       theme: {
-        primary: "#128257",
-        accent: "#d9a325",
-        font: "system-ui",
-        radius: "0.875rem",
+        primary: "#2C66CE",
+        secondary: "#0B2447",
+        accent: "#E9A319",
+        wash: "#FAF6EE",
+        headingFont: "serif",
       },
       metaTitle: `${school.name} — Knowledge, Character, Service`,
       metaDescription:
-        "An international school in Accra offering British and GES curricula from Nursery to JHS.",
+        "Inspiring minds, shaping futures. An international school in Accra offering British and GES curricula from Nursery to JHS.",
       contactInfo: {
         email: "info@goldencrest.edu.gh",
         phone: "+233 30 212 3456",
@@ -2691,137 +2783,295 @@ async function seedWebsite(school: { id: string; name: string; motto: string | n
         instagram: "https://instagram.com/goldencrestgh",
       },
       publishedAt: new Date(),
-      pages: {
-        create: [
-          {
-            title: "Home",
-            slug: "home",
-            isHomePage: true,
-            status: "PUBLISHED",
-            publishedAt: new Date(),
-            blocks: [
-              // Prop shapes match what the block editor writes and the public
-              // renderer reads — flat strings, with list blocks holding
-              // "a | b" lines. Anything else renders blank or breaks.
-              {
-                id: "hero",
-                type: "hero",
-                props: {
-                  heading: school.name,
-                  subheading: school.motto ?? "",
-                  ctaLabel: "Apply for admission",
-                  ctaHref: "/site/admissions",
-                },
-              },
-              {
-                id: "stats",
-                type: "stats",
-                props: {
-                  heading: "",
-                  items: [
-                    "480+ | Students",
-                    "38 | Teachers",
-                    "14 | Years of service",
-                    "98% | BECE pass rate",
-                  ].join("\n"),
-                },
-              },
-              {
-                id: "offer",
-                type: "cards",
-                props: {
-                  heading: "What we offer",
-                  items: [
-                    "Early Years | Nursery and Kindergarten in a play-led setting. |",
-                    "Primary | Basic 1 to 6 on the GES and British curricula. |",
-                    "Junior High | JHS 1 to 3, preparing for the BECE. |",
-                  ].join("\n"),
-                },
-              },
-              {
-                id: "about",
-                type: "richText",
-                props: {
-                  heading: "A school built on character",
-                  body: "Golden Crest offers a rigorous academic programme within a warm, disciplined community. We run both the GES and British curricula from Nursery through JHS.",
-                },
-              },
-            ],
-          },
-          {
-            title: "Admissions",
-            slug: "admissions",
-            status: "PUBLISHED",
-            publishedAt: new Date(),
-            blocks: [
-              {
-                id: "intro",
-                type: "richText",
-                props: {
-                  heading: "Admissions",
-                  body: "Applications for the next academic year are open. Entrance assessments are held monthly.",
-                },
-              },
-              {
-                id: "apply",
-                type: "admissionForm",
-                props: {
-                  heading: "Apply for admission",
-                  intro:
-                    "Tell us about your child and the admissions office will be in touch within two school days.",
-                  levels: "Nursery\nKindergarten\nLower Primary\nUpper Primary\nJHS",
-                  thanks:
-                    "Thank you — your enquiry has been received. The admissions office will contact you shortly.",
-                },
-              },
-            ],
-          },
-          {
-            title: "Contact",
-            slug: "contact",
-            status: "PUBLISHED",
-            publishedAt: new Date(),
-            blocks: [{ id: "contact", type: "contact", props: {} }],
-          },
-        ],
-      },
-      menus: {
-        create: {
-          location: "HEADER",
-          items: [
-            { label: "Home", url: "/" },
-            { label: "Admissions", url: "/admissions" },
-            { label: "Academics", url: "/academics" },
-            { label: "News", url: "/news" },
-            { label: "Contact", url: "/contact" },
-          ],
-        },
-      },
-      posts: {
-        create: [
-          {
-            title: "Golden Crest wins regional science quiz",
-            slug: "science-quiz-win",
-            excerpt: "Our JHS 3 team took first place in the Greater Accra regional finals.",
-            body: "Our JHS 3 science team beat eleven other schools to take first place in the regional science and maths quiz. Congratulations to the team and their coach.",
-            kind: "NEWS",
-            status: "PUBLISHED",
-            publishedAt: addDays(new Date(), -6),
-            authorName: "School Office",
-          },
-          {
-            title: "New science laboratory opens",
-            slug: "new-science-lab",
-            excerpt: "A fully equipped laboratory for JHS practical work.",
-            body: "The new laboratory was commissioned this term and gives every JHS student weekly practical sessions in physics, chemistry and biology.",
-            kind: "NEWS",
-            status: "PUBLISHED",
-            publishedAt: addDays(new Date(), -20),
-            authorName: "School Office",
-          },
-        ],
-      },
     },
+  });
+
+  // Artwork before pages, because the pages point at it.
+  const art = await seedSiteArt(site.id);
+
+  // Prop shapes match what the block editor writes and the public renderer
+  // reads — flat strings, with list blocks holding "a | b" lines. Anything
+  // else renders blank or breaks.
+  await db.sitePage.create({
+    data: {
+      siteId: site.id,
+      title: "Home",
+      slug: "home",
+      isHomePage: true,
+      status: "PUBLISHED",
+      publishedAt: new Date(),
+      sortKey: 0,
+      blocks: [
+        {
+          id: "hero",
+          type: "hero",
+          props: {
+            heading: "Inspiring Minds.",
+            headingAccent: "Shaping Futures.",
+            subheading:
+              "A nurturing environment where students learn, grow, and thrive to become tomorrow's leaders.",
+            imageUrl: art.hero ?? "",
+            ctaLabel: "Discover our school",
+            ctaHref: "/site/about",
+            secondaryCtaLabel: "Apply for admission",
+            secondaryCtaHref: "/site/admissions",
+            badgeTitle: "A Legacy of Excellence",
+            badgeText: "Since 2011",
+          },
+        },
+        {
+          id: "strengths",
+          type: "features",
+          props: {
+            items: [
+              "Holistic Education | Nurturing academic, emotional and social growth.",
+              "Expert Educators | Passionate teachers dedicated to excellence.",
+              "Innovative Learning | Modern facilities and creative teaching methods.",
+              "Global Perspective | Preparing students for a global future.",
+              "Safe & Supportive Campus | A secure environment where every child thrives.",
+            ].join("\n"),
+          },
+        },
+        {
+          id: "about",
+          type: "imageText",
+          props: {
+            eyebrow: "About our school",
+            heading: "Excellence in Education",
+            headingAccent: "Character for Life",
+            body: "At Golden Crest, we believe in developing curious minds, strong values, and confident individuals ready to make a difference in the world. We run both the GES and British curricula from Nursery through JHS, in a warm and disciplined community.",
+            imageUrl: art.campus ?? "",
+            imagePosition: "right",
+            ctaLabel: "Learn more about us",
+            ctaHref: "/site/about",
+            stats: [
+              "14+ | Years of Excellence",
+              "480+ | Happy Students",
+              "100+ | Awards & Achievements",
+            ].join("\n"),
+            facts: [
+              "15:1 | Student-Teacher Ratio",
+              "30+ | Clubs & Activities",
+              "12+ | Countries Represented",
+            ].join("\n"),
+          },
+        },
+        {
+          id: "programmes",
+          type: "cards",
+          props: {
+            eyebrow: "Academics",
+            heading: "Discover Our Programmes",
+            intro:
+              "A comprehensive curriculum designed to inspire and challenge every learner.",
+            items: [
+              `Early Years | A nurturing start for lifelong learners. | /site/about | ${art.programmeA ?? ""} | Ages 3–5`,
+              `Primary School | Building strong foundations for the future. | /site/about | ${art.programmeB ?? ""} | Basic 1–6`,
+              `Junior High | Preparing leaders for the BECE and beyond. | /site/about | ${art.programmeC ?? ""} | JHS 1–3`,
+              `Co-Curricular | Exploring talents beyond the classroom. | /site/about | ${art.campus ?? ""} | Clubs & Activities`,
+            ].join("\n"),
+            ctaLabel: "View all programmes",
+            ctaHref: "/site/about",
+          },
+        },
+        {
+          id: "figures",
+          type: "stats",
+          props: {
+            heading: "",
+            items: [
+              "14+ | Years of Excellence",
+              "480+ | Students Enrolled",
+              "38 | Qualified Teachers",
+              "100+ | Awards Won",
+              "98% | BECE Pass Rate",
+            ].join("\n"),
+          },
+        },
+        {
+          id: "apply",
+          type: "cta",
+          props: {
+            eyebrow: "Admissions",
+            heading: "Begin Your Journey Toward a Bright Future",
+            body: "Join a community where your child will be inspired, supported, and empowered to achieve their dreams.",
+            imageUrl: art.admissions ?? "",
+            ctaLabel: "Apply now",
+            ctaHref: "/site/admissions",
+            secondaryCtaLabel: "Schedule a tour",
+            secondaryCtaHref: "/site/contact",
+          },
+        },
+        {
+          id: "news",
+          type: "news",
+          props: { eyebrow: "News & events", heading: "School News", count: "3" },
+        },
+      ] as never,
+    },
+  });
+
+  await db.sitePage.create({
+    data: {
+      siteId: site.id,
+      title: "About Us",
+      slug: "about",
+      status: "PUBLISHED",
+      publishedAt: new Date(),
+      sortKey: 1,
+      blocks: [
+        {
+          id: "story",
+          type: "imageText",
+          props: {
+            eyebrow: "Our story",
+            heading: "A School Built",
+            headingAccent: "on Character",
+            body: "Golden Crest opened in 2011 with thirty pupils and a conviction: that academic rigour and warmth are not opposites. Today nearly five hundred students from more than a dozen countries learn together on our Accra campus, following both the GES and British curricula from Nursery through JHS.",
+            imageUrl: art.campus ?? "",
+            imagePosition: "left",
+            stats: ["2011 | Founded", "480+ | Students", "12+ | Nationalities"].join("\n"),
+          },
+        },
+        {
+          id: "quote",
+          type: "quote",
+          props: {
+            quote:
+              "Golden Crest did not just prepare my daughter for the BECE — it prepared her to stand in front of a room and speak her mind.",
+            attribution: "Parent of a JHS 3 graduate",
+          },
+        },
+        {
+          id: "values",
+          type: "cards",
+          props: {
+            eyebrow: "What we stand for",
+            heading: "Knowledge. Character. Service.",
+            items: [
+              "Knowledge | Rigorous academics on two curricula, taught by specialists. | | |",
+              "Character | Discipline, honesty and kindness, modelled daily. | | |",
+              "Service | Every class runs a community project every term. | | |",
+            ].join("\n"),
+          },
+        },
+        {
+          id: "figures",
+          type: "stats",
+          props: {
+            heading: "",
+            items: [
+              "15:1 | Student-Teacher Ratio",
+              "30+ | Clubs & Activities",
+              "98% | BECE Pass Rate",
+            ].join("\n"),
+          },
+        },
+      ] as never,
+    },
+  });
+
+  await db.sitePage.create({
+    data: {
+      siteId: site.id,
+      title: "Admissions",
+      slug: "admissions",
+      status: "PUBLISHED",
+      publishedAt: new Date(),
+      sortKey: 2,
+      blocks: [
+        {
+          id: "intro",
+          type: "richText",
+          props: {
+            eyebrow: "Admissions",
+            heading: "Join the Golden Crest Family",
+            body: "Applications for the next academic year are open. Entrance assessments are held monthly, and the admissions office replies to every enquiry within two school days.",
+          },
+        },
+        {
+          id: "apply",
+          type: "admissionForm",
+          props: {
+            heading: "Apply for admission",
+            intro:
+              "Tell us about your child and the admissions office will be in touch within two school days.",
+            levels: "Nursery\nKindergarten\nLower Primary\nUpper Primary\nJHS",
+            thanks:
+              "Thank you — your enquiry has been received. The admissions office will contact you shortly.",
+          },
+        },
+      ] as never,
+    },
+  });
+
+  await db.sitePage.create({
+    data: {
+      siteId: site.id,
+      title: "Contact",
+      slug: "contact",
+      status: "PUBLISHED",
+      publishedAt: new Date(),
+      sortKey: 3,
+      blocks: [
+        {
+          id: "contact",
+          type: "contact",
+          props: { heading: "Visit Us", hours: "Monday–Friday, 7:00am–4:30pm" },
+        },
+        {
+          id: "apply",
+          type: "cta",
+          props: {
+            eyebrow: "Admissions",
+            heading: "Ready to see the school?",
+            body: "Call the office to book a tour, or start an application from home.",
+            ctaLabel: "Apply now",
+            ctaHref: "/site/admissions",
+          },
+        },
+      ] as never,
+    },
+  });
+
+  await db.siteMenu.create({
+    data: {
+      siteId: site.id,
+      location: "HEADER",
+      items: [
+        { label: "Home", url: "/" },
+        { label: "About Us", url: "/about" },
+        { label: "Admissions", url: "/admissions" },
+        { label: "Contact", url: "/contact" },
+      ] as never,
+    },
+  });
+
+  await db.sitePost.createMany({
+    data: [
+      {
+        siteId: site.id,
+        title: "Golden Crest wins regional science quiz",
+        slug: "science-quiz-win",
+        excerpt: "Our JHS 3 team took first place in the Greater Accra regional finals.",
+        body: "Our JHS 3 science team beat eleven other schools to take first place in the regional science and maths quiz. Congratulations to the team and their coach.",
+        kind: "NEWS",
+        status: "PUBLISHED",
+        publishedAt: addDays(new Date(), -6),
+        authorName: "School Office",
+      },
+      {
+        siteId: site.id,
+        title: "New science laboratory opens",
+        slug: "new-science-lab",
+        excerpt: "A fully equipped laboratory for JHS practical work.",
+        body: "The new laboratory was commissioned this term and gives every JHS student weekly practical sessions in physics, chemistry and biology.",
+        kind: "NEWS",
+        status: "PUBLISHED",
+        publishedAt: addDays(new Date(), -20),
+        authorName: "School Office",
+      },
+    ],
   });
 
   await seedBranding(school, site.id);

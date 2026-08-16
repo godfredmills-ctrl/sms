@@ -25,6 +25,7 @@ import {
   PageHeader,
   Textarea,
 } from "@/components/ui";
+import { ImageField } from "@/components/image-field";
 import { requirePermission, userCan } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { BLOCK_DEFS, blockDef, parseBlocks } from "@/lib/site-blocks";
@@ -202,6 +203,15 @@ export default async function EditPagePage({
                             id={`${block.id}-${field.key}`}
                             name={field.key}
                             rows={field.kind === "list" ? 4 : 3}
+                            defaultValue={block.props[field.key] ?? ""}
+                          />
+                        ) : field.kind === "image" ? (
+                          // An upload control, not a URL box — pasting
+                          // addresses is the flow that produced images that
+                          // rendered on screen and nowhere else.
+                          <ImageField
+                            id={`${block.id}-${field.key}`}
+                            name={field.key}
                             defaultValue={block.props[field.key] ?? ""}
                           />
                         ) : (

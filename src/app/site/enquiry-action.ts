@@ -9,6 +9,50 @@ import { normalisePhone } from "@/lib/utils";
 export type EnquiryState = { ok?: boolean; error?: string };
 
 /**
+ * The footer's newsletter signup.
+ *
+ * Same defences as the enquiry form, scaled to the stakes: a honeypot and a
+ * uniqueness check. Addresses land in SiteFormSubmission under their own
+ * formKey, so a school can export them without them mixing into admissions.
+ */
+export async function subscribeNewsletterAction(
+  _previous: EnquiryState,
+  formData: FormData,
+): Promise<EnquiryState> {
+  const email = String(formData.get("email") ?? "")
+    .trim()
+    .toLowerCase();
+  if (!email || !email.includes("@")) return { error: "That address is not valid." };
+
+  const honeypot = String(formData.get("website") ?? "");
+  const site = await db.site.findFirst({ select: { id: true } });
+  if (!site) return { ok: true };
+
+  // One row per address. equals on a JSON path keeps this a query rather than
+  // a table scan through parsed JSON in application code.
+  const existing = await db.siteFormSubmission.findFirst({
+    where: {
+      siteId: site.id,
+      formKey: "newsletter",
+      data: { path: ["email"], equals: email },
+    },
+    select: { id: true },
+  });
+  if (existing) return { ok: true };
+
+  await db.siteFormSubmission.create({
+    data: {
+      siteId: site.id,
+      formKey: "newsletter",
+      isSpam: honeypot.length > 0,
+      data: { email },
+    },
+  });
+
+  return { ok: true };
+}
+
+/**
  * Receives an admission enquiry from the public website.
  *
  * Deliberately does NOT create a Student. An enquiry is a lead, not an

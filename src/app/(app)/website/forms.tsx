@@ -5,6 +5,7 @@ import { useFormStatus } from "react-dom";
 import { Plus, Save } from "lucide-react";
 
 import { ImageField } from "@/components/image-field";
+import { SearchableSelect } from "@/components/select-search";
 import { Alert, Button, CardBody, Field, Input, Textarea } from "@/components/ui";
 
 import { createPageAction, updateSiteAction, type SiteState } from "./actions";
@@ -20,7 +21,10 @@ export type SiteValues = {
   ogImageUrl: string;
   googleAnalyticsId: string;
   primary: string;
+  secondary: string;
   accent: string;
+  wash: string;
+  headingFont: string;
   font: string;
   radius: string;
   address: string;
@@ -55,14 +59,37 @@ export function SiteSettingsForm({ values }: { values: SiteValues }) {
           <Input id="domain" name="domain" defaultValue={values.domain} placeholder="www.school.edu.gh" />
         </Field>
 
+        {/* Four colours drive the whole public design: primary carries links,
+            the deep colour paints bands and the footer, the highlight carries
+            tags and the Apply button, and the wash sits behind alternating
+            sections. */}
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Primary colour" htmlFor="primary">
+          <Field label="Primary colour" htmlFor="primary" hint="Links and controls.">
             <Input id="primary" name="primary" defaultValue={values.primary} />
           </Field>
-          <Field label="Accent colour" htmlFor="accent">
+          <Field label="Deep colour" htmlFor="secondary" hint="Bands, headings, footer.">
+            <Input id="secondary" name="secondary" defaultValue={values.secondary} />
+          </Field>
+          <Field label="Highlight" htmlFor="accent" hint="Tags and the Apply button.">
             <Input id="accent" name="accent" defaultValue={values.accent} />
           </Field>
+          <Field label="Background wash" htmlFor="wash" hint="Behind soft sections.">
+            <Input id="wash" name="wash" defaultValue={values.wash} />
+          </Field>
         </div>
+
+        <Field label="Heading style" htmlFor="headingFont">
+          <SearchableSelect
+            id="headingFont"
+            name="headingFont"
+            clearable={false}
+            defaultValue={values.headingFont}
+            options={[
+              { value: "serif", label: "Serif — classic, collegiate" },
+              { value: "sans", label: "Sans-serif — modern, plain" },
+            ]}
+          />
+        </Field>
 
         {/* These load for visitors with no session, so they are uploaded to
             the media library rather than filed privately. */}

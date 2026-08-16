@@ -43,7 +43,10 @@ export async function updateSiteAction(
       googleAnalyticsId: text(formData, "googleAnalyticsId") || null,
       theme: {
         primary: text(formData, "primary") || "#2C66CE",
-        accent: text(formData, "accent") || "#0E9F6E",
+        secondary: text(formData, "secondary") || "#0B2447",
+        accent: text(formData, "accent") || "#E9A319",
+        wash: text(formData, "wash") || "#FAF6EE",
+        headingFont: text(formData, "headingFont") || "serif",
         font: text(formData, "font") || "system",
         radius: text(formData, "radius") || "12px",
       },

@@ -1,12 +1,14 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { Facebook, Instagram, Mail, MapPin, Phone, Youtube } from "lucide-react";
 
 import { getCurrentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { parseBlocks } from "@/lib/site-blocks";
 
-import { RenderBlock, type NewsItem } from "../blocks";
+import { RenderBlock, type NewsItem, type SiteTheme } from "../blocks";
+import { NewsletterForm } from "../newsletter";
 
 export const dynamic = "force-dynamic";
 
@@ -54,6 +56,12 @@ export async function generateMetadata({
   };
 }
 
+const SOCIAL_ICONS: Record<string, typeof Facebook> = {
+  facebook: Facebook,
+  instagram: Instagram,
+  youtube: Youtube,
+};
+
 export default async function PublicSitePage({
   params,
 }: {
@@ -86,60 +94,138 @@ export default async function PublicSitePage({
       })
     : [];
 
-  const theme = (site.theme ?? {}) as Record<string, string>;
+  const rawTheme = (site.theme ?? {}) as Record<string, string>;
   const contact = (site.contactInfo ?? {}) as Record<string, string>;
   const social = (site.socialLinks ?? {}) as Record<string, string>;
+
+  /**
+   * Four colours drive the whole design; a school changes them under
+   * Website → Site settings and everything follows — bands, buttons, tags,
+   * the footer. Serif display headings unless the theme says otherwise.
+   */
+  const theme: SiteTheme = {
+    primary: rawTheme.primary || "#2C66CE",
+    navy: rawTheme.secondary || "#0B2447",
+    gold: rawTheme.accent || "#E9A319",
+    cream: rawTheme.wash || "#FAF6EE",
+  };
+  const headingFont =
+    rawTheme.headingFont === "sans"
+      ? "inherit"
+      : `Georgia, 'Times New Roman', serif`;
 
   const menu = site.pages.filter(
     (entry) => entry.status === "PUBLISHED" && !entry.isHomePage,
   );
 
+  // The header's Apply button goes to the admissions page when one exists.
+  const admissions = menu.find((entry) => entry.slug === "admissions");
+
   return (
     <div
       style={
         {
-          "--primary": theme.primary ?? "#2C66CE",
-          "--primary-soft": `${theme.primary ?? "#2C66CE"}1a`,
+          "--primary": theme.primary,
+          "--primary-soft": `${theme.primary}1a`,
+          "--heading-font": headingFont,
         } as React.CSSProperties
       }
-      className="min-h-screen bg-[var(--bg)] text-[var(--text)]"
+      className="min-h-screen bg-white text-slate-800"
     >
       {!isLive ? (
-        <div className="bg-[var(--warning)] px-4 py-2 text-center text-xs font-medium text-white">
+        <div className="bg-amber-500 px-4 py-2 text-center text-xs font-medium text-white">
           Preview — this {site.isPublished ? "page is a draft" : "site is offline"} and
           is not visible to the public.
         </div>
       ) : null}
 
-      <header className="sticky top-0 z-20 border-b border-[var(--border)] bg-[var(--bg)]/90 backdrop-blur">
+      {/* Utility bar: how to reach the school, and the doors into the portals. */}
+      <div style={{ background: theme.navy }} className="text-white">
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-x-6 gap-y-1 px-6 py-1.5 text-[11px]">
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-1">
+            {contact.address ? (
+              <span className="inline-flex items-center gap-1.5 text-white/80">
+                <MapPin className="size-3" style={{ color: theme.gold }} />
+                {contact.address}
+              </span>
+            ) : null}
+            {contact.phone ? (
+              <a
+                href={`tel:${contact.phone.replace(/\s/g, "")}`}
+                className="inline-flex items-center gap-1.5 text-white/80 hover:text-white"
+              >
+                <Phone className="size-3" style={{ color: theme.gold }} />
+                {contact.phone}
+              </a>
+            ) : null}
+            {contact.email ? (
+              <a
+                href={`mailto:${contact.email}`}
+                className="hidden items-center gap-1.5 text-white/80 hover:text-white sm:inline-flex"
+              >
+                <Mail className="size-3" style={{ color: theme.gold }} />
+                {contact.email}
+              </a>
+            ) : null}
+          </div>
+          <div className="flex items-center gap-4">
+            <Link href="/login" className="text-white/80 hover:text-white">
+              Parent Portal
+            </Link>
+            <Link href="/login" className="text-white/80 hover:text-white">
+              Student Login
+            </Link>
+          </div>
+        </div>
+      </div>
+
+      <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-6 py-3">
-          <Link href="/site" className="flex items-center gap-2.5">
+          <Link href="/site" className="flex min-w-0 items-center gap-2.5">
             {site.logoUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={site.logoUrl} alt="" className="h-9 w-auto" />
+              <img src={site.logoUrl} alt="" className="h-10 w-auto shrink-0" />
             ) : null}
-            <span className="text-base font-semibold tracking-tight">{site.name}</span>
+            <span
+              className="truncate text-lg leading-tight font-bold tracking-tight"
+              style={{ fontFamily: "var(--heading-font)", color: theme.navy }}
+            >
+              {site.name}
+            </span>
           </Link>
 
-          <nav className="hidden items-center gap-1 md:flex">
-            {menu.map((entry) => (
-              <Link
-                key={entry.id}
-                href={`/site/${entry.slug}`}
-                className={`rounded-lg px-3 py-1.5 text-sm transition-colors hover:bg-[var(--bg-subtle)] ${
-                  entry.slug === page.slug ? "font-medium text-[var(--primary)]" : ""
-                }`}
-              >
-                {entry.title}
-              </Link>
-            ))}
+          <nav className="hidden items-center gap-0.5 lg:flex">
+            {[{ id: "home", title: "Home", slug: "", isHomePage: true }, ...menu].map(
+              (entry) => {
+                const active = entry.isHomePage
+                  ? page.isHomePage
+                  : entry.slug === page.slug;
+                return (
+                  <Link
+                    key={entry.id}
+                    href={entry.isHomePage ? "/site" : `/site/${entry.slug}`}
+                    className="relative px-3 py-2 text-[13px] font-semibold tracking-wide uppercase"
+                    style={{ color: active ? theme.navy : "#64748b" }}
+                  >
+                    {entry.title}
+                    {active ? (
+                      <span
+                        className="absolute inset-x-3 -bottom-0.5 h-0.5 rounded-full"
+                        style={{ background: theme.gold }}
+                      />
+                    ) : null}
+                  </Link>
+                );
+              },
+            )}
           </nav>
 
           <Link
-            href="/login"
-            className="inline-flex h-9 items-center rounded-lg bg-[var(--primary)] px-3.5 text-sm font-medium text-white hover:opacity-90"
+            href={admissions ? `/site/${admissions.slug}` : "/login"}
+            className="inline-flex h-10 shrink-0 items-center rounded-md px-5 text-sm font-bold shadow-sm transition-opacity hover:opacity-90"
+            style={{ background: theme.gold, color: theme.navy }}
           >
-            Portal login
+            {admissions ? "Apply Now" : "Portal login"}
           </Link>
         </div>
       </header>
@@ -151,66 +237,147 @@ export default async function PublicSitePage({
             block={block}
             news={news}
             contact={contact}
-            accent={theme.primary ?? "#2C66CE"}
+            theme={theme}
           />
         ))}
 
         {blocks.length === 0 ? (
           <div className="mx-auto max-w-3xl px-6 py-24 text-center">
-            <h1 className="text-2xl font-semibold">{page.title}</h1>
-            <p className="mt-2 text-sm text-[var(--text-muted)]">
-              This page has no content yet.
-            </p>
+            <h1
+              className="text-2xl font-bold"
+              style={{ fontFamily: "var(--heading-font)", color: theme.navy }}
+            >
+              {page.title}
+            </h1>
+            <p className="mt-2 text-sm text-slate-500">This page has no content yet.</p>
           </div>
         ) : null}
       </main>
 
-      <footer className="border-t border-[var(--border)] bg-[var(--bg-subtle)] px-6 py-10">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-start justify-between gap-6">
+      <footer style={{ background: theme.navy }} className="text-white">
+        <div className="mx-auto grid max-w-6xl gap-10 px-6 py-12 sm:grid-cols-2 lg:grid-cols-4">
           <div>
-            <p className="text-sm font-semibold">{site.name}</p>
-            {contact.address ? (
-              <p className="mt-1 text-xs whitespace-pre-wrap text-[var(--text-muted)]">
-                {contact.address}
+            <div className="flex items-center gap-2.5">
+              {site.logoUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={site.logoUrl} alt="" className="h-10 w-auto" />
+              ) : null}
+              <p
+                className="text-base leading-tight font-bold"
+                style={{ fontFamily: "var(--heading-font)" }}
+              >
+                {site.name}
+              </p>
+            </div>
+            {site.metaDescription ? (
+              <p className="mt-3 text-xs leading-relaxed text-white/60">
+                {site.metaDescription}
               </p>
             ) : null}
-            <p className="mt-1 text-xs text-[var(--text-muted)]">
-              {[contact.phone, contact.email].filter(Boolean).join(" · ")}
-            </p>
+            <div className="mt-4 flex gap-2">
+              {Object.entries(social)
+                .filter(([, url]) => url)
+                .map(([network, url]) => {
+                  const Icon = SOCIAL_ICONS[network];
+                  return (
+                    <a
+                      key={network}
+                      href={url}
+                      target="_blank"
+                      rel="noreferrer"
+                      title={network}
+                      className="flex size-8 items-center justify-center rounded-full bg-white/10 text-white/80 transition-colors hover:bg-white/20 hover:text-white"
+                    >
+                      {Icon ? (
+                        <Icon className="size-3.5" />
+                      ) : (
+                        <span className="text-[10px] font-bold uppercase">
+                          {network.slice(0, 2)}
+                        </span>
+                      )}
+                    </a>
+                  );
+                })}
+            </div>
           </div>
 
-          <nav className="flex flex-wrap gap-x-4 gap-y-1">
-            {menu.map((entry) => (
-              <Link
-                key={entry.id}
-                href={`/site/${entry.slug}`}
-                className="text-xs text-[var(--text-muted)] hover:text-[var(--text)]"
-              >
-                {entry.title}
-              </Link>
-            ))}
-          </nav>
-
-          <div className="flex gap-3 text-xs">
-            {Object.entries(social)
-              .filter(([, url]) => url)
-              .map(([network, url]) => (
-                <a
-                  key={network}
-                  href={url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-[var(--text-muted)] capitalize hover:text-[var(--text)]"
+          <div>
+            <p
+              className="text-sm font-bold tracking-wide uppercase"
+              style={{ color: theme.gold }}
+            >
+              Quick links
+            </p>
+            <nav className="mt-3 space-y-1.5">
+              {menu.map((entry) => (
+                <Link
+                  key={entry.id}
+                  href={`/site/${entry.slug}`}
+                  className="block text-xs text-white/70 hover:text-white"
                 >
-                  {network}
-                </a>
+                  {entry.title}
+                </Link>
               ))}
+            </nav>
+          </div>
+
+          <div>
+            <p
+              className="text-sm font-bold tracking-wide uppercase"
+              style={{ color: theme.gold }}
+            >
+              Contact us
+            </p>
+            <div className="mt-3 space-y-2 text-xs text-white/70">
+              {contact.address ? (
+                <p className="flex items-start gap-2">
+                  <MapPin className="mt-0.5 size-3.5 shrink-0" style={{ color: theme.gold }} />
+                  <span className="whitespace-pre-wrap">{contact.address}</span>
+                </p>
+              ) : null}
+              {contact.phone ? (
+                <p className="flex items-center gap-2">
+                  <Phone className="size-3.5 shrink-0" style={{ color: theme.gold }} />
+                  {contact.phone}
+                </p>
+              ) : null}
+              {contact.email ? (
+                <p className="flex items-center gap-2">
+                  <Mail className="size-3.5 shrink-0" style={{ color: theme.gold }} />
+                  {contact.email}
+                </p>
+              ) : null}
+              <p className="pt-1">
+                <Link href="/login" className="text-white/70 underline hover:text-white">
+                  Portal login
+                </Link>
+                {" · "}
+                <Link href="/verify" className="text-white/70 underline hover:text-white">
+                  Verify a document
+                </Link>
+              </p>
+            </div>
+          </div>
+
+          <div>
+            <p
+              className="text-sm font-bold tracking-wide uppercase"
+              style={{ color: theme.gold }}
+            >
+              Newsletter
+            </p>
+            <p className="mt-3 mb-3 text-xs text-white/60">
+              Stay updated with our latest news and events.
+            </p>
+            <NewsletterForm gold={theme.gold} navy={theme.navy} />
           </div>
         </div>
 
-        <p className="mx-auto mt-6 max-w-6xl text-xs text-[var(--text-subtle)]">
-          © {new Date().getFullYear()} {site.name}. All rights reserved.
-        </p>
+        <div className="border-t border-white/10">
+          <p className="mx-auto max-w-6xl px-6 py-4 text-center text-[11px] text-white/50">
+            © {new Date().getFullYear()} {site.name}. All rights reserved.
+          </p>
+        </div>
       </footer>
     </div>
   );
