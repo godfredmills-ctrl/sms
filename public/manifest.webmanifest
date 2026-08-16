@@ -2,7 +2,7 @@
   "name": "School Management System",
   "short_name": "School MS",
   "description": "Student records, attendance, assessment, fees, communication and learning.",
-  "start_url": "/dashboard",
+  "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait-primary",
@@ -33,21 +33,21 @@
   ],
   "shortcuts": [
     {
+      "name": "Search",
+      "short_name": "Search",
+      "url": "/search",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Notifications",
+      "short_name": "Alerts",
+      "url": "/notifications",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
       "name": "Take Attendance",
       "short_name": "Attendance",
       "url": "/attendance",
-      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
-    },
-    {
-      "name": "Record Payment",
-      "short_name": "Payment",
-      "url": "/finance/payments/new",
-      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
-    },
-    {
-      "name": "Students",
-      "short_name": "Students",
-      "url": "/students",
       "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
     }
   ]

@@ -91,16 +91,34 @@ export function s3ConfigProblems(): string[] {
   if (!env.storage.s3AccessKeyId) problems.push("S3_ACCESS_KEY_ID is not set");
   if (!env.storage.s3SecretAccessKey) problems.push("S3_SECRET_ACCESS_KEY is not set");
 
-  // A bucket name pasted onto the end of the endpoint is the single most common
-  // way this is set up wrong, and it fails with an opaque 403 rather than a 404.
-  if (
-    env.storage.s3Endpoint &&
-    env.storage.s3Bucket &&
-    new URL(env.storage.s3Endpoint).pathname.replace(/\/$/, "").length > 0
-  ) {
-    problems.push(
-      "S3_ENDPOINT must not include the bucket name — put it in S3_BUCKET instead",
-    );
+  if (env.storage.s3Endpoint) {
+    // Parsed defensively: a malformed endpoint is exactly the case this
+    // function exists to report, so throwing on it would replace a useful
+    // message with a 500 on the page that was meant to explain the problem.
+    let endpoint: URL | null = null;
+    try {
+      endpoint = new URL(env.storage.s3Endpoint);
+    } catch {
+      problems.push(
+        `S3_ENDPOINT is not a valid URL ("${env.storage.s3Endpoint}") — it should look like https://<account-id>.r2.cloudflarestorage.com`,
+      );
+    }
+
+    if (endpoint && !/^https?:$/.test(endpoint.protocol)) {
+      problems.push("S3_ENDPOINT must start with https://");
+    }
+
+    // A bucket name pasted onto the end of the endpoint is the most common way
+    // this is set up wrong, and it fails with an opaque 403 rather than a 404.
+    if (
+      endpoint &&
+      env.storage.s3Bucket &&
+      endpoint.pathname.replace(/\/$/, "").length > 0
+    ) {
+      problems.push(
+        "S3_ENDPOINT must not include the bucket name — put it in S3_BUCKET instead",
+      );
+    }
   }
 
   return problems;

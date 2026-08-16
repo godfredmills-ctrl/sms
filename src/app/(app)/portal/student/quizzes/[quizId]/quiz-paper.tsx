@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useFormStatus } from "react-dom";
 import { Clock, Send, TriangleAlert } from "lucide-react";
 
@@ -34,6 +35,9 @@ export function QuizPaper({
   );
   const [answered, setAnswered] = useState<Record<string, boolean>>({});
   const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
+  const formRef = useRef<HTMLFormElement>(null);
+  const autoSubmitted = useRef(false);
+  const router = useRouter();
 
   useEffect(() => {
     if (timeLimitMinutes === null) return;
@@ -53,11 +57,24 @@ export function QuizPaper({
 
   useEffect(() => {
     if (secondsLeft !== 0) return;
-    // Time up: submit whatever is on the paper rather than losing it.
-    document.getElementById("quiz-paper")?.dispatchEvent(
-      new Event("submit", { cancelable: true, bubbles: true }),
-    );
+    // Fire once. The interval keeps ticking at zero, and a second submission
+    // would hit the server's "already submitted" guard and replace the
+    // student's confirmation with an error they cannot act on.
+    if (autoSubmitted.current) return;
+    autoSubmitted.current = true;
+
+    // requestSubmit(), not a dispatched Event: a synthetic submit event does
+    // not reliably drive a React form action, and requestSubmit is the API
+    // that does — it also runs the same validation a real click would.
+    formRef.current?.requestSubmit();
   }, [secondsLeft]);
+
+  // The action revalidates on the server, but this is a client component
+  // rendering its own success state — without a refresh the student sits on
+  // "submitted" and has to reload by hand to see the mark.
+  useEffect(() => {
+    if (state.ok) router.refresh();
+  }, [state.ok, router]);
 
   if (state.ok) {
     return (
@@ -65,7 +82,7 @@ export function QuizPaper({
         <CardBody className="py-12 text-center">
           <h2 className="text-lg font-semibold">Your answers have been submitted</h2>
           <p className="mt-2 text-sm text-[var(--text-muted)]">
-            Reload this page to see your result.
+            Fetching your result…
           </p>
         </CardBody>
       </Card>
@@ -76,7 +93,7 @@ export function QuizPaper({
   const urgent = secondsLeft !== null && secondsLeft <= 60;
 
   return (
-    <form id="quiz-paper" action={action} className="space-y-4">
+    <form ref={formRef} id="quiz-paper" action={action} className="space-y-4">
       <input type="hidden" name="attemptId" value={attemptId} />
 
       {state.error ? <Alert tone="danger">{state.error}</Alert> : null}
