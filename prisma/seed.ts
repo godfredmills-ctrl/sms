@@ -11,6 +11,7 @@ import { PrismaClient, type Prisma } from "@prisma/client";
 import sharp from "sharp";
 
 import { hashPassword } from "../src/lib/crypto";
+import { generateClassReportCards } from "../src/lib/grading";
 import { PERMISSIONS, ROLE_PRESETS } from "../src/lib/rbac";
 import { storeFile } from "../src/lib/storage";
 import { starterLayout } from "../src/lib/templates";
@@ -147,6 +148,7 @@ async function main() {
   await seedDocuments();
   await seedDocumentTemplates();
   await seedLearning(offerings, students, sections, demoStudentSectionId);
+  await seedReportCards(terms, sections, demoStudentSectionId);
   await seedWebsite(school);
 
   console.log("\nDone.\n");
@@ -2751,6 +2753,135 @@ async function seedSiteArt(siteId: string): Promise<Record<string, string>> {
   }
 
   return urls;
+}
+
+/**
+ * Report cards for the current term, generated the way the app generates them.
+ *
+ * There were none, so both portals' Results pages rendered empty and nothing
+ * downstream of a report card — approval, publishing, the printed PDF, a
+ * guardian's access rules — could be shown working. Generation goes through
+ * generateClassReportCards, the same code the Reports screen calls, so the
+ * seeded cards are exactly what the app would have produced from the seeded
+ * marks and registers.
+ *
+ * Statuses are spread deliberately: most classes published (families can see
+ * them), some approved-awaiting-publication, and a few drafts carrying an AI
+ * remark that no teacher has adopted — which is the state the review screen
+ * exists for. The demo student's class is always published, because that is
+ * the account people sign into first.
+ *
+ * Deterministic throughout — remarks come from score bands, statuses from the
+ * section's position in the list. No RNG, so everything seeded before this
+ * keeps its values.
+ */
+async function seedReportCards(
+  terms: Array<{ id: string; sequence: number }>,
+  sections: SectionRow[],
+  demoStudentSectionId: string | null,
+) {
+  console.log("  Report cards…");
+
+  const currentTerm = terms.find((term) => term.sequence === 2) ?? terms[0];
+
+  let generated = 0;
+  for (const section of sections) {
+    const outcome = await generateClassReportCards({
+      classSectionId: section.id,
+      termId: currentTerm.id,
+    });
+    generated += outcome.generated;
+    for (const error of outcome.errors) {
+      console.warn(`    ! ${section.code}: ${error}`);
+    }
+  }
+
+  // Remarks by performance band — what a Ghanaian form teacher actually
+  // writes, chosen deterministically from the card's own average.
+  const remarkFor = (average: number): { teacher: string; head: string } => {
+    if (average >= 80) {
+      return {
+        teacher:
+          "An outstanding term. Consistently excellent work across the subjects — keep this standard up.",
+        head: "Excellent result. Congratulations.",
+      };
+    }
+    if (average >= 70) {
+      return {
+        teacher:
+          "A very good term with strong, steady work. A little more attention to revision will lift the remaining subjects.",
+        head: "A very pleasing report. Keep it up.",
+      };
+    }
+    if (average >= 60) {
+      return {
+        teacher:
+          "Good progress this term. More consistent homework and reading at home will show quickly in the weaker subjects.",
+        head: "Good work. Aim higher next term.",
+      };
+    }
+    if (average >= 50) {
+      return {
+        teacher:
+          "A fair term. Capable of much more with steadier effort — extra support in the core subjects is recommended.",
+        head: "Has ability. Must apply it consistently.",
+      };
+    }
+    return {
+      teacher:
+        "A difficult term. Please arrange a meeting with the class teacher so we can plan the right support together.",
+      head: "Needs close support. See the form teacher.",
+    };
+  };
+
+  const cards = await db.reportCard.findMany({
+    where: { termId: currentTerm.id },
+    select: { id: true, classSectionId: true, averageScore: true },
+  });
+
+  // Sections cycle through the pipeline states; the demo student's class is
+  // pinned to published so the family portals have something to show.
+  const stateFor = (sectionId: string): "PUBLISHED" | "APPROVED" | "DRAFT" => {
+    if (sectionId === demoStudentSectionId) return "PUBLISHED";
+    const index = sections.findIndex((section) => section.id === sectionId);
+    if (index % 5 === 3) return "APPROVED";
+    if (index % 5 === 4) return "DRAFT";
+    return "PUBLISHED";
+  };
+
+  const publishedAt = addDays(new Date(), -3);
+
+  for (const card of cards) {
+    const state = stateFor(card.classSectionId);
+    const average = Number(card.averageScore ?? 0);
+    const remarks = remarkFor(average);
+
+    if (state === "DRAFT") {
+      // Drafts carry the AI suggestion and no adopted remark — the state the
+      // review screen and the "AI draft available" badge exist to show.
+      await db.reportCard.update({
+        where: { id: card.id },
+        data: {
+          aiRemark: remarks.teacher,
+        },
+      });
+      continue;
+    }
+
+    await db.reportCard.update({
+      where: { id: card.id },
+      data: {
+        formTeacherRemark: remarks.teacher,
+        headTeacherRemark: remarks.head,
+        status: state,
+        ...(state === "PUBLISHED"
+          ? { publishedAt, approvedAt: addDays(publishedAt, -1) }
+          : { approvedAt: addDays(new Date(), -1) }),
+      },
+    });
+  }
+
+  console.log(`    ${generated} report cards across ${sections.length} classes.`);
 }
 
 async function seedWebsite(school: { id: string; name: string; motto: string | null }) {

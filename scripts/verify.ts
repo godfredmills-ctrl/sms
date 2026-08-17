@@ -307,6 +307,17 @@ async function checkStudentPortal() {
   const scores = await db.assessmentScore.count({ where: { studentId: student.id } });
   if (scores === 0) fail(g, "Marks", "No assessment scores.");
   else pass(g, "Marks", `${scores} scores`);
+
+  // The Results page shows published cards only, and a family portal with an
+  // empty Results page reads as broken, not as pending.
+  const published = await db.reportCard.count({
+    where: { studentId: student.id, status: "PUBLISHED" },
+  });
+  if (published === 0) {
+    fail(g, "A published report card", "The Results pages render empty.");
+  } else {
+    pass(g, "A published report card", `${published}`);
+  }
 }
 
 // --- Quizzes are answerable -----------------------------------------------
