@@ -2294,6 +2294,9 @@ model CommunicationRecipient {
 
   @@index([jobId, status])
   @@index([userId])
+  /// The delivery-status cron's exact question — "SENT SMS from the last two
+  /// days" — asked of the whole table every fifteen minutes.
+  @@index([channel, status, sentAt])
 }
 
 /// Threaded internal messaging between staff, guardians and students.

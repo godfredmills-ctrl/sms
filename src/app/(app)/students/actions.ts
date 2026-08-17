@@ -133,12 +133,15 @@ export async function admitStudentAction(
           },
         });
 
-        if (guardianFirst && guardianLast && guardianPhone) {
+        // A guardian with a phone number is a guardian; a blank surname —
+        // common when the website application carried a single name — must
+        // not silently discard the one contactable adult on the file.
+        if (guardianFirst && guardianPhone) {
           const guardian = await tx.guardian.upsert({
             where: { id: text(formData, "existingGuardianId") || "___none___" },
             create: {
               firstName: guardianFirst,
-              lastName: guardianLast,
+              lastName: guardianLast || guardianFirst,
               phone: guardianPhone,
               email: optional(formData, "guardianEmail"),
               occupation: optional(formData, "guardianOccupation"),

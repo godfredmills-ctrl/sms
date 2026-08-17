@@ -63,6 +63,49 @@ export async function promoteClassAction(
     return { error: "Choose the class they move into, or mark the class as graduating." };
   }
 
+  // The form filters its options to sensible targets, but a form is a
+  // suggestion: the server re-derives the level arithmetic from the database
+  // and refuses anything that does not add up — a target two levels up, a
+  // repeat stream at a different level, a mid-school class marked as
+  // graduating.
+  const fromSection = await db.classSection.findUnique({
+    where: { id: fromSectionId },
+    select: { classLevel: { select: { sequence: true } } },
+  });
+  if (!fromSection) return { error: "That class does not exist." };
+
+  if (graduating) {
+    const topLevel = await db.classLevel.aggregate({ _max: { sequence: true } });
+    if (fromSection.classLevel.sequence !== topLevel._max.sequence) {
+      return {
+        error:
+          "Only the school's final level graduates. Everyone else moves up or repeats.",
+      };
+    }
+  } else {
+    const toSection = await db.classSection.findUnique({
+      where: { id: toSectionId },
+      select: { classLevel: { select: { sequence: true } } },
+    });
+    if (!toSection) return { error: "The target class does not exist." };
+    if (toSection.classLevel.sequence !== fromSection.classLevel.sequence + 1) {
+      return {
+        error: "Promotion moves a class exactly one level up. Pick a class at the next level.",
+      };
+    }
+
+    const repeatSection = await db.classSection.findUnique({
+      where: { id: repeatSectionId },
+      select: { classLevel: { select: { sequence: true } } },
+    });
+    if (
+      !repeatSection ||
+      repeatSection.classLevel.sequence !== fromSection.classLevel.sequence
+    ) {
+      return { error: "Repeating students stay at the same level." };
+    }
+  }
+
   // decisions arrive as "<studentId>:<PROMOTED|REPEATED|GRADUATED>"
   const decisions = new Map<string, string>();
   for (const entry of formData.getAll("decisions").map(String)) {

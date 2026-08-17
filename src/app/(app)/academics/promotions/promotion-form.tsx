@@ -104,8 +104,9 @@ export function PromotionForm({
               onChange={(value) => {
                 setFromSectionId(value as string);
                 setRepeaters(new Set());
-                const chosen = sections.find((section) => section.id === value);
-                setGraduating(Boolean(chosen?.isFinal));
+                // Never pre-ticked: graduating a class is a claim the user
+                // makes, not one the form assumes on their behalf.
+                setGraduating(false);
               }}
               required
             />
@@ -147,6 +148,7 @@ export function PromotionForm({
                   }
                 >
                   <SearchableSelect
+                    key={fromSectionId}
                     id="toSectionId"
                     name="toSectionId"
                     options={targets}
@@ -160,6 +162,7 @@ export function PromotionForm({
                   hint="Usually the class they were in."
                 >
                   <SearchableSelect
+                    key={fromSectionId}
                     id="repeatSectionId"
                     name="repeatSectionId"
                     options={sameLevel}

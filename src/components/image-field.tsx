@@ -30,11 +30,18 @@ export function ImageField({
   defaultValue = "",
   /** Sent to /api/upload; only images are offered. */
   accept = "image/*",
+  visibility = "public",
 }: {
   name: string;
   id?: string;
   defaultValue?: string;
   accept?: string;
+  /**
+   * "public" publishes to the media library (logos, crests — things whose
+   * purpose is to be seen). "private" files it behind the session-checked
+   * route: a person's photograph is a record, not artwork.
+   */
+  visibility?: "public" | "private";
 }) {
   const [value, setValue] = useState(defaultValue);
   const [busy, setBusy] = useState(false);
@@ -48,7 +55,7 @@ export function ImageField({
     try {
       const body = new FormData();
       body.append("file", file);
-      body.append("visibility", "public");
+      if (visibility === "public") body.append("visibility", "public");
 
       const response = await fetch("/api/upload", { method: "POST", body });
       const result = (await response.json()) as {

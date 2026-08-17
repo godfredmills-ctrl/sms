@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { notFound } from "next/navigation";
 import {
   BookOpen,
   ClipboardList,
@@ -34,6 +35,10 @@ export const dynamic = "force-dynamic";
 
 export default async function LmsPage() {
   const user = await requirePermission(["lms.course.read", "lms.course.manage"]);
+  // Staff surface only. Students hold lms.course.read for their portal, and
+  // this page carries the answer key, the class results and the marking
+  // queue — none of which survive a student opening the URL by hand.
+  if (user.portal !== "STAFF") notFound();
   const canManage = userCan(user, "lms.course.manage");
 
   const [courses, offerings] = await Promise.all([

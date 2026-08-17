@@ -216,6 +216,43 @@ export async function updateStaffAction(
 }
 
 /**
+ * Whether the actor may end this staff member's ACCOUNT, not just their job.
+ *
+ * Suspending a staff record disables the linked login — which quietly turns
+ * an HR permission into account-disabling power. When the target holds
+ * super_admin, that needs the user-management permission too, and the LAST
+ * super_admin can never be disabled from here: a school locked out of its
+ * own user management is recoverable only by editing the database.
+ */
+async function mayTouchAccount(
+  actor: { staffId: string | null; permissions: Set<string>; roleKeys: string[] },
+  targetUserId: string,
+): Promise<string | null> {
+  const target = await db.user.findUnique({
+    where: { id: targetUserId },
+    select: { roles: { select: { role: { select: { key: true } } } } },
+  });
+  const isSuperAdmin = target?.roles.some((entry) => entry.role.key === "super_admin");
+  if (!isSuperAdmin) return null;
+
+  if (!actor.permissions.has("user.manage") && !actor.roleKeys.includes("super_admin")) {
+    return "This staff member is a system administrator — disabling their account needs the user-management permission.";
+  }
+
+  const remaining = await db.user.count({
+    where: {
+      status: "ACTIVE",
+      id: { not: targetUserId },
+      roles: { some: { role: { key: "super_admin" } } },
+    },
+  });
+  if (remaining === 0) {
+    return "This is the last active system administrator. Appoint another before ending their access.";
+  }
+  return null;
+}
+
+/**
  * Employment status, including leaving.
  *
  * Separate from the profile edit because it is a different act: correcting a
@@ -246,6 +283,11 @@ export async function setStaffStatusAction(
 
   const hasLeft = ["RESIGNED", "TERMINATED", "RETIRED"].includes(status);
   const locked = hasLeft || status === "SUSPENDED";
+
+  if (staff.userId && locked) {
+    const refusal = await mayTouchAccount(user, staff.userId);
+    if (refusal) return { error: refusal };
+  }
 
   await db.staff.update({
     where: { id },
@@ -321,6 +363,11 @@ export async function deleteStaffAction(formData: FormData): Promise<StaffState>
     },
   });
   if (!staff) return { error: "Staff record not found." };
+
+  if (staff.userId) {
+    const refusal = await mayTouchAccount(user, staff.userId);
+    if (refusal) return { error: refusal };
+  }
 
   const history = [
     [staff._count.takenAttendance, "attendance session"],

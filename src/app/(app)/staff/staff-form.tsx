@@ -144,7 +144,7 @@ export function StaffForm({
           </Field>
           <div className="sm:col-span-2">
             <Field label="Photograph" htmlFor="photoUrl">
-              <ImageField id="photoUrl" name="photoUrl" defaultValue={values?.photoUrl} />
+              <ImageField id="photoUrl" name="photoUrl" defaultValue={values?.photoUrl} visibility="private" />
             </Field>
           </div>
         </CardBody>

@@ -46,8 +46,12 @@ export async function requestLeaveAction(
   const endRaw = text(formData, "endDate");
   if (!leaveType || !startRaw) return { error: "Choose the type and the first day." };
 
-  const startDate = new Date(startRaw);
-  const endDate = endRaw ? new Date(endRaw) : new Date(startRaw);
+  // Date-only strings parse as UTC midnight, but the weekday check below
+  // runs in server-local time — on a server west of Greenwich every date
+  // would shift a day. Anchoring to local noon-less midnight keeps them in
+  // the same calendar everywhere.
+  const startDate = new Date(startRaw + "T00:00:00");
+  const endDate = endRaw ? new Date(endRaw + "T00:00:00") : new Date(startRaw + "T00:00:00");
   if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
     return { error: "Those dates are not valid." };
   }

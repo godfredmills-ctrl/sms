@@ -38,7 +38,13 @@ export async function requestPasswordResetAction(
   // real and unreal accounts.
   const done = { ok: true as const };
 
-  if (!user || user.status !== "ACTIVE") return done;
+  if (!user || user.status !== "ACTIVE") {
+    // The unreal-account path must cost about what the real one costs, or
+    // response timing answers the question the message refuses to. Hashing a
+    // throwaway token approximates the real path's work.
+    hashToken(generateToken(32));
+    return done;
+  }
 
   // One live reset at a time, and no more than three requests an hour: a
   // reset form is also a free SMS cannon pointed at any number typed into it.

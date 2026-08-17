@@ -313,7 +313,9 @@ export default async function MemosPage({
                   isAuthor ||
                   recipient.userId === user.id,
               );
-              const acknowledged = memo.recipients.filter(
+              // Counted over the same visibility-filtered list as the display —
+              // an x/3 over two visible names advertises the blind copy.
+              const acknowledged = visibleRecipients.filter(
                 (recipient) => recipient.acknowledgedAt,
               ).length;
 
@@ -380,7 +382,7 @@ export default async function MemosPage({
                   <div className="mt-3 flex flex-wrap items-center gap-3 border-t border-[var(--border)] pt-3">
                     {memo.requiresAck ? (
                       <span className="text-xs text-[var(--text-subtle)]">
-                        {acknowledged}/{memo.recipients.length} acknowledged
+                        {acknowledged}/{visibleRecipients.length} acknowledged
                       </span>
                     ) : (
                       <span className="text-xs text-[var(--text-subtle)]">

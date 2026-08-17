@@ -33,7 +33,7 @@ export async function POST(request: Request) {
   // records end up permanently paperless.
   const mayUpload =
     user.roleKeys.includes("super_admin") ||
-    ["document.upload", "student.document.manage", "student.create", "staff.update", "staff.create", "student.guardian.manage"].some(
+    ["document.upload", "student.document.manage", "student.create", "staff.update", "staff.create", "student.guardian.manage", "communication.memo.create"].some(
       (permission) => user.permissions.has(permission),
     );
   if (!mayUpload) {

@@ -64,6 +64,10 @@ export default async function CoursePage({
   params: Promise<{ id: string }>;
 }) {
   const user = await requirePermission(["lms.course.read", "lms.course.manage"]);
+  // Staff surface only. Students hold lms.course.read for their portal, and
+  // this page carries the answer key, the class results and the marking
+  // queue — none of which survive a student opening the URL by hand.
+  if (user.portal !== "STAFF") notFound();
   const { id } = await params;
   const canManage = userCan(user, "lms.course.manage");
   const canGrade = userCan(user, "lms.assignment.manage");

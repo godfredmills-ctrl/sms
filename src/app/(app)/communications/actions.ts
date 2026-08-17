@@ -378,21 +378,34 @@ export async function createMemoAction(
     });
   } else {
     // Reference numbers are what staff quote in reply, so they are sequential
-    // and human-readable rather than an opaque id.
+    // and human-readable rather than an opaque id. Derived from the count and
+    // RETRIED on collision: discarding a draft shrinks the count, so the next
+    // number can repeat one already issued, and without the retry that unique
+    // constraint would refuse every new memo from then on.
     const year = new Date().getFullYear();
     const count = await db.memo.count();
-    const referenceNo = `MEMO/${year}/${String(count + 1).padStart(4, "0")}`;
 
-    memo = await db.memo.create({
-      data: {
-        ...shared,
-        referenceNo,
-        authorId: user.id,
-        recipients: { create: recipientRows },
-        attachments: { create: attachmentRows },
-      },
-      select: { id: true, referenceNo: true },
-    });
+    memo = null as never;
+    for (let attempt = 0; attempt < 5 && !memo; attempt += 1) {
+      const referenceNo = `MEMO/${year}/${String(count + 1 + attempt).padStart(4, "0")}`;
+      try {
+        memo = await db.memo.create({
+          data: {
+            ...shared,
+            referenceNo,
+            authorId: user.id,
+            recipients: { create: recipientRows },
+            attachments: { create: attachmentRows },
+          },
+          select: { id: true, referenceNo: true },
+        });
+      } catch (error) {
+        if (!(error as Error).message.includes("referenceNo")) throw error;
+      }
+    }
+    if (!memo) {
+      return { error: "Could not allocate a memo number. Try again." };
+    }
   }
 
   if (issueNow) {

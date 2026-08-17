@@ -115,7 +115,14 @@ export default async function AcademicCalendarPage({
         )
       : null;
 
-  const upcoming = events.filter((event) => event.endsAt >= now);
+  // endsAt for an all-day event is midnight at the START of its final day;
+  // compared raw, an event still happening today reads as past all day.
+  const endOfDay = (date: Date) => {
+    const end = new Date(date);
+    end.setHours(23, 59, 59, 999);
+    return end;
+  };
+  const upcoming = events.filter((event) => endOfDay(event.endsAt) >= now);
   const nextHoliday = upcoming.find((event) => event.isHoliday);
 
   // The agenda under the grid covers only the month on display — the grid is
@@ -235,7 +242,7 @@ export default async function AcademicCalendarPage({
                   />
                   <ul className="divide-y divide-[var(--border)]">
                       {monthEvents.map((event) => {
-                        const past = event.endsAt < now;
+                        const past = endOfDay(event.endsAt) < now;
                         const multiDay =
                           event.startsAt.toDateString() !== event.endsAt.toDateString();
                         return (

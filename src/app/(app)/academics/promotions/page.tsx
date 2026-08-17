@@ -76,10 +76,10 @@ export default async function PromotionsPage() {
       })
     : [];
 
-  const maxSequence = Math.max(
-    0,
-    ...sections.map((section) => section.classLevel.sequence),
-  );
+  // The school's true final level, from the level table — deriving it from
+  // populated sections would crown JHS 2 the moment JHS 3 stood empty.
+  const topLevel = await db.classLevel.aggregate({ _max: { sequence: true } });
+  const maxSequence = topLevel._max.sequence ?? 0;
 
   const formSections: PromotionSection[] = sections.map((section) => ({
     id: section.id,
