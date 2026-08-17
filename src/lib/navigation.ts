@@ -72,6 +72,18 @@ export const STAFF_NAVIGATION: NavGroup[] = [
             icon: "ShieldAlert",
             permissions: ["student.discipline.manage"],
           },
+          {
+            label: "Boarding",
+            href: "/students/boarding",
+            icon: "BedDouble",
+            permissions: ["student.read"],
+          },
+          {
+            label: "ID cards",
+            href: "/students/id-cards",
+            icon: "IdCard",
+            permissions: ["student.read", "staff.read"],
+          },
         ],
       },
       {

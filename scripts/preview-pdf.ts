@@ -18,6 +18,7 @@ import { PDFDocument, StandardFonts } from "pdf-lib";
 import QRCode from "qrcode";
 import sharp from "sharp";
 
+import { renderIdCardsPdf } from "../src/lib/id-card-pdf";
 import { renderReportCardPdf, renderTablePdf, renderTemplatePdf } from "../src/lib/pdf";
 import { starterLayout } from "../src/lib/templates";
 
@@ -183,7 +184,57 @@ async function main() {
     }),
   );
 
-  console.log(`Wrote four PDFs to ${out}`);
+  // ID cards: the crest doubles as a photo that is not card-shaped, so the
+  // cover-and-mask arithmetic is exercised; one very long name, one missing
+  // photo, one with nothing on the back but the return address.
+  writeFileSync(
+    `${out}/id-cards.pdf`,
+    await renderIdCardsPdf({
+      school: {
+        name: "Golden Crest International School",
+        address: "12 Independence Avenue, Accra",
+        phone: "+233 30 212 3456",
+      },
+      crest,
+      brandHex: "#2C66CE",
+      title: "Student Identity Card",
+      roleLabel: "Class",
+      detailLabel: "House",
+      validity: "Valid: 2026/2027 academic year",
+      people: [
+        {
+          name: "Priscilla Naa Quartey",
+          number: "GCS/2024/0390",
+          role: "JHS 2 Amber",
+          detail: "Ruby house",
+          photo: crest,
+          emergencyName: "Comfort Quartey",
+          emergencyPhone: "+233 24 555 0192",
+          bloodGroup: "O+",
+        },
+        {
+          name: "Nana Yaw Owusu-Ansah Boateng-Mensah",
+          number: "GCS/2023/0114",
+          role: "Primary 6 Sapphire",
+          detail: null,
+          photo: null,
+          emergencyName: "Akosua Boateng-Mensah",
+          emergencyPhone: "+233 20 555 8871",
+        },
+        {
+          name: "Kwabena Asante",
+          number: "GCS/2025/0501",
+          role: "JHS 1 Amber",
+          detail: "Topaz house",
+          photo: null,
+        },
+        { name: "Efua Mensimah", number: "GCS/2022/0007", role: "JHS 3 Coral", photo: crest },
+        { name: "Yaw Darko", number: "GCS/2024/0400", role: "JHS 2 Amber", photo: null },
+      ],
+    }),
+  );
+
+  console.log(`Wrote five PDFs to ${out}`);
   await checkMastheadClearance();
   await checkBackgroundIsDrawn(layout, backdrop);
   await checkVerificationCode();
