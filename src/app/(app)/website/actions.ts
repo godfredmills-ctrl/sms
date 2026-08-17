@@ -48,6 +48,10 @@ export async function updateSiteAction(
         wash: text(formData, "wash") || "#FAF6EE",
         headingFont: text(formData, "headingFont") || "serif",
       },
+      globals: {
+        nameCaption: text(formData, "nameCaption"),
+        tagline: text(formData, "tagline"),
+      },
       contactInfo: {
         address: text(formData, "address"),
         phone: text(formData, "phone"),

@@ -177,7 +177,7 @@ export function SchoolForm({ values }: { values: SchoolValues }) {
       <Card>
         <CardHeader
           title="Branding"
-          description="Drives report card headers, certificates and the generated website."
+          description="The primary colour repaints the whole application — buttons, links, the sidebar — and the accent appears on certificates. Both print on documents."
         />
         <CardBody className="grid gap-3 sm:grid-cols-2">
           {/* Certificates, transcripts and report cards embed these, and only

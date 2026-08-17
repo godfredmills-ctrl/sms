@@ -2782,6 +2782,10 @@ async function seedWebsite(school: { id: string; name: string; motto: string | n
         facebook: "https://facebook.com/goldencrestgh",
         instagram: "https://instagram.com/goldencrestgh",
       },
+      globals: {
+        nameCaption: "International School",
+        tagline: "Inspiring minds. Shaping futures. Building a better tomorrow.",
+      },
       publishedAt: new Date(),
     },
   });
@@ -2813,8 +2817,8 @@ async function seedWebsite(school: { id: string; name: string; motto: string | n
             imageUrl: art.hero ?? "",
             ctaLabel: "Discover our school",
             ctaHref: "/site/about",
-            secondaryCtaLabel: "Apply for admission",
-            secondaryCtaHref: "/site/admissions",
+            secondaryCtaLabel: "Watch video",
+            secondaryCtaHref: "/site/about",
             badgeTitle: "A Legacy of Excellence",
             badgeText: "Since 2011",
           },
@@ -3008,11 +3012,128 @@ async function seedWebsite(school: { id: string; name: string; motto: string | n
   await db.sitePage.create({
     data: {
       siteId: site.id,
+      title: "Academics",
+      slug: "academics",
+      status: "PUBLISHED",
+      publishedAt: new Date(),
+      sortKey: 3,
+      blocks: [
+        {
+          id: "intro",
+          type: "richText",
+          props: {
+            eyebrow: "Academics",
+            heading: "A Curriculum With Two Front Doors",
+            body: "Every Golden Crest student follows the Ghana Education Service curriculum and the British framework side by side, taught by subject specialists from Basic 4 upward. Small classes, weekly practical sessions, and a reading programme that starts in Nursery.",
+          },
+        },
+        {
+          id: "programmes",
+          type: "cards",
+          props: {
+            heading: "Our Programmes",
+            items: [
+              `Early Years | Play-led learning that builds curiosity and confidence. | | ${art.programmeA ?? ""} | Ages 3–5`,
+              `Primary School | Literacy, numeracy and science on two curricula. | | ${art.programmeB ?? ""} | Basic 1–6`,
+              `Junior High | Specialist teaching toward the BECE and beyond. | | ${art.programmeC ?? ""} | JHS 1–3`,
+            ].join("\n"),
+          },
+        },
+        {
+          id: "figures",
+          type: "stats",
+          props: {
+            heading: "",
+            items: [
+              "15:1 | Student-Teacher Ratio",
+              "98% | BECE Pass Rate",
+              "2 | Curricula Offered",
+              "38 | Qualified Teachers",
+            ].join("\n"),
+          },
+        },
+      ] as never,
+    },
+  });
+
+  await db.sitePage.create({
+    data: {
+      siteId: site.id,
+      title: "Campus Life",
+      slug: "campus-life",
+      status: "PUBLISHED",
+      publishedAt: new Date(),
+      sortKey: 4,
+      blocks: [
+        {
+          id: "intro",
+          type: "richText",
+          props: {
+            eyebrow: "Campus life",
+            heading: "More Than a Timetable",
+            body: "Thirty clubs and activities run every week — robotics, debate, football, choir, chess, art. Every class runs a community project every term, and the whole school gathers for assembly on Friday mornings.",
+          },
+        },
+        {
+          id: "gallery",
+          type: "gallery",
+          props: {
+            heading: "Around the School",
+            images: [art.hero, art.campus, art.programmeA, art.programmeB, art.programmeC, art.admissions]
+              .filter(Boolean)
+              .join("\n"),
+          },
+        },
+        {
+          id: "quote",
+          type: "quote",
+          props: {
+            quote:
+              "My son found his people in the robotics club. He talks about school at dinner now — that never used to happen.",
+            attribution: "Parent of a Basic 6 student",
+          },
+        },
+      ] as never,
+    },
+  });
+
+  await db.sitePage.create({
+    data: {
+      siteId: site.id,
+      title: "News & Events",
+      slug: "news",
+      status: "PUBLISHED",
+      publishedAt: new Date(),
+      sortKey: 5,
+      blocks: [
+        {
+          id: "news",
+          type: "news",
+          props: { eyebrow: "News & events", heading: "The Latest", count: "6" },
+        },
+        {
+          id: "calendar-cta",
+          type: "cta",
+          props: {
+            eyebrow: "Term dates",
+            heading: "Never miss a school day",
+            body: "Term dates, holidays and events live in the parent portal's calendar, updated by the school office.",
+            ctaLabel: "Open the parent portal",
+            ctaHref: "/login",
+          },
+        },
+      ] as never,
+    },
+  });
+
+  await db.sitePage.create({
+    data: {
+      siteId: site.id,
       title: "Contact",
       slug: "contact",
       status: "PUBLISHED",
       publishedAt: new Date(),
-      sortKey: 3,
+      sortKey: 6,
       blocks: [
         {
           id: "contact",

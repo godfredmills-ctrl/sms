@@ -65,12 +65,15 @@ export default async function WebsitePage() {
   }
 
   const theme = (site.theme ?? {}) as Record<string, string>;
+  const globals = (site.globals ?? {}) as Record<string, string>;
   const contact = (site.contactInfo ?? {}) as Record<string, string>;
   const social = (site.socialLinks ?? {}) as Record<string, string>;
 
   const values: SiteValues = {
     id: site.id,
     name: site.name,
+    nameCaption: globals.nameCaption ?? "",
+    tagline: globals.tagline ?? "",
     domain: site.domain ?? "",
     metaTitle: site.metaTitle ?? "",
     metaDescription: site.metaDescription ?? "",

@@ -1,14 +1,20 @@
 import Link from "next/link";
 import {
+  ArrowRight,
   Award,
-  GraduationCap,
+  BookOpen,
+  CalendarDays,
+  Clock,
   Globe2,
+  GraduationCap,
+  Heart,
   Lightbulb,
+  Mail,
   MapPin,
   Phone,
-  Mail,
-  Clock,
+  Play,
   ShieldCheck,
+  Trophy,
   Users,
 } from "lucide-react";
 
@@ -133,6 +139,7 @@ export function RenderBlock({
         style={{ background: theme.gold, color: theme.navy }}
       >
         {label}
+        <ArrowRight className="ml-1.5 size-4" />
       </Link>
     ) : null;
 
@@ -144,6 +151,7 @@ export function RenderBlock({
         style={{ background: theme.navy }}
       >
         {label}
+        <ArrowRight className="ml-1.5 size-4" />
       </Link>
     ) : null;
 
@@ -184,7 +192,21 @@ export function RenderBlock({
               ) : null}
               <div className="mt-8 flex flex-wrap gap-3">
                 {navyButton(ctaLabel, ctaHref)}
-                {goldButton(props.secondaryCtaLabel, safeHref(props.secondaryCtaHref))}
+                {props.secondaryCtaLabel && safeHref(props.secondaryCtaHref) ? (
+                  <Link
+                    href={safeHref(props.secondaryCtaHref)}
+                    className="inline-flex h-11 items-center gap-2 rounded-md border-2 px-6 text-sm font-semibold transition-colors"
+                    style={{ borderColor: theme.navy, color: theme.navy }}
+                  >
+                    <span
+                      className="flex size-6 items-center justify-center rounded-full"
+                      style={{ background: tint(theme.navy, 10) }}
+                    >
+                      <Play className="size-3" fill="currentColor" />
+                    </span>
+                    {props.secondaryCtaLabel}
+                  </Link>
+                ) : null}
               </div>
             </div>
 
@@ -240,10 +262,13 @@ export function RenderBlock({
             {rows.map((row, index) => {
               const Icon = icons[index % icons.length];
               return (
-                <div key={index} className="flex items-start gap-3">
+                <div
+                  key={index}
+                  className={"flex items-start gap-3 lg:pl-6" + (index === 0 ? " lg:pl-0" : " lg:border-l lg:border-white/15")}
+                >
                   <span
                     className="mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-full"
-                    style={{ background: "rgb(255 255 255 / 0.1)", color: theme.gold }}
+                    style={{ border: "1.5px solid rgb(255 255 255 / 0.35)", color: theme.gold }}
                   >
                     <Icon className="size-5" />
                   </span>
@@ -360,22 +385,40 @@ export function RenderBlock({
                 </p>
               ) : null}
               {ctaLabel && ctaHref ? (
-                <div className="mt-6">{navyButton(ctaLabel, ctaHref)}</div>
+                <div className="mt-6">
+                  <Link
+                    href={ctaHref}
+                    className="inline-flex h-11 items-center gap-1.5 rounded-md border-2 px-6 text-sm font-semibold transition-colors"
+                    style={{ borderColor: theme.navy, color: theme.navy }}
+                  >
+                    {ctaLabel}
+                    <ArrowRight className="size-4" />
+                  </Link>
+                </div>
               ) : null}
 
               {stats.length ? (
-                <div className="mt-8 flex flex-wrap gap-x-8 gap-y-4 border-t border-slate-200 pt-6">
-                  {stats.map((stat, index) => (
-                    <div key={index}>
-                      <p
-                        className="numeric text-2xl font-bold"
-                        style={{ ...heading, color: theme.navy }}
+                <div className="mt-8 flex flex-wrap gap-y-4 border-t border-slate-200 pt-6">
+                  {stats.map((stat, index) => {
+                    const StatIcon = [Users, Heart, Trophy, BookOpen][index % 4];
+                    return (
+                      <div
+                        key={index}
+                        className={"flex items-center gap-2.5 pr-6" + (index === 0 ? "" : " border-l border-slate-200 pl-6")}
                       >
-                        {stat[0]}
-                      </p>
-                      <p className="text-xs text-slate-500">{stat[1]}</p>
-                    </div>
-                  ))}
+                        <StatIcon className="size-6 shrink-0" style={{ color: theme.goldText }} />
+                        <div>
+                          <p
+                            className="numeric text-2xl leading-tight font-bold"
+                            style={{ ...heading, color: theme.navy }}
+                          >
+                            {stat[0]}
+                          </p>
+                          <p className="text-xs text-slate-500">{stat[1]}</p>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               ) : null}
             </div>
@@ -517,17 +560,28 @@ export function RenderBlock({
               className="grid gap-8 text-center"
               style={{ gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))" }}
             >
-              {rows.map((row, index) => (
-                <div key={index}>
-                  <p
-                    className="numeric text-3xl font-bold sm:text-4xl"
-                    style={{ ...heading, color: theme.gold }}
-                  >
-                    {row[0]}
-                  </p>
-                  <p className="mt-1 text-xs text-white/70">{row[1]}</p>
-                </div>
-              ))}
+              {rows.map((row, index) => {
+                const BandIcon = [GraduationCap, Users, Award, Trophy, BookOpen][index % 5];
+                return (
+                  <div key={index} className="flex items-center justify-center gap-3">
+                    <span
+                      className="flex size-11 shrink-0 items-center justify-center rounded-full"
+                      style={{ border: "1.5px solid rgb(255 255 255 / 0.3)", color: theme.gold }}
+                    >
+                      <BandIcon className="size-5" />
+                    </span>
+                    <div className="text-left">
+                      <p
+                        className="numeric text-3xl leading-tight font-bold"
+                        style={{ ...heading, color: theme.gold }}
+                      >
+                        {row[0]}
+                      </p>
+                      <p className="text-xs text-white/70">{row[1]}</p>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
         </section>

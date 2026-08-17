@@ -13,6 +13,8 @@ import { createPageAction, updateSiteAction, type SiteState } from "./actions";
 export type SiteValues = {
   id: string;
   name: string;
+  nameCaption: string;
+  tagline: string;
   domain: string;
   metaTitle: string;
   metaDescription: string;
@@ -47,6 +49,22 @@ export function SiteSettingsForm({ values }: { values: SiteValues }) {
 
         <Field label="Site name" htmlFor="name" required>
           <Input id="name" name="name" defaultValue={values.name} required />
+        </Field>
+
+        <Field
+          label="Name caption"
+          htmlFor="nameCaption"
+          hint="The small line under the school name in the header — e.g. INTERNATIONAL SCHOOL."
+        >
+          <Input id="nameCaption" name="nameCaption" defaultValue={values.nameCaption} />
+        </Field>
+
+        <Field
+          label="Tagline"
+          htmlFor="tagline"
+          hint="Shown in the footer — e.g. Inspiring minds. Shaping futures."
+        >
+          <Input id="tagline" name="tagline" defaultValue={values.tagline} />
         </Field>
 
         <Field

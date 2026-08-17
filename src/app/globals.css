@@ -132,6 +132,39 @@
   color-scheme: dark;
 }
 
+/*
+ * School branding.
+ *
+ * Settings → School profile → Primary colour lands here as --brand-primary,
+ * set inline by the app layout, and everything the interface calls "primary"
+ * re-derives from it: buttons, links, the focus ring, soft backgrounds, the
+ * sidebar. One property in, a whole palette out — which is what makes the
+ * setting real rather than a swatch that changes nothing.
+ */
+[data-brand] {
+  --primary: var(--brand-primary);
+  --primary-hover: color-mix(in srgb, var(--brand-primary) 85%, #000);
+  --primary-soft: color-mix(in srgb, var(--brand-primary) 13%, transparent);
+  --primary-text: #ffffff;
+  --ring: var(--brand-primary);
+  --sidebar-bg: var(--brand-primary);
+  --sidebar-active-bg: rgb(255 255 255 / 0.2);
+  --sidebar-flyout: color-mix(in srgb, var(--brand-primary) 70%, #000);
+  --sidebar-tooltip: color-mix(in srgb, var(--brand-primary) 55%, #000);
+}
+
+/* In dark mode the brand colour is lightened before use — a deep navy chosen
+   for a white page disappears on a dark one. */
+:root[data-theme="dark"] [data-brand] {
+  --primary: color-mix(in srgb, var(--brand-primary) 60%, #fff);
+  --primary-hover: color-mix(in srgb, var(--brand-primary) 45%, #fff);
+  --primary-soft: color-mix(in srgb, var(--brand-primary) 30%, transparent);
+  --primary-text: #0b1220;
+  --ring: color-mix(in srgb, var(--brand-primary) 60%, #fff);
+  /* The sidebar keeps the true brand colour — it is the school's flag. */
+  --sidebar-bg: var(--brand-primary);
+}
+
 @theme inline {
   --color-bg: var(--bg);
   --color-surface: var(--bg-elevated);

@@ -153,6 +153,9 @@ export default async function PublicSitePage({
   }
 
   const rawTheme = (site.theme ?? {}) as Record<string, string>;
+  // Display extras a school sets in site settings: the small line under the
+  // school name, and the footer tagline.
+  const globals = (site.globals ?? {}) as Record<string, string>;
   const contact = (site.contactInfo ?? {}) as Record<string, string>;
   const social = (site.socialLinks ?? {}) as Record<string, string>;
 
@@ -267,11 +270,21 @@ export default async function PublicSitePage({
               // eslint-disable-next-line @next/next/no-img-element
               <img src={site.logoUrl} alt="" className="h-10 w-auto shrink-0" />
             ) : null}
-            <span
-              className="truncate text-lg leading-tight font-bold tracking-tight"
-              style={{ fontFamily: "var(--heading-font)", color: theme.navy }}
-            >
-              {site.name}
+            <span className="min-w-0">
+              <span
+                className="block truncate text-lg leading-tight font-bold tracking-tight"
+                style={{ fontFamily: "var(--heading-font)", color: theme.navy }}
+              >
+                {site.name}
+              </span>
+              {globals.nameCaption ? (
+                <span
+                  className="block truncate text-[9px] font-semibold tracking-[0.28em] uppercase"
+                  style={{ color: theme.goldText }}
+                >
+                  {globals.nameCaption}
+                </span>
+              ) : null}
             </span>
           </Link>
 
@@ -336,7 +349,7 @@ export default async function PublicSitePage({
       </main>
 
       <footer style={{ background: theme.navy }} className="text-white">
-        <div className="mx-auto grid max-w-6xl gap-10 px-6 py-12 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mx-auto grid max-w-6xl gap-10 px-6 py-12 sm:grid-cols-2 lg:grid-cols-5">
           <div>
             <div className="flex items-center gap-2.5">
               {site.logoUrl ? (
@@ -350,9 +363,9 @@ export default async function PublicSitePage({
                 {site.name}
               </p>
             </div>
-            {site.metaDescription ? (
+            {globals.tagline || site.metaDescription ? (
               <p className="mt-3 text-xs leading-relaxed text-white/60">
-                {site.metaDescription}
+                {globals.tagline || site.metaDescription}
               </p>
             ) : null}
             <div className="mt-4 flex gap-2">
@@ -407,6 +420,29 @@ export default async function PublicSitePage({
               className="text-sm font-bold tracking-wide uppercase"
               style={{ color: theme.gold }}
             >
+              Resources
+            </p>
+            <nav className="mt-3 space-y-1.5 text-xs">
+              <Link href="/login" className="block text-white/70 hover:text-white">
+                Parent Portal
+              </Link>
+              <Link href="/login" className="block text-white/70 hover:text-white">
+                Student Login
+              </Link>
+              <Link href="/login" className="block text-white/70 hover:text-white">
+                Staff Login
+              </Link>
+              <Link href="/verify" className="block text-white/70 hover:text-white">
+                Verify a Document
+              </Link>
+            </nav>
+          </div>
+
+          <div>
+            <p
+              className="text-sm font-bold tracking-wide uppercase"
+              style={{ color: theme.gold }}
+            >
               Contact us
             </p>
             <div className="mt-3 space-y-2 text-xs text-white/70">
@@ -428,15 +464,6 @@ export default async function PublicSitePage({
                   {contact.email}
                 </p>
               ) : null}
-              <p className="pt-1">
-                <Link href="/login" className="text-white/70 underline hover:text-white">
-                  Portal login
-                </Link>
-                {" · "}
-                <Link href="/verify" className="text-white/70 underline hover:text-white">
-                  Verify a document
-                </Link>
-              </p>
             </div>
           </div>
 
