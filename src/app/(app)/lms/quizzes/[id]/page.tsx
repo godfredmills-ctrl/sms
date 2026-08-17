@@ -32,6 +32,7 @@ import { db } from "@/lib/db";
 import { percentOf } from "@/lib/money";
 import { formatDateTime, fullName, humanise, toNumber } from "@/lib/utils";
 
+import { addFromBankAction } from "../../bank/actions";
 import {
   addQuestionAction,
   deleteQuestionAction,
@@ -78,6 +79,7 @@ export default async function QuizPage({
           title: true,
           offering: {
             select: {
+              subjectId: true,
               classSection: {
                 select: { _count: { select: { enrollments: true } } },
               },
@@ -107,6 +109,23 @@ export default async function QuizPage({
   });
 
   if (!quiz) notFound();
+
+  // The bank shelf for this quiz's subject, plus unshelved questions. Only
+  // fetched for someone who can author.
+  const bankQuestions = canManage
+    ? await db.quizQuestion.findMany({
+        where: {
+          quizId: null,
+          OR: [
+            { subjectId: quiz.course.offering?.subjectId ?? "___none___" },
+            { subjectId: null },
+          ],
+        },
+        orderBy: { id: "desc" },
+        take: 50,
+        select: { id: true, prompt: true },
+      })
+    : [];
 
   const totalMarks = quiz.questions.reduce(
     (sum, question) => sum + (toNumber(question.points) ?? 1),
@@ -485,6 +504,43 @@ export default async function QuizPage({
                 </CardBody>
               </form>
             </Card>
+
+            {/* The bank shelf for this quiz's subject: one click copies a
+                question in. Copies, deliberately — editing this quiz must
+                never rewrite the bank or another teacher's quiz. */}
+            {bankQuestions.length ? (
+              <Card>
+                <CardHeader
+                  title="From the question bank"
+                  description={`${bankQuestions.length} on the shelf. Adding copies the question into this quiz.`}
+                  action={
+                    <Link
+                      href="/lms/bank"
+                      className="text-xs text-[var(--primary)] hover:underline"
+                    >
+                      Open the bank
+                    </Link>
+                  }
+                />
+                <ul className="max-h-80 divide-y divide-[var(--border)] overflow-y-auto">
+                  {bankQuestions.map((question) => (
+                    <li
+                      key={question.id}
+                      className="flex items-center gap-2 px-4 py-2.5"
+                    >
+                      <p className="min-w-0 flex-1 truncate text-xs">{question.prompt}</p>
+                      <form action={addFromBankAction}>
+                        <input type="hidden" name="quizId" value={quiz.id} />
+                        <input type="hidden" name="bankQuestionId" value={question.id} />
+                        <Button type="submit" variant="ghost" size="sm" title="Copy into this quiz">
+                          <Plus className="size-3.5" />
+                        </Button>
+                      </form>
+                    </li>
+                  ))}
+                </ul>
+              </Card>
+            ) : null}
 
             <Card>
               <CardBody className="space-y-1.5 text-xs text-[var(--text-muted)]">

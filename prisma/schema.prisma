@@ -1320,6 +1320,7 @@ model Subject {
   levels          LevelSubject[]
   reportLines     ReportCardLine[]
   transcriptLines TranscriptLine[]
+  bankQuestions QuizQuestion[] @relation("BankQuestions")
 
   @@index([department])
 }
@@ -2883,9 +2884,17 @@ model Quiz {
 }
 
 model QuizQuestion {
-  id              String       @id @default(cuid())
-  quizId          String
-  quiz            Quiz         @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  id     String @id @default(cuid())
+  /// Null for question-bank entries — a bank question belongs to a subject
+  /// shelf, not a quiz, and is COPIED into quizzes rather than shared, so
+  /// editing a quiz never rewrites the bank or another teacher's quiz.
+  quizId String?
+  quiz   Quiz?   @relation(fields: [quizId], references: [id], onDelete: Cascade)
+
+  /// The bank shelf. Meaningful mainly when quizId is null.
+  subjectId String?
+  subject   Subject? @relation("BankQuestions", fields: [subjectId], references: [id], onDelete: SetNull)
+
   type            QuestionType @default(MULTIPLE_CHOICE)
   prompt          String
   imageUrl        String?
@@ -2894,11 +2903,13 @@ model QuizQuestion {
   acceptedAnswers String[]     @default([])
   explanation     String?
   sortKey         Int          @default(0)
+  createdById     String?
 
   options QuizOption[]
   answers QuizAnswer[]
 
   @@index([quizId, sortKey])
+  @@index([subjectId])
 }
 
 model QuizOption {

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { authorize } from "@/lib/auth";
+import { parseQuestionInput } from "../question-input";
 import { db } from "@/lib/db";
 import { markAttempt, type SubmittedAnswer } from "@/lib/quizzes";
 import { toNumber } from "@/lib/utils";
@@ -67,12 +68,15 @@ export async function createQuizFormAction(formData: FormData) {
 }
 
 export async function addQuestionAction(formData: FormData) {
-  await authorize("lms.quiz.manage");
+  const user = await authorize("lms.quiz.manage");
 
   const quizId = text(formData, "quizId");
-  const prompt = text(formData, "prompt");
-  const type = text(formData, "type") || "MULTIPLE_CHOICE";
-  if (!quizId || !prompt) return;
+  if (!quizId) return;
+
+  // Shared with the question bank, so the two cannot disagree about what an
+  // asterisk means.
+  const parsed = parseQuestionInput(formData);
+  if (!parsed) return;
 
   const last = await db.quizQuestion.findFirst({
     where: { quizId },
@@ -80,52 +84,20 @@ export async function addQuestionAction(formData: FormData) {
     select: { sortKey: true },
   });
 
-  // Options arrive as lines of "text" with the correct ones marked by a
-  // leading asterisk — far quicker to type than a row of paired inputs, and it
-  // survives being pasted from a word processor.
-  const optionLines = text(formData, "options")
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean);
-
-  const isChoice = ["MULTIPLE_CHOICE", "MULTIPLE_ANSWER", "TRUE_FALSE"].includes(type);
-
-  const options =
-    type === "TRUE_FALSE"
-      ? [
-          { text: "True", isCorrect: text(formData, "correctBoolean") === "true" },
-          { text: "False", isCorrect: text(formData, "correctBoolean") !== "true" },
-        ]
-      : optionLines.map((line) => ({
-          text: line.replace(/^\*\s*/, ""),
-          isCorrect: line.startsWith("*"),
-        }));
-
-  // A choice question with nothing marked correct can never be answered
-  // correctly, and would silently drag every score down.
-  if (isChoice && !options.some((option) => option.isCorrect)) return;
-
-  const points = Number(text(formData, "points"));
-
   await db.quizQuestion.create({
     data: {
       quizId,
-      type: type as never,
-      prompt,
-      points: Number.isFinite(points) && points > 0 ? points : 1,
-      explanation: text(formData, "explanation") || null,
-      acceptedAnswers:
-        type === "SHORT_ANSWER" || type === "FILL_BLANK"
-          ? text(formData, "acceptedAnswers")
-              .split(/[\n,]/)
-              .map((entry) => entry.trim())
-              .filter(Boolean)
-          : [],
+      type: parsed.type as never,
+      prompt: parsed.prompt,
+      points: parsed.points,
+      explanation: parsed.explanation,
+      acceptedAnswers: parsed.acceptedAnswers,
       sortKey: (last?.sortKey ?? 0) + 10,
-      ...(isChoice
+      createdById: user.id,
+      ...(parsed.isChoice
         ? {
             options: {
-              create: options.map((option, index) => ({
+              create: parsed.options.map((option, index) => ({
                 text: option.text,
                 isCorrect: option.isCorrect,
                 sortKey: index,

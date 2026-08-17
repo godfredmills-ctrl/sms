@@ -158,6 +158,15 @@ export const STAFF_NAVIGATION: NavGroup[] = [
         href: "/lms",
         icon: "MonitorPlay",
         permissions: ["lms.course.read", "lms.course.manage"],
+        children: [
+          { label: "All courses", href: "/lms", icon: "MonitorPlay" },
+          {
+            label: "Question bank",
+            href: "/lms/bank",
+            icon: "Library",
+            permissions: ["lms.quiz.manage"],
+          },
+        ],
       },
     ],
   },
