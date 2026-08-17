@@ -119,6 +119,12 @@ export const STAFF_NAVIGATION: NavGroup[] = [
             href: "/academics/calendar",
             icon: "CalendarDays",
           },
+          {
+            label: "Promotions",
+            href: "/academics/promotions",
+            icon: "ArrowUpRight",
+            permissions: ["student.promote"],
+          },
         ],
       },
       {
