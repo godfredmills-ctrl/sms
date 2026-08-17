@@ -1,5 +1,12 @@
 import type { Metadata } from "next";
-import { CalendarCheck, GraduationCap, Home, Phone, Pill } from "lucide-react";
+import {
+  CalendarCheck,
+  GraduationCap,
+  Home,
+  Phone,
+  Pill,
+  ShieldAlert,
+} from "lucide-react";
 
 import {
   Alert,
@@ -38,7 +45,7 @@ export default async function GuardianChildrenPage() {
   const links = await wardsFor(user.guardianId);
   if (!links.length) return <NotLinked title="My Children" />;
 
-  const [attendance, medical] = await Promise.all([
+  const [attendance, medical, conduct] = await Promise.all([
     db.attendanceRecord.groupBy({
       by: ["studentId", "status"],
       where: { studentId: { in: links.map((link) => link.student.id) } },
@@ -52,6 +59,27 @@ export default async function GuardianChildrenPage() {
         allergies: true,
         conditions: true,
         emergencyInstructions: true,
+      },
+    }),
+    // The facts of the record, not the narrative: category, sanction and how
+    // it ended. The discipline notification says "contact the school" — this
+    // is what the parent finds when they do, so the two must agree. The
+    // description and witness names stay on the staff side; the full account
+    // is a conversation, and other children's names are never a parent's to
+    // read here.
+    db.disciplinaryRecord.findMany({
+      where: { studentId: { in: links.map((link) => link.student.id) } },
+      orderBy: { incidentAt: "desc" },
+      select: {
+        id: true,
+        studentId: true,
+        incidentAt: true,
+        category: true,
+        severity: true,
+        sanction: true,
+        suspensionDays: true,
+        status: true,
+        resolution: true,
       },
     }),
   ]);
@@ -218,6 +246,66 @@ export default async function GuardianChildrenPage() {
                     </p>
                   </div>
                 </div>
+
+                {(() => {
+                  const records = conduct.filter(
+                    (record) => record.studentId === student.id,
+                  );
+                  if (!records.length) return null;
+                  return (
+                    <div className="border-t border-[var(--border)] pt-3">
+                      <p className="mb-2 flex items-center gap-1 text-xs font-medium text-[var(--text-muted)]">
+                        <ShieldAlert className="size-3" />
+                        Conduct record
+                      </p>
+                      <ul className="space-y-2">
+                        {records.map((record) => (
+                          <li
+                            key={record.id}
+                            className="flex flex-wrap items-center gap-1.5 text-xs"
+                          >
+                            <span className="numeric text-[var(--text-subtle)]">
+                              {formatDate(record.incidentAt)}
+                            </span>
+                            <span className="font-medium">
+                              {humanise(record.category)}
+                            </span>
+                            <Badge
+                              tone={
+                                record.severity === "SEVERE" ||
+                                record.severity === "MAJOR"
+                                  ? "danger"
+                                  : record.severity === "MODERATE"
+                                    ? "warning"
+                                    : "neutral"
+                              }
+                            >
+                              {humanise(record.severity)}
+                            </Badge>
+                            {record.sanction ? (
+                              <span className="text-[var(--text-muted)]">
+                                {humanise(record.sanction)}
+                                {record.suspensionDays
+                                  ? ` (${record.suspensionDays} day${record.suspensionDays === 1 ? "" : "s"})`
+                                  : ""}
+                              </span>
+                            ) : null}
+                            <StatusBadge status={record.status} />
+                            {record.resolution ? (
+                              <span className="text-[var(--text-subtle)]">
+                                — {record.resolution}
+                              </span>
+                            ) : null}
+                          </li>
+                        ))}
+                      </ul>
+                      <p className="mt-2 text-xs text-[var(--text-subtle)]">
+                        Questions about any entry belong with the form teacher or the
+                        school office.
+                      </p>
+                    </div>
+                  );
+                })()}
               </CardBody>
             </Card>
           );
