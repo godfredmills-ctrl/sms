@@ -26,11 +26,16 @@ const PER_PAGE = 20;
 type EnquiryData = {
   childName?: string;
   childDateOfBirth?: string | null;
+  childGender?: string | null;
   level?: string;
   intake?: string | null;
+  previousSchool?: string | null;
   parentName?: string;
+  relationship?: string | null;
   phone?: string;
   email?: string | null;
+  city?: string | null;
+  heardFrom?: string | null;
   message?: string | null;
   note?: string;
 };
@@ -240,25 +245,34 @@ export default async function EnquiriesPage({
                   </div>
                 </div>
 
-                <dl className="mt-3 grid grid-cols-2 gap-x-6 gap-y-1 text-sm sm:grid-cols-3">
-                  <div>
-                    <dt className="text-[10px] tracking-wide text-[var(--text-subtle)] uppercase">
-                      Parent / guardian
-                    </dt>
-                    <dd className="font-medium">{data.parentName ?? "—"}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-[10px] tracking-wide text-[var(--text-subtle)] uppercase">
-                      Phone
-                    </dt>
-                    <dd className="numeric font-medium">{data.phone ?? "—"}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-[10px] tracking-wide text-[var(--text-subtle)] uppercase">
-                      Email
-                    </dt>
-                    <dd className="truncate font-medium">{data.email ?? "—"}</dd>
-                  </div>
+                <dl className="mt-3 grid grid-cols-2 gap-x-6 gap-y-2 text-sm sm:grid-cols-3">
+                  {[
+                    {
+                      label: "Parent / guardian",
+                      value: [data.parentName, data.relationship]
+                        .filter(Boolean)
+                        .join(" · "),
+                    },
+                    { label: "Phone", value: data.phone, numeric: true },
+                    { label: "Email", value: data.email },
+                    { label: "Gender", value: data.childGender },
+                    { label: "Previous school", value: data.previousSchool },
+                    { label: "Area", value: data.city },
+                    { label: "Heard about us", value: data.heardFrom },
+                  ]
+                    .filter((entry) => entry.value)
+                    .map((entry) => (
+                      <div key={entry.label}>
+                        <dt className="text-[10px] tracking-wide text-[var(--text-subtle)] uppercase">
+                          {entry.label}
+                        </dt>
+                        <dd
+                          className={`truncate font-medium ${entry.numeric ? "numeric" : ""}`}
+                        >
+                          {entry.value}
+                        </dd>
+                      </div>
+                    ))}
                 </dl>
 
                 {data.message ? (
@@ -272,7 +286,7 @@ export default async function EnquiriesPage({
                     href={`/students/new?from=${submission.id}`}
                     className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-[var(--primary)] px-3 text-xs font-medium text-[var(--primary-text)] hover:bg-[var(--primary-hover)]"
                   >
-                    Admit this child
+                    Start admission
                   </Link>
 
                   {!submission.isRead ? (

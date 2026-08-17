@@ -17,6 +17,8 @@ import {
 
 import { FamilyTree, type FamilyNode } from "@/components/family-tree";
 import { PersonDocuments } from "@/components/person-documents";
+
+import { AdmissionStageCard } from "../stage-card";
 import { DOCUMENT_CATEGORIES, documentsFor } from "@/lib/person-documents";
 import {
   Alert,
@@ -145,6 +147,30 @@ export default async function StudentProfilePage({
   });
 
   if (!student) notFound();
+
+  // Class options for the pipeline card, only fetched while there is a
+  // pipeline to move through.
+  const stageSections =
+    ["APPLICANT", "OFFERED"].includes(student.status) &&
+    userCan(user, "student.update")
+      ? (
+          await db.classSection.findMany({
+            where: { isActive: true },
+            orderBy: [{ classLevel: { sequence: "asc" } }, { name: "asc" }],
+            select: {
+              id: true,
+              name: true,
+              capacity: true,
+              classLevel: { select: { name: true } },
+              _count: { select: { enrollments: { where: { status: "ACTIVE" } } } },
+            },
+          })
+        ).map((section) => ({
+          value: section.id,
+          label: `${section.classLevel.name} ${section.name}`,
+          description: `${section._count.enrollments}/${section.capacity} places used`,
+        }))
+      : [];
 
   const fullName = [student.firstName, student.otherNames, student.lastName]
     .filter(Boolean)
@@ -285,6 +311,17 @@ export default async function StudentProfilePage({
       {/* ---------------------------------------------------------------- */}
       {/* Panels                                                            */}
       {/* ---------------------------------------------------------------- */}
+      {["APPLICANT", "OFFERED"].includes(student.status) &&
+      userCan(user, "student.update") ? (
+        <div className="mb-4">
+          <AdmissionStageCard
+            studentId={student.id}
+            status={student.status}
+            sections={stageSections}
+          />
+        </div>
+      ) : null}
+
       {active === "overview" ? (
         <div className="grid gap-4 lg:grid-cols-3">
           <Card className="lg:col-span-2">

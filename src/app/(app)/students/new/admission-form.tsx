@@ -42,13 +42,29 @@ const REGIONS = [
   "Ahafo",
 ].map((region) => ({ value: region, label: region }));
 
+export type AdmissionInitial = Partial<{
+  firstName: string;
+  lastName: string;
+  otherNames: string;
+  gender: string;
+  dateOfBirth: string;
+  guardianFirstName: string;
+  guardianLastName: string;
+  guardianPhone: string;
+  guardianEmail: string;
+  status: string;
+}>;
+
 export function AdmissionForm({
   sections,
   documentCategories = [],
+  initial = {},
   onSuccess,
 }: {
   sections: SelectOption[];
   documentCategories?: Array<{ value: string; label: string }>;
+  /** Pre-filled from a website application, so nobody retypes a parent's answers. */
+  initial?: AdmissionInitial;
   onSuccess?: () => void;
 }) {
   const [state, action] = useActionState<AdmissionState, FormData>(
@@ -95,13 +111,13 @@ export function AdmissionForm({
         <CardHeader title="The student" />
         <CardBody className="grid gap-3 sm:grid-cols-2">
           <Field label="First name" htmlFor="firstName" required>
-            <Input id="firstName" name="firstName" required />
+            <Input id="firstName" name="firstName" required defaultValue={initial.firstName} />
           </Field>
           <Field label="Last name" htmlFor="lastName" required>
-            <Input id="lastName" name="lastName" required />
+            <Input id="lastName" name="lastName" required defaultValue={initial.lastName} />
           </Field>
           <Field label="Other names" htmlFor="otherNames">
-            <Input id="otherNames" name="otherNames" />
+            <Input id="otherNames" name="otherNames" defaultValue={initial.otherNames} />
           </Field>
           <Field label="Preferred name" htmlFor="preferredName">
             <Input id="preferredName" name="preferredName" />
@@ -111,7 +127,7 @@ export function AdmissionForm({
               id="gender"
               name="gender"
               clearable={false}
-              defaultValue="UNDISCLOSED"
+              defaultValue={initial.gender ?? "UNDISCLOSED"}
               options={[
                 { value: "MALE", label: "Male" },
                 { value: "FEMALE", label: "Female" },
@@ -121,7 +137,24 @@ export function AdmissionForm({
             />
           </Field>
           <Field label="Date of birth" htmlFor="dateOfBirth">
-            <Input id="dateOfBirth" name="dateOfBirth" type="date" />
+            <Input id="dateOfBirth" name="dateOfBirth" type="date" defaultValue={initial.dateOfBirth} />
+          </Field>
+          <Field
+            label="Admission stage"
+            htmlFor="status"
+            hint="Applicants and offers are not on any class roll — enrolling is the step that is."
+          >
+            <SearchableSelect
+              id="status"
+              name="status"
+              clearable={false}
+              defaultValue={initial.status ?? "ENROLLED"}
+              options={[
+                { value: "APPLICANT", label: "Applicant — under review" },
+                { value: "OFFERED", label: "Offered — place held" },
+                { value: "ENROLLED", label: "Enrolled — on the roll" },
+              ]}
+            />
           </Field>
           <Field label="Place of birth" htmlFor="placeOfBirth">
             <Input id="placeOfBirth" name="placeOfBirth" />
@@ -138,7 +171,7 @@ export function AdmissionForm({
               id="classSectionId"
               name="classSectionId"
               options={sections}
-              placeholder="Place in a class now, or later"
+              placeholder="Takes effect when the stage is Enrolled"
             />
           </Field>
         </CardBody>
@@ -151,16 +184,16 @@ export function AdmissionForm({
         />
         <CardBody className="grid gap-3 sm:grid-cols-2">
           <Field label="First name" htmlFor="guardianFirstName">
-            <Input id="guardianFirstName" name="guardianFirstName" />
+            <Input id="guardianFirstName" name="guardianFirstName" defaultValue={initial.guardianFirstName} />
           </Field>
           <Field label="Last name" htmlFor="guardianLastName">
-            <Input id="guardianLastName" name="guardianLastName" />
+            <Input id="guardianLastName" name="guardianLastName" defaultValue={initial.guardianLastName} />
           </Field>
           <Field label="Phone" htmlFor="guardianPhone" hint="Required if a guardian is named.">
-            <Input id="guardianPhone" name="guardianPhone" placeholder="024 123 4567" />
+            <Input id="guardianPhone" name="guardianPhone" placeholder="024 123 4567" defaultValue={initial.guardianPhone} />
           </Field>
           <Field label="Email" htmlFor="guardianEmail">
-            <Input id="guardianEmail" name="guardianEmail" type="email" />
+            <Input id="guardianEmail" name="guardianEmail" type="email" defaultValue={initial.guardianEmail} />
           </Field>
           <Field label="Relationship" htmlFor="guardianRelation">
             <SearchableSelect

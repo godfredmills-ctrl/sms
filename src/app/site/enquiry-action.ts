@@ -148,11 +148,17 @@ export async function submitEnquiryAction(
       data: {
         childName,
         childDateOfBirth: String(formData.get("childDateOfBirth") ?? "") || null,
+        childGender: String(formData.get("childGender") ?? "") || null,
         level,
         intake: String(formData.get("intake") ?? "") || null,
+        previousSchool:
+          String(formData.get("previousSchool") ?? "").trim().slice(0, 200) || null,
         parentName,
+        relationship: String(formData.get("relationship") ?? "") || null,
         phone,
         email: String(formData.get("email") ?? "").trim() || null,
+        city: String(formData.get("city") ?? "").trim().slice(0, 120) || null,
+        heardFrom: String(formData.get("heardFrom") ?? "") || null,
         message: String(formData.get("message") ?? "").trim().slice(0, 2000) || null,
       },
     },

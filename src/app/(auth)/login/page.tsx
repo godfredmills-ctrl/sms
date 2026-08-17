@@ -27,7 +27,7 @@ export default async function LoginPage({
     <div className="grid min-h-dvh lg:grid-cols-2">
       {/* Brand panel — hidden on small screens where it would just push the
           form below the fold. */}
-      <div className="relative hidden flex-col justify-between overflow-hidden bg-[var(--color-brand-800)] p-12 text-white lg:flex">
+      <div className="relative hidden flex-col justify-between overflow-hidden bg-[var(--primary)] p-12 text-white lg:flex">
         <div
           aria-hidden
           className="absolute inset-0 opacity-20"

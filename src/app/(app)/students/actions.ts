@@ -161,7 +161,10 @@ export async function admitStudentAction(
           });
         }
 
-        if (classSectionId) {
+        // Only an ENROLLED student joins a class roll. An applicant with a
+        // class would appear on registers and class lists before the school
+        // has decided anything — the stage exists precisely so they do not.
+        if (classSectionId && created.status === "ENROLLED") {
           const currentYear = await tx.academicYear.findFirst({
             where: { isCurrent: true },
             select: { id: true },
@@ -339,4 +342,102 @@ export async function createStudentLoginAction(formData: FormData) {
   });
 
   revalidatePath(`/students/${studentId}`);
+}
+
+// -----------------------------------------------------------------------------
+// The admission pipeline
+// -----------------------------------------------------------------------------
+
+export type StageState = { ok?: boolean; error?: string; message?: string };
+
+/**
+ * Moves a student through the admission stages.
+ *
+ * Applied (a website form) → Applicant (a record, not on any roll) → Offered
+ * (a place held) → Enrolled (on the roll, in a class). Each step is a
+ * decision somebody takes, which is why filling a form on the website makes
+ * nobody a student: the school does that here, on purpose, one stage at a
+ * time.
+ */
+export async function setStudentStageAction(
+  _previous: StageState,
+  formData: FormData,
+): Promise<StageState> {
+  let user;
+  try {
+    user = await authorize("student.update");
+  } catch (error) {
+    return { error: (error as Error).message };
+  }
+
+  const id = text(formData, "id");
+  const stage = text(formData, "stage");
+  if (!id) return { error: "No student given." };
+  if (!["OFFERED", "ENROLLED"].includes(stage)) return { error: "Choose a stage." };
+
+  const student = await db.student.findUnique({
+    where: { id },
+    select: { firstName: true, lastName: true, status: true },
+  });
+  if (!student) return { error: "Student not found." };
+  if (!["APPLICANT", "OFFERED"].includes(student.status)) {
+    return { error: "Only applicants move through admission stages." };
+  }
+
+  if (stage === "ENROLLED") {
+    const classSectionId = text(formData, "classSectionId");
+    if (!classSectionId) {
+      return { error: "Enrolling places the student in a class — choose one." };
+    }
+
+    const currentYear = await db.academicYear.findFirst({
+      where: { isCurrent: true },
+      select: { id: true },
+    });
+    if (!currentYear) {
+      return { error: "No academic year is marked current, so there is no roll to join." };
+    }
+
+    await db.$transaction([
+      db.student.update({
+        where: { id },
+        data: { status: "ENROLLED", admissionDate: new Date() },
+      }),
+      db.enrollment.upsert({
+        where: {
+          studentId_academicYearId: { studentId: id, academicYearId: currentYear.id },
+        },
+        create: {
+          studentId: id,
+          classSectionId,
+          academicYearId: currentYear.id,
+          status: "ACTIVE",
+        },
+        update: { classSectionId, status: "ACTIVE" },
+      }),
+    ]);
+  } else {
+    await db.student.update({ where: { id }, data: { status: "OFFERED" } });
+  }
+
+  await db.auditLog.create({
+    data: {
+      userId: user.id,
+      actorLabel: user.fullName,
+      action: "student.stage",
+      entity: "Student",
+      entityId: id,
+      summary: `${student.firstName} ${student.lastName} moved to ${stage.toLowerCase()}`,
+    },
+  });
+
+  revalidatePath("/students");
+  revalidatePath(`/students/${id}`);
+  return {
+    ok: true,
+    message:
+      stage === "ENROLLED"
+        ? `${student.firstName} is enrolled and on the class roll.`
+        : `A place has been offered to ${student.firstName}.`,
+  };
 }

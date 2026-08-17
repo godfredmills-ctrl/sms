@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 
 import { PwaRuntime } from "@/components/pwa";
 import { getCurrentUser } from "@/lib/auth";
+import { db } from "@/lib/db";
 
 import "./globals.css";
 
@@ -29,14 +30,28 @@ export const metadata: Metadata = {
   },
 };
 
-export const viewport: Viewport = {
-  width: "device-width",
-  initialScale: 1,
-  viewportFit: "cover",
-  // Single colour: the interface is light regardless of the OS setting, so a
-  // dark variant here would only mismatch the page it frames.
-  themeColor: "#128257",
-};
+/**
+ * The browser and installed-app title bar take their colour from here, so it
+ * follows the school's primary rather than a constant nobody configured.
+ */
+export async function generateViewport(): Promise<Viewport> {
+  const school = await db.school
+    .findFirst({ select: { branding: true } })
+    .catch(() => null);
+  const branding = (school?.branding ?? {}) as Record<string, string>;
+  const themeColor = /^#[0-9a-fA-F]{6}$/.test(branding.primary ?? "")
+    ? branding.primary
+    : "#2C66CE";
+
+  return {
+    width: "device-width",
+    initialScale: 1,
+    viewportFit: "cover",
+    // Single colour: the interface is light regardless of the OS setting, so a
+    // dark variant here would only mismatch the page it frames.
+    themeColor,
+  };
+}
 
 /**
  * Applied before first paint so a user who explicitly chose dark never sees a
@@ -53,12 +68,30 @@ export default async function RootLayout({
   // to make the whole tree dynamic.
   const signedIn = Boolean(await getCurrentUser());
 
+  // The brand primary reaches every page from here — the login screen and the
+  // portals live outside the app layout, and branding that stops at the
+  // sidebar is not a system colour. The public site overrides its own vars.
+  const school = await db.school
+    .findFirst({ select: { branding: true } })
+    .catch(() => null);
+  const branding = (school?.branding ?? {}) as Record<string, string>;
+  const brandPrimary = /^#[0-9a-fA-F]{6}$/.test(branding.primary ?? "")
+    ? branding.primary
+    : null;
+
   return (
     <html lang="en-GH" suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
       </head>
-      <body>
+      <body
+        data-brand={brandPrimary ? "" : undefined}
+        style={
+          brandPrimary
+            ? ({ "--brand-primary": brandPrimary } as React.CSSProperties)
+            : undefined
+        }
+      >
         {children}
         <PwaRuntime signedIn={signedIn} />
       </body>

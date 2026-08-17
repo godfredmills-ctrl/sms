@@ -14,34 +14,14 @@ export default async function AppLayout({
 
   const [school, unreadCount] = await Promise.all([
     db.school.findFirst({
-      select: { name: true, shortName: true, logoUrl: true, branding: true },
+      select: { name: true, shortName: true, logoUrl: true },
     }),
     db.notification.count({ where: { userId: user.id, readAt: null } }),
   ]);
 
   const navigation = filterNavigation(navigationFor(user.portal), user);
 
-  // The school's brand primary, applied to the whole application. It reaches
-  // the CSS as one custom property; globals.css derives everything else from
-  // it — hover, soft backgrounds, the focus ring, the sidebar — with a
-  // lightened variant in dark mode so a deep brand colour stays visible.
-  // Restricted to six-digit hex: this string lands in a style attribute, and
-  // hex is the one shape that cannot smuggle anything else in.
-  const branding = (school?.branding ?? {}) as Record<string, string>;
-  const brandPrimary = /^#[0-9a-fA-F]{6}$/.test(branding.primary ?? "")
-    ? branding.primary
-    : null;
-
   return (
-    <div
-      data-brand={brandPrimary ? "" : undefined}
-      style={
-        brandPrimary
-          ? ({ "--brand-primary": brandPrimary } as React.CSSProperties)
-          : undefined
-      }
-      className="contents"
-    >
     <AppShell
       user={{
         id: user.id,
@@ -58,7 +38,6 @@ export default async function AppLayout({
     >
       {children}
     </AppShell>
-    </div>
   );
 }
 

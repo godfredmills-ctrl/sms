@@ -6,13 +6,58 @@ import { requirePermission } from "@/lib/auth";
 import { DOCUMENT_CATEGORIES } from "@/lib/person-documents";
 import { db } from "@/lib/db";
 
-import { AdmissionForm } from "./admission-form";
+import { AdmissionForm, type AdmissionInitial } from "./admission-form";
 
 export const metadata: Metadata = { title: "Admit a student" };
 export const dynamic = "force-dynamic";
 
-export default async function AdmissionsPage() {
+const GENDER_MAP: Record<string, string> = {
+  Female: "FEMALE",
+  Male: "MALE",
+  "Prefer not to say": "UNDISCLOSED",
+};
+
+export default async function AdmissionsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ from?: string }>;
+}) {
   await requirePermission("student.create");
+  const { from } = await searchParams;
+
+  // "Admit this child" on a website application lands here with its id, and
+  // the parent's answers arrive already typed in. A family should not answer
+  // the same questions twice because the second answering happens at a
+  // different desk.
+  let initial: AdmissionInitial = {};
+  if (from) {
+    const submission = await db.siteFormSubmission.findFirst({
+      where: { id: from, formKey: "admissions-enquiry" },
+      select: { data: true },
+    });
+    const data = (submission?.data ?? {}) as Record<string, string | null>;
+
+    // "Ama Serwaa Boateng" → first "Ama", others "Serwaa", last "Boateng".
+    const childParts = (data.childName ?? "").trim().split(/\s+/).filter(Boolean);
+    const parentParts = (data.parentName ?? "").trim().split(/\s+/).filter(Boolean);
+
+    initial = {
+      firstName: childParts[0],
+      lastName: childParts.length > 1 ? childParts[childParts.length - 1] : undefined,
+      otherNames:
+        childParts.length > 2 ? childParts.slice(1, -1).join(" ") : undefined,
+      gender: GENDER_MAP[data.childGender ?? ""],
+      dateOfBirth: data.childDateOfBirth ?? undefined,
+      guardianFirstName: parentParts[0],
+      guardianLastName:
+        parentParts.length > 1 ? parentParts.slice(1).join(" ") : undefined,
+      guardianPhone: data.phone ?? undefined,
+      guardianEmail: data.email ?? undefined,
+      // A website application starts as an applicant: the pipeline exists so
+      // that filling a form on the internet puts nobody on a class roll.
+      status: "APPLICANT",
+    };
+  }
 
   const [sections, currentYear] = await Promise.all([
     db.classSection.findMany({
@@ -58,6 +103,7 @@ export default async function AdmissionsPage() {
 
       <AdmissionForm
         documentCategories={DOCUMENT_CATEGORIES.student}
+        initial={initial}
         sections={sections.map((section) => ({
           value: section.id,
           label: `${section.classLevel.name} ${section.name}`,
