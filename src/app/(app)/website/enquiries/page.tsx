@@ -184,10 +184,18 @@ export default async function EnquiriesPage({
             </Card>
           ) : (
             <Card className="p-5">
-              <p className="mb-2 text-sm font-medium">
-                {allSubscribers.length.toLocaleString()} subscriber
-                {allSubscribers.length === 1 ? "" : "s"}
-              </p>
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <p className="text-sm font-medium">
+                  {allSubscribers.length.toLocaleString()} subscriber
+                  {allSubscribers.length === 1 ? "" : "s"}
+                </p>
+                <a
+                  href="/website/enquiries/export"
+                  className="text-xs font-medium text-[var(--primary)] hover:underline"
+                >
+                  Download CSV
+                </a>
+              </div>
               <p className="mb-2 text-xs text-[var(--text-subtle)]">
                 One per line, newest first — select all and paste into your mail
                 tool&rsquo;s BCC field.

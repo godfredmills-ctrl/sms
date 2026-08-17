@@ -186,6 +186,17 @@ can gate a deploy. Run it after every seed.
    curl -fsS -X POST "$APP_URL/api/cron/reminders" -H "Authorization: Bearer $CRON_SECRET"
    ```
 
+8. **Schedule SMS delivery reconciliation** (only useful with a live SMS
+   provider) — every 10 minutes or so:
+
+   ```
+   curl -fsS -X POST "$APP_URL/api/cron/sms-status" -H "Authorization: Bearer $CRON_SECRET"
+   ```
+
+   "Sent" only means the aggregator accepted the message; this asks the
+   provider what actually happened and records DELIVERED or FAILED per
+   recipient, so a reminder to a dead SIM stops counting as a parent told.
+
 ---
 
 ## Integrations

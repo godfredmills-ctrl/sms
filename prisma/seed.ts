@@ -148,6 +148,7 @@ async function main() {
   await seedDocuments();
   await seedDocumentTemplates();
   await seedLearning(offerings, students, sections, demoStudentSectionId);
+  await seedQuestionBank(subjects);
   await seedReportCards(terms, sections, demoStudentSectionId);
   await seedWebsite(school);
 
@@ -2753,6 +2754,108 @@ async function seedSiteArt(siteId: string): Promise<Record<string, string>> {
   }
 
   return urls;
+}
+
+/**
+ * A starter shelf for the question bank, so the feature demonstrates itself:
+ * open any quiz and its subject's shelf offers questions to copy in.
+ * Deterministic, no RNG.
+ */
+async function seedQuestionBank(subjects: SubjectRow[]) {
+  console.log("  Question bank…");
+
+  const shelfOf = (code: string) => subjects.find((subject) => subject.code === code)?.id;
+
+  const questions: Array<{
+    subject: string;
+    prompt: string;
+    options?: string[]; // leading * marks correct
+    accepted?: string[];
+    explanation?: string;
+  }> = [
+    {
+      subject: "MATH",
+      prompt: "What is the value of 7 × 8?",
+      options: ["*56", "54", "63", "48"],
+    },
+    {
+      subject: "MATH",
+      prompt: "Simplify: 3(x + 4) − 2x",
+      options: ["*x + 12", "5x + 4", "x + 4", "3x + 12"],
+      explanation: "Expand to 3x + 12, subtract 2x.",
+    },
+    {
+      subject: "MATH",
+      prompt: "A trader buys an item for GH₵80 and sells it for GH₵100. What is the percentage profit?",
+      options: ["*25%", "20%", "80%", "12.5%"],
+      explanation: "Profit 20 on cost 80 → 20/80 = 25%.",
+    },
+    {
+      subject: "ENG",
+      prompt: "Choose the correct sentence.",
+      options: [
+        "*The children were playing in the compound.",
+        "The children was playing in the compound.",
+        "The children is playing in the compound.",
+        "The children be playing in the compound.",
+      ],
+    },
+    {
+      subject: "ENG",
+      prompt: "What is the plural of “mouse”?",
+      accepted: ["mice"],
+    },
+    {
+      subject: "SCI",
+      prompt: "Which gas do plants take in during photosynthesis?",
+      options: ["*Carbon dioxide", "Oxygen", "Nitrogen", "Hydrogen"],
+    },
+    {
+      subject: "SCI",
+      prompt: "Water boils at 100°C at sea level.",
+      options: ["*True", "False"],
+    },
+    {
+      subject: "SOC",
+      prompt: "In which year did Ghana gain independence?",
+      options: ["*1957", "1960", "1951", "1966"],
+      explanation: "6 March 1957.",
+    },
+  ];
+
+  for (const question of questions) {
+    const type = question.accepted
+      ? "SHORT_ANSWER"
+      : question.options?.length === 2 &&
+          question.options.every((option) => ["*True", "True", "*False", "False"].includes(option))
+        ? "TRUE_FALSE"
+        : "MULTIPLE_CHOICE";
+
+    await db.quizQuestion.create({
+      data: {
+        quizId: null,
+        subjectId: shelfOf(question.subject) ?? null,
+        type: type as never,
+        prompt: question.prompt,
+        points: 1,
+        explanation: question.explanation ?? null,
+        acceptedAnswers: question.accepted ?? [],
+        ...(question.options
+          ? {
+              options: {
+                create: question.options.map((option, index) => ({
+                  text: option.replace(/^\*/, ""),
+                  isCorrect: option.startsWith("*"),
+                  sortKey: index,
+                })),
+              },
+            }
+          : {}),
+      },
+    });
+  }
+
+  console.log(`    ${questions.length} questions on the shelves.`);
 }
 
 /**

@@ -319,3 +319,99 @@ export async function sendPush(
     };
   }
 }
+
+// -----------------------------------------------------------------------------
+// Delivery reconciliation
+// -----------------------------------------------------------------------------
+
+export type DeliveryOutcome = {
+  /** Only movements are reported; null means "no news yet, ask again later". */
+  status: "DELIVERED" | "FAILED" | null;
+  detail?: string;
+};
+
+/**
+ * Asks the provider what became of a message we sent.
+ *
+ * "Sent" only means the aggregator accepted it. Whether a parent's phone ever
+ * rang is a second question, answered later, and a school chasing fees needs
+ * the honest answer — a reminder counted as sent to a dead SIM is a family
+ * that was never told. Each provider words its delivery report differently;
+ * this maps them all onto delivered, failed, or no-news.
+ *
+ * The mock provider reports instant delivery, so the reconciliation loop is
+ * demonstrable without an aggregator account.
+ */
+export async function fetchSmsDeliveryStatus(
+  providerMessageId: string,
+): Promise<DeliveryOutcome> {
+  if (providerMessageId.startsWith("mock-sms-")) {
+    return { status: "DELIVERED", detail: "mock" };
+  }
+
+  try {
+    switch (env.sms.provider) {
+      case "arkesel": {
+        if (!env.sms.arkeselKey) return { status: null };
+        const response = await fetch(
+          `https://sms.arkesel.com/api/v2/sms/${encodeURIComponent(providerMessageId)}`,
+          { headers: { "api-key": env.sms.arkeselKey }, cache: "no-store" },
+        );
+        if (!response.ok) return { status: null };
+        const body = (await response.json().catch(() => ({}))) as {
+          data?: { status?: string } | Array<{ status?: string }>;
+        };
+        const record = Array.isArray(body.data) ? body.data[0] : body.data;
+        const status = (record?.status ?? "").toUpperCase();
+        if (status.includes("DELIVER")) return { status: "DELIVERED" };
+        if (["FAILED", "REJECTED", "EXPIRED", "UNDELIVERABLE"].some((s) => status.includes(s))) {
+          return { status: "FAILED", detail: record?.status };
+        }
+        return { status: null };
+      }
+
+      case "mnotify": {
+        if (!env.sms.mnotifyKey) return { status: null };
+        const response = await fetch(
+          `https://api.mnotify.com/api/campaign/${encodeURIComponent(providerMessageId)}?key=${encodeURIComponent(env.sms.mnotifyKey)}`,
+          { cache: "no-store" },
+        );
+        if (!response.ok) return { status: null };
+        const body = (await response.json().catch(() => ({}))) as {
+          report?: Array<{ status?: string }>;
+        };
+        const status = (body.report?.[0]?.status ?? "").toUpperCase();
+        if (status.includes("DELIVER")) return { status: "DELIVERED" };
+        if (["FAILED", "REJECTED", "EXPIRED"].some((s) => status.includes(s))) {
+          return { status: "FAILED", detail: body.report?.[0]?.status };
+        }
+        return { status: null };
+      }
+
+      case "hubtel": {
+        const { hubtelClientId, hubtelClientSecret } = env.sms;
+        if (!hubtelClientId || !hubtelClientSecret) return { status: null };
+        const auth = Buffer.from(`${hubtelClientId}:${hubtelClientSecret}`).toString("base64");
+        const response = await fetch(
+          `https://smsc.hubtel.com/v1/messages/${encodeURIComponent(providerMessageId)}`,
+          { headers: { Authorization: `Basic ${auth}` }, cache: "no-store" },
+        );
+        if (!response.ok) return { status: null };
+        const body = (await response.json().catch(() => ({}))) as { Status?: string | number };
+        const status = String(body.Status ?? "").toUpperCase();
+        if (status === "1" || status.includes("DELIVER")) return { status: "DELIVERED" };
+        if (["2", "FAILED", "REJECTED", "UNDELIVERABLE"].some((s) => status === s || status.includes(s))) {
+          return { status: "FAILED", detail: String(body.Status) };
+        }
+        return { status: null };
+      }
+
+      default:
+        return { status: null };
+    }
+  } catch {
+    // A status check that fails is just no news. Never let reconciliation
+    // itself mark anything failed.
+    return { status: null };
+  }
+}
