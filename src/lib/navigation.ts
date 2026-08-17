@@ -141,9 +141,15 @@ export const STAFF_NAVIGATION: NavGroup[] = [
             permissions: ["academic.year.manage"],
           },
           {
+            label: "My timetable",
+            href: "/academics/timetable/mine",
+            icon: "CalendarClock",
+            permissions: ["academic.timetable.read"],
+          },
+          {
             label: "Timetable",
             href: "/academics/timetable",
-            icon: "CalendarClock",
+            icon: "CalendarRange",
             permissions: ["academic.timetable.read"],
           },
           {

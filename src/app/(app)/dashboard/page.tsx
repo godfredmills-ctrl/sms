@@ -4,6 +4,7 @@ import {
   AlertTriangle,
   BookOpen,
   CalendarCheck,
+  CalendarClock,
   GraduationCap,
   Megaphone,
   Receipt,
@@ -39,6 +40,32 @@ export default async function DashboardPage() {
   const user = await requireUser();
   const canSeeFinance = userCan(user, "dashboard.finance") || userCan(user, "finance.read");
   const canSeeManagement = userCan(user, "dashboard.management");
+
+  // Today's lessons for a teacher — the dashboard answers "where am I next"
+  // before anything else, because that is the question staff open it with.
+  // JS counts Sunday first; the timetable counts Monday first.
+  const jsDay = new Date().getDay();
+  const todaysLessons = user.staffId
+    ? await db.timetableSlot.findMany({
+        where: {
+          dayOfWeek: jsDay === 0 ? 7 : jsDay,
+          offering: { teacherId: user.staffId },
+        },
+        orderBy: { periodIndex: "asc" },
+        select: {
+          id: true,
+          startTime: true,
+          endTime: true,
+          room: true,
+          classSection: {
+            select: { name: true, classLevel: { select: { name: true } } },
+          },
+          offering: {
+            select: { room: true, subject: { select: { name: true, colour: true } } },
+          },
+        },
+      })
+    : [];
 
   const year = await db.academicYear.findFirst({
     where: { isCurrent: true },
@@ -196,6 +223,51 @@ export default async function DashboardPage() {
           </>
         )}
       </div>
+
+      {todaysLessons.length ? (
+        <Card className="mb-6">
+          <CardHeader
+            title="Today's lessons"
+            description="Your day, in order."
+            action={
+              <LinkButton href="/academics/timetable/mine" variant="outline" size="sm">
+                <CalendarClock className="size-4" />
+                Full week
+              </LinkButton>
+            }
+          />
+          <div className="flex gap-2 overflow-x-auto px-5 pb-4">
+            {todaysLessons.map((slot) => (
+              <div
+                key={slot.id}
+                className="min-w-40 shrink-0 rounded-xl border border-[var(--border)] p-3"
+              >
+                <div className="flex items-center gap-1.5">
+                  {slot.offering?.subject.colour ? (
+                    <span
+                      aria-hidden
+                      className="size-2 shrink-0 rounded-full"
+                      style={{ background: slot.offering.subject.colour }}
+                    />
+                  ) : null}
+                  <p className="truncate text-sm font-semibold">
+                    {slot.classSection.classLevel.name} {slot.classSection.name}
+                  </p>
+                </div>
+                <p className="truncate text-xs text-[var(--text-muted)]">
+                  {slot.offering?.subject.name ?? "—"}
+                </p>
+                <p className="numeric mt-1 text-xs text-[var(--text-subtle)]">
+                  {slot.startTime}–{slot.endTime}
+                  {slot.room ?? slot.offering?.room
+                    ? ` · ${slot.room ?? slot.offering?.room}`
+                    : ""}
+                </p>
+              </div>
+            ))}
+          </div>
+        </Card>
+      ) : null}
 
       {/* ---------------------------------------------------------------- */}
       {/* Charts                                                            */}
