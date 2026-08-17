@@ -365,13 +365,18 @@ Every module below has a working interface on top of the data model.
 
 **People** — students (advanced table plus a ten-tab profile covering demographics,
 background, medical history and allergies, guardians, family tree, education
-history, academics, attendance, fees, documents and conduct), admissions,
-spreadsheet import, staff records and profiles, and a guardian register with
-full profiles. All three carry a documents tab: upload, in-browser preview,
-verification against the original, and expiry tracking.
+history, academics, attendance, fees, documents and conduct), an admissions
+pipeline (website application → applicant → offer → enrolment), spreadsheet
+import, staff records and profiles, a guardian register with full profiles,
+the clinic day-book, staff leave requests and approvals, and the discipline
+desk (incidents, sanctions, resolutions, with the family notified by choice).
+All three registers carry a documents tab: upload, drag-and-drop, in-browser
+preview, verification against the original, and expiry tracking.
 
 **Academics** — class levels and sections, subjects and the curriculum map,
-academic years and terms with locking, a timetable grid that detects teacher
+academic years and terms with locking, the academic calendar (terms, holidays
+and events on a month grid), end-of-year promotions (promote, repeat,
+graduate — with the record kept), a timetable grid that detects teacher
 clashes across every class, attendance registers, the gradebook, and report
 cards that generate as PDFs and can be emailed home a class at a time.
 
@@ -381,7 +386,8 @@ scholarships, automated reminder rules, and online payment by mobile money,
 card, bank transfer and USSD.
 
 **Communication** — announcements, bulk email and SMS with cost estimates,
-memos with acknowledgement tracking, a direct-message inbox, notifications.
+memos with CC/BCC, attachments, drafts, archive and trash alongside
+acknowledgement tracking, a direct-message inbox, notifications.
 
 **Operations** — the document cabinet with previews, secret-ballot elections
 with live results, the custom report builder over seven datasets, Excel export,
@@ -390,14 +396,19 @@ public verification.
 
 **Learning** — the VLE: courses, modules, lessons, assignments and marking,
 quizzes (authoring, timed sitting, automatic marking, a queue for the essays
-the machine cannot mark), and the student-facing lesson viewer.
+the machine cannot mark), a reusable question bank, and the student-facing
+lesson viewer.
 
 **Website** — page builder with a block vocabulary, media library with a
-non-destructive image editor, and a public site at `/site`.
+non-destructive image editor, an online admission application that feeds the
+admissions pipeline, an enquiry form with a staff-side inbox and CSV export,
+and a public site at `/site`.
 
-**System** — settings (school profile, customisable dropdowns, custom fields,
-grading scales, integrations), users and roles with a 90-permission catalogue,
-audit trail, global search, account and notification preferences.
+**System** — settings (school profile and branding — the primary colour
+repaints the whole app, the login screen and the browser chrome, customisable
+dropdowns, custom fields, grading scales, integrations), users and roles with
+a 90-permission catalogue, audit trail, global search, account and
+notification preferences.
 
 **Portals** — separate student and parent portals, each scoped to what that
 person is entitled to see, including downloading their own certificates and

@@ -20,6 +20,12 @@
  */
 import { PrismaClient } from "@prisma/client";
 
+import {
+  CATEGORY_VALUES,
+  SANCTION_VALUES,
+  SEVERITY_VALUES,
+} from "../src/app/(app)/students/discipline/fields";
+
 try {
   // Node 20.6+. Absent locally, the variables come from the platform instead.
   (process as unknown as { loadEnvFile: (path: string) => void }).loadEnvFile(".env");
@@ -661,6 +667,45 @@ async function checkStructure() {
     );
   } else {
     pass(g, "Enrolled students have a guardian");
+  }
+
+  // The discipline vocabulary lives in fields.ts and the seed writes its own
+  // strings — this is the assertion that the two never drift. A category the
+  // page cannot label renders as raw SNAKE_CASE and looks like a bug.
+  const disciplinary = await db.disciplinaryRecord.findMany({
+    select: { category: true, severity: true, sanction: true, status: true, resolution: true },
+  });
+  if (disciplinary.length === 0) {
+    warn(g, "Disciplinary records exist", "The discipline desk has nothing to show.");
+  } else {
+    const strayVocab = disciplinary.filter(
+      (record) =>
+        !CATEGORY_VALUES.includes(record.category as never) ||
+        !SEVERITY_VALUES.includes(record.severity as never) ||
+        (record.sanction && !SANCTION_VALUES.includes(record.sanction as never)),
+    ).length;
+    if (strayVocab) {
+      fail(
+        g,
+        "Discipline vocabulary matches fields.ts",
+        `${strayVocab} record(s) use values the form does not offer.`,
+      );
+    } else {
+      pass(g, "Discipline vocabulary matches fields.ts", `${disciplinary.length} records`);
+    }
+
+    const unresolved = disciplinary.filter(
+      (record) => record.status === "RESOLVED" && !record.resolution,
+    ).length;
+    if (unresolved) {
+      warn(
+        g,
+        "Resolved cases carry a resolution",
+        `${unresolved} resolved with no note of how.`,
+      );
+    } else {
+      pass(g, "Resolved cases carry a resolution");
+    }
   }
 
   if (!currentTerm) return;
