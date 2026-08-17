@@ -58,6 +58,7 @@ export async function GET(request: Request) {
   const school = await db.school.findFirst({
     select: {
       name: true,
+      motto: true,
       phone: true,
       addressLine1: true,
       city: true,
@@ -82,7 +83,6 @@ export async function GET(request: Request) {
 
   let people: IdCardPerson[];
   let title: string;
-  let roleLabel: string;
   let detailLabel: string;
   let filename: string;
 
@@ -125,7 +125,6 @@ export async function GET(request: Request) {
       })),
     );
     title = "Staff Identity Card";
-    roleLabel = "Job title";
     detailLabel = "Department";
     filename = staffId
       ? `id-card-${staff[0].staffNo.replace(/[^A-Za-z0-9._-]+/g, "-")}`
@@ -215,7 +214,6 @@ export async function GET(request: Request) {
       }),
     );
     title = "Student Identity Card";
-    roleLabel = "Class";
     detailLabel = "House";
     filename = studentId
       ? `id-card-${students[0].admissionNo.replace(/\//g, "-")}`
@@ -223,13 +221,12 @@ export async function GET(request: Request) {
   }
 
   const pdf = await renderIdCardsPdf({
-    school: { name: school.name, address, phone: school.phone },
+    school: { name: school.name, motto: school.motto, address, phone: school.phone },
     crest,
     brandHex,
     title,
-    roleLabel,
     detailLabel,
-    validity: year ? `Valid: ${year.name} academic year` : "",
+    validity: year?.name ?? "",
     people,
   });
 

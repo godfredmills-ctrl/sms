@@ -192,15 +192,15 @@ async function main() {
     await renderIdCardsPdf({
       school: {
         name: "Golden Crest International School",
+        motto: "Knowledge, Character, Service",
         address: "12 Independence Avenue, Accra",
         phone: "+233 30 212 3456",
       },
       crest,
       brandHex: "#2C66CE",
       title: "Student Identity Card",
-      roleLabel: "Class",
       detailLabel: "House",
-      validity: "Valid: 2026/2027 academic year",
+      validity: "2026/2027",
       people: [
         {
           name: "Priscilla Naa Quartey",

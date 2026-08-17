@@ -79,7 +79,7 @@ export default async function IdCardsPage() {
     <>
       <PageHeader
         title="ID cards"
-        description="Printable identity cards — four to an A4 sheet at true card size, fronts and backs side by side."
+        description="Printable lanyard-style identity cards — three people to an A4 sheet at true card size, fronts and backs side by side."
       />
 
       <div className="grid gap-4 lg:grid-cols-2">
@@ -182,7 +182,8 @@ export default async function IdCardsPage() {
 
               <p className="text-xs text-[var(--text-subtle)]">
                 Print at 100% scale on card stock. Each card is standard CR80 size
-                (85.6 × 54 mm) with a cutting border.
+                (54 × 85.6 mm portrait) with a cutting border and a punch guide for
+                the lanyard slot.
               </p>
             </CardBody>
           </Card>

@@ -368,8 +368,11 @@ background, medical history and allergies, guardians, family tree, education
 history, academics, attendance, fees, documents and conduct), an admissions
 pipeline (website application → applicant → offer → enrolment), spreadsheet
 import, staff records and profiles, a guardian register with full profiles,
-the clinic day-book, staff leave requests and approvals, and the discipline
-desk (incidents, sanctions, resolutions, with the family notified by choice).
+the clinic day-book, staff leave requests and approvals, the discipline
+desk (incidents, sanctions, resolutions, with the family notified by choice),
+a boarding register (houses, dormitories, rooms, and who has no bed yet),
+and printable lanyard-style ID cards for students and staff at true card
+size, in the school's own colours.
 All three registers carry a documents tab: upload, drag-and-drop, in-browser
 preview, verification against the original, and expiry tracking.
 
