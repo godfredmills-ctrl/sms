@@ -5,6 +5,7 @@ import { GraduationCap } from "lucide-react";
 import { getCurrentUser, landingPath } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { env } from "@/lib/env";
+import { VENDOR_NAME } from "@/lib/vendor";
 
 import { LoginForm } from "./login-form";
 
@@ -111,6 +112,10 @@ export default async function LoginPage({
               </p>
             </div>
           ) : null}
+
+          <p className="mt-8 text-center text-[11px] text-[var(--text-subtle)]">
+            Powered by {VENDOR_NAME}
+          </p>
         </div>
       </div>
     </div>

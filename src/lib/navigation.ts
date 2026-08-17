@@ -69,6 +69,11 @@ export const STAFF_NAVIGATION: NavGroup[] = [
         ],
       },
       {
+        label: "Leave",
+        href: "/leave",
+        icon: "CalendarOff",
+      },
+      {
         label: "Clinic",
         href: "/clinic",
         icon: "Stethoscope",

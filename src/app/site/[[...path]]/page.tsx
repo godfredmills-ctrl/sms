@@ -6,6 +6,7 @@ import { Facebook, Instagram, Mail, MapPin, Phone, Youtube } from "lucide-react"
 import { getCurrentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { parseBlocks } from "@/lib/site-blocks";
+import { VENDOR_NAME } from "@/lib/vendor";
 
 import { RenderBlock, tint, type NewsItem, type SiteTheme } from "../blocks";
 import { NewsletterForm } from "../newsletter";
@@ -484,6 +485,8 @@ export default async function PublicSitePage({
         <div className="border-t border-white/10">
           <p className="mx-auto max-w-6xl px-6 py-4 text-center text-[11px] text-white/50">
             © {new Date().getFullYear()} {site.name}. All rights reserved.
+            <span className="mx-2 text-white/25">·</span>
+            Website by {VENDOR_NAME}
           </p>
         </div>
       </footer>
