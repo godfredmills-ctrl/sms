@@ -69,6 +69,12 @@ export const STAFF_NAVIGATION: NavGroup[] = [
         ],
       },
       {
+        label: "Clinic",
+        href: "/clinic",
+        icon: "Stethoscope",
+        permissions: ["student.medical.read"],
+      },
+      {
         label: "Staff",
         href: "/staff",
         icon: "Users",
