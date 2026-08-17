@@ -1365,7 +1365,17 @@ async function seedStudents(
             sanction: pick(["WARNING", "DETENTION"]),
             reportedBy: "Form teacher",
             guardianNotified: chance(0.7),
-            status: chance(0.7) ? "RESOLVED" : "OPEN",
+            ...(chance(0.7)
+              ? {
+                  status: "RESOLVED",
+                  resolution: pick([
+                    "Detention served; no repeat since.",
+                    "Apology made and accepted; parents informed.",
+                    "Warning acknowledged in writing.",
+                  ]),
+                  handledBy: "Head of Section",
+                }
+              : { status: "OPEN" }),
           },
         });
       }

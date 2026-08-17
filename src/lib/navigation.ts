@@ -66,6 +66,12 @@ export const STAFF_NAVIGATION: NavGroup[] = [
             icon: "FileUp",
             permissions: ["student.import"],
           },
+          {
+            label: "Discipline",
+            href: "/students/discipline",
+            icon: "ShieldAlert",
+            permissions: ["student.discipline.manage"],
+          },
         ],
       },
       {

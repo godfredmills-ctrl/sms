@@ -1138,6 +1138,20 @@ export default async function StudentProfilePage({
                       Action: {record.actionTaken}
                     </p>
                   ) : null}
+                  {record.sanction ? (
+                    <p className="mt-1 text-xs text-[var(--text-muted)]">
+                      Sanction: {humanise(record.sanction)}
+                      {record.suspensionDays
+                        ? ` (${record.suspensionDays} day${record.suspensionDays === 1 ? "" : "s"})`
+                        : ""}
+                    </p>
+                  ) : null}
+                  {record.resolution ? (
+                    <p className="mt-1 text-xs text-[var(--text-muted)]">
+                      Resolution: {record.resolution}
+                      {record.handledBy ? ` — ${record.handledBy}` : ""}
+                    </p>
+                  ) : null}
                 </li>
               ))}
             </ul>
