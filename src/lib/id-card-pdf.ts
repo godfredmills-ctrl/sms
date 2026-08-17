@@ -1,41 +1,48 @@
 import "server-only";
 
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf-lib";
+import QRCode from "qrcode";
 import sharp from "sharp";
 
 import type { EmbeddedImage } from "@/lib/document-images";
 
 /**
- * Identity cards — portrait lanyard style, three people to an A4 sheet.
+ * Identity cards — landscape, four people to an A4 sheet.
  *
- * The design follows the school's chosen reference: angular corner accents
- * in navy and the school's brand colour, the crest centred over the school
- * name, a circular photograph with an offset ring, the name in two colours,
- * and colon-aligned fields below. The back mirrors the corners and carries
- * the ownership statement, the emergency line, and a signature.
+ * The design follows the school's chosen reference: a rounded card with a
+ * gradient header band running from navy into the school's brand colour, a
+ * circular photograph (or an initials disc) overlapping the band's lower
+ * edge, the name beside it with a role pill underneath, colon-less field
+ * rows with right-aligned values, and a QR code carrying the ID number.
+ * The back is deliberately sparse: the school's contact details, the
+ * emergency line, and the property statement.
  *
  * Each person gets one row: front on the left, back on the right, both at
- * true CR80 size (54 × 85.6 mm portrait) inside a light cutting border.
- * Printed at 100% on card stock and cut, the result is a standard ID.
+ * true CR80 size (85.6 × 54 mm) inside a rounded cutting border. Printed
+ * at 100% on card stock and cut, the result is a standard ID.
  */
 
-// CR80 portrait in PDF points (1 mm = 2.8346 pt).
-const CARD_W = 153.01;
-const CARD_H = 242.65;
+// CR80 landscape in PDF points (1 mm = 2.8346 pt).
+const CARD_W = 242.65;
+const CARD_H = 153.01;
+const CORNER_R = 8;
 
 const PAGE_W = 595.28;
 const PAGE_H = 841.89;
 const GUTTER_X = 20;
 const GUTTER_Y = 18;
 const MARGIN_X = (PAGE_W - CARD_W * 2 - GUTTER_X) / 2;
-const MARGIN_TOP = 40;
-const ROWS_PER_PAGE = 3;
+const MARGIN_TOP = 56;
+const ROWS_PER_PAGE = 4;
+
+const BAND_H = 46;
+const NAVY_HEX = "#181A22";
 
 const INK = rgb(0.06, 0.09, 0.16);
-const NAVY = rgb(0.08, 0.11, 0.18);
 const MUTED = rgb(0.39, 0.45, 0.55);
 const FAINT = rgb(0.78, 0.82, 0.87);
-const RING_GREY = rgb(0.85, 0.87, 0.9);
+const WHITE = rgb(1, 1, 1);
+const SOFT_WHITE = rgb(0.92, 0.93, 0.95);
 
 function hexToRgb(hex: string) {
   const clean = hex.replace("#", "").trim();
@@ -115,8 +122,8 @@ function sanitise(text: string, font: PDFFont): string {
 
 /**
  * Circle-crops a photo with sharp: cover-fitted to a square, then masked to
- * a transparent-cornered PNG. The renderer just draws the result — no white
- * strips, no spill, and the round frame the design calls for.
+ * a transparent-cornered PNG, so the renderer can simply draw it inside the
+ * white ring.
  */
 async function roundPhoto(image: EmbeddedImage): Promise<EmbeddedImage | null> {
   const size = 300;
@@ -135,11 +142,52 @@ async function roundPhoto(image: EmbeddedImage): Promise<EmbeddedImage | null> {
   }
 }
 
+/**
+ * The header band as a pre-rendered PNG: pdf-lib has no gradient fills, so
+ * the navy-to-brand sweep with its rounded top corners is drawn by sharp
+ * once per batch and stamped onto every card.
+ */
+async function gradientBand(brandHex: string): Promise<EmbeddedImage | null> {
+  const scale = 4;
+  const w = Math.round(CARD_W * scale);
+  const h = Math.round(BAND_H * scale);
+  const r = CORNER_R * scale;
+  const svg = `<svg width="${w}" height="${h}" xmlns="http://www.w3.org/2000/svg">
+  <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="0">
+    <stop offset="0" stop-color="${NAVY_HEX}"/>
+    <stop offset="1" stop-color="${brandHex}"/>
+  </linearGradient></defs>
+  <path d="M0,${h} L0,${r} Q0,0 ${r},0 L${w - r},0 Q${w},0 ${w},${r} L${w},${h} Z" fill="url(#g)"/>
+</svg>`;
+  try {
+    const buffer = await sharp(Buffer.from(svg)).png().toBuffer();
+    return { bytes: new Uint8Array(buffer), mimeType: "image/png" };
+  } catch {
+    return null;
+  }
+}
+
+/** A QR code for the ID number — any phone can read the number off the card. */
+async function qrFor(value: string): Promise<EmbeddedImage | null> {
+  try {
+    const buffer = await QRCode.toBuffer(value, {
+      type: "png",
+      errorCorrectionLevel: "M",
+      margin: 1,
+      scale: 6,
+      color: { dark: "#111827ff", light: "#ffffffff" },
+    });
+    return { bytes: new Uint8Array(buffer), mimeType: "image/png" };
+  } catch {
+    return null;
+  }
+}
+
 export type IdCardPerson = {
   name: string;
   /** Admission number or staff number. */
   number: string;
-  /** Class for a student, job title for staff — the line under the name. */
+  /** Class for a student, job title for staff. */
   role: string;
   /** House for a student, department for staff. Optional. */
   detail?: string | null;
@@ -155,12 +203,15 @@ export type IdCardBatch = {
     motto?: string | null;
     address?: string | null;
     phone?: string | null;
+    email?: string | null;
   };
   crest?: EmbeddedImage | null;
   /** The school's primary brand colour, hex. */
   brandHex: string;
   /** "Student Identity Card" / "Staff Identity Card". */
   title: string;
+  /** The pill and the role row: "Class" for students, "Job title" for staff. */
+  roleLabel: string;
   /** What `detail` means here: "House" for students, "Department" for staff. */
   detailLabel: string;
   /** The academic year, e.g. "2026/2027". Empty when none is current. */
@@ -188,9 +239,11 @@ export async function renderIdCardsPdf(input: IdCardBatch): Promise<Buffer> {
     motto: clean(input.school.motto),
     address: clean(input.school.address),
     phone: clean(input.school.phone),
+    email: clean(input.school.email),
   };
   const title = clean(input.title) ?? "";
   const validity = clean(input.validity) ?? "";
+  const roleLabel = clean(input.roleLabel) ?? "";
   const detailLabel = clean(input.detailLabel) ?? "";
   const people = input.people.map((person) => ({
     ...person,
@@ -203,6 +256,8 @@ export async function renderIdCardsPdf(input: IdCardBatch): Promise<Buffer> {
     bloodGroup: clean(person.bloodGroup),
   }));
 
+  const bandImage = await gradientBand(input.brandHex);
+  const band = bandImage ? await embed(pdf, bandImage) : null;
   const crest = input.crest ? await embed(pdf, input.crest) : null;
 
   let page = pdf.addPage([PAGE_W, PAGE_H]);
@@ -219,24 +274,26 @@ export async function renderIdCardsPdf(input: IdCardBatch): Promise<Buffer> {
     const top = PAGE_H - MARGIN_TOP - row * (CARD_H + GUTTER_Y);
     const rounded = person.photo ? await roundPhoto(person.photo) : null;
     const photo = rounded ? await embed(pdf, rounded) : null;
+    const qrImage = await qrFor(person.number);
+    const qr = qrImage ? await embed(pdf, qrImage) : null;
 
     drawFront(page, MARGIN_X, top, {
       person,
       photo,
-      crest,
+      qr,
+      band,
       brand,
       school,
-      title,
+      pill: title.toLowerCase().includes("staff") ? "STAFF" : "STUDENT",
+      roleLabel,
       detailLabel,
       validity,
       fonts: { regular, bold },
     });
     drawBack(page, MARGIN_X + CARD_W + GUTTER_X, top, {
       person,
-      brand,
+      crest,
       school,
-      title,
-      validity,
       fonts: { regular, bold },
     });
 
@@ -258,170 +315,46 @@ async function embed(pdf: PDFDocument, image: EmbeddedImage) {
 
 function footerNote(page: PDFPage, font: PDFFont) {
   const note =
-    "Print at 100% scale on card stock and cut along the borders. Each card is standard CR80 size (54 × 85.6 mm).";
+    "Print at 100% scale on card stock and cut along the borders. Each card is standard CR80 size (85.6 × 54 mm).";
   page.drawText(note, {
     x: MARGIN_X,
-    y: 20,
+    y: 24,
     size: 6.5,
     font,
     color: MUTED,
   });
 }
 
-/** The light border a pair of scissors follows. */
+/** The rounded cutting border a pair of scissors (or a die) follows. */
 function cutBorder(page: PDFPage, x: number, top: number) {
-  page.drawRectangle({
-    x,
-    y: top - CARD_H,
-    width: CARD_W,
-    height: CARD_H,
-    borderColor: FAINT,
-    borderWidth: 0.5,
-  });
+  const r = CORNER_R;
+  const bottom = top - CARD_H;
+  const right = x + CARD_W;
+  // Page coords (y up) → SVG coords anchored at (0, PAGE_H): svgY = PAGE_H - y.
+  const Y = (value: number) => (PAGE_H - value).toFixed(2);
+  const X = (value: number) => value.toFixed(2);
+  const path = [
+    `M${X(x + r)},${Y(top)}`,
+    `L${X(right - r)},${Y(top)}`,
+    `Q${X(right)},${Y(top)} ${X(right)},${Y(top - r)}`,
+    `L${X(right)},${Y(bottom + r)}`,
+    `Q${X(right)},${Y(bottom)} ${X(right - r)},${Y(bottom)}`,
+    `L${X(x + r)},${Y(bottom)}`,
+    `Q${X(x)},${Y(bottom)} ${X(x)},${Y(bottom + r)}`,
+    `L${X(x)},${Y(top - r)}`,
+    `Q${X(x)},${Y(top)} ${X(x + r)},${Y(top)}`,
+    "Z",
+  ].join(" ");
+  page.drawSvgPath(path, { x: 0, y: PAGE_H, borderColor: FAINT, borderWidth: 0.5 });
 }
 
-/** The lanyard punch guide: where the slot goes, not the slot itself. */
-function punchGuide(page: PDFPage, x: number, top: number) {
-  page.drawRectangle({
-    x: x + CARD_W / 2 - 14,
-    y: top - 14,
-    width: 28,
-    height: 5.5,
-    borderColor: FAINT,
-    borderWidth: 0.5,
-  });
-}
-
-type CornerName = "tl" | "tr" | "bl" | "br";
-
-/**
- * The angular corner accents from the reference design: a brand-colour layer
- * peeking out from under a navy layer, plus a detached brand sliver. Shapes
- * are authored once for the top-left corner in card-local coordinates
- * (y down from the card's top edge) and reflected into the other corners.
- */
-const CORNER_SHAPES: Array<{ points: Array<[number, number]>; layer: "brand" | "navy" }> = [
-  { points: [[0, 0], [62, 0], [18, 27], [0, 38]], layer: "brand" },
-  { points: [[0, 0], [56, 0], [14, 25], [0, 33]], layer: "navy" },
-  { points: [[44, 15], [58, 7], [62, 10], [48, 19]], layer: "brand" },
-  { points: [[0, 42], [20, 30], [23, 33], [3, 46]], layer: "navy" },
-];
-
-function drawCorner(
-  page: PDFPage,
-  cardX: number,
-  cardTop: number,
-  corner: CornerName,
-  brand: ReturnType<typeof rgb>,
-) {
-  for (const shape of CORNER_SHAPES) {
-    const path = shape.points
-      .map(([px, py], index) => {
-        // Card-local (y down) → page coords (y up), reflected per corner.
-        const pageX =
-          corner === "tl" || corner === "bl" ? cardX + px : cardX + CARD_W - px;
-        const pageY =
-          corner === "tl" || corner === "tr"
-            ? cardTop - py
-            : cardTop - CARD_H + py;
-        // drawSvgPath is anchored at (0, PAGE_H) below, so SVG y = PAGE_H - pageY.
-        return `${index === 0 ? "M" : "L"}${pageX.toFixed(2)},${(PAGE_H - pageY).toFixed(2)}`;
-      })
-      .join(" ");
-
-    page.drawSvgPath(`${path} Z`, {
-      x: 0,
-      y: PAGE_H,
-      color: shape.layer === "navy" ? NAVY : brand,
-    });
-  }
-}
-
-/** Centred text, returning the next baseline. */
-function centred(
-  page: PDFPage,
-  text: string,
-  cardX: number,
-  y: number,
-  font: PDFFont,
-  size: number,
-  color: ReturnType<typeof rgb>,
-): void {
-  const width = font.widthOfTextAtSize(text, size);
-  page.drawText(text, { x: cardX + (CARD_W - width) / 2, y, size, font, color });
-}
-
-/** Letterspaced small caps, centred — the title line under the name. */
-function centredSpaced(
-  page: PDFPage,
-  text: string,
-  cardX: number,
-  y: number,
-  font: PDFFont,
-  size: number,
-  color: ReturnType<typeof rgb>,
-) {
-  const spacing = 0.9;
-  const chars = [...text.toUpperCase()];
-  const width =
-    chars.reduce((sum, char) => sum + font.widthOfTextAtSize(char, size), 0) +
-    spacing * (chars.length - 1);
-  let x = cardX + (CARD_W - width) / 2;
-  for (const char of chars) {
-    page.drawText(char, { x, y, size, font, color });
-    x += font.widthOfTextAtSize(char, size) + spacing;
-  }
-}
-
-/** Crest + school name + motto, centred — the masthead both sides share. */
-function masthead(
-  page: PDFPage,
-  cardX: number,
-  top: number,
-  options: {
-    crest: Awaited<ReturnType<typeof embed>>;
-    school: { name: string; motto?: string | null };
-    brand: ReturnType<typeof rgb>;
-    fonts: Fonts;
-    crestBox: number;
-    nameSize: number;
-    maxWidth?: number;
-  },
-): number {
-  const { crest, school, brand, fonts, crestBox, nameSize } = options;
-  const usable = options.maxWidth ?? CARD_W - 24;
-  let y = top;
-
-  if (crest) {
-    const scale = Math.min(crestBox / crest.width, crestBox / crest.height);
-    const w = crest.width * scale;
-    const h = crest.height * scale;
-    page.drawImage(crest, {
-      x: cardX + (CARD_W - w) / 2,
-      y: y - h,
-      width: w,
-      height: h,
-    });
-    y -= h + 9;
-  }
-
-  for (const line of wrap(school.name, fonts.bold, nameSize, usable).slice(0, 2)) {
-    centred(page, line, cardX, y, fonts.bold, nameSize, INK);
-    y -= nameSize + 2;
-  }
-  if (school.motto) {
-    centred(
-      page,
-      truncate(school.motto, fonts.regular, 5, usable),
-      cardX,
-      y,
-      fonts.regular,
-      5,
-      brand,
-    );
-    y -= 8;
-  }
-  return y;
+/** "Thomas Acheampong" → "TA": the initials disc when there is no photo. */
+function initialsOf(name: string): string {
+  const words = name.split(/\s+/).filter(Boolean);
+  if (!words.length) return "?";
+  const first = words[0][0] ?? "";
+  const last = words.length > 1 ? (words[words.length - 1][0] ?? "") : "";
+  return (first + last).toUpperCase();
 }
 
 function drawFront(
@@ -431,114 +364,143 @@ function drawFront(
   options: {
     person: IdCardPerson;
     photo: Awaited<ReturnType<typeof embed>>;
-    crest: Awaited<ReturnType<typeof embed>>;
+    qr: Awaited<ReturnType<typeof embed>>;
+    band: Awaited<ReturnType<typeof embed>>;
     brand: ReturnType<typeof rgb>;
     school: { name: string; motto?: string | null };
-    title: string;
+    pill: string;
+    roleLabel: string;
     detailLabel: string;
     validity: string;
     fonts: Fonts;
   },
 ) {
-  const { person, photo, crest, brand, school, title, detailLabel, validity, fonts } =
+  const { person, photo, qr, band, brand, school, pill, roleLabel, detailLabel, validity, fonts } =
     options;
 
-  drawCorner(page, x, top, "tl", brand);
-  drawCorner(page, x, top, "br", brand);
-  punchGuide(page, x, top);
+  // --- Header band ----------------------------------------------------------
+  if (band) {
+    page.drawImage(band, { x, y: top - BAND_H, width: CARD_W, height: BAND_H });
+  } else {
+    page.drawRectangle({ x, y: top - BAND_H, width: CARD_W, height: BAND_H, color: brand });
+  }
 
-  masthead(page, x, top - 26, {
-    crest,
-    school,
-    brand,
-    fonts,
-    crestBox: 26,
-    nameSize: 8.5,
+  page.drawText(truncate(school.name, fonts.bold, 9.5, CARD_W - 28), {
+    x: x + 14,
+    y: top - 17,
+    size: 9.5,
+    font: fonts.bold,
+    color: WHITE,
   });
+  if (school.motto) {
+    page.drawText(truncate(school.motto, fonts.regular, 5.5, CARD_W - 96), {
+      x: x + 14,
+      y: top - 28,
+      size: 5.5,
+      font: fonts.regular,
+      color: SOFT_WHITE,
+    });
+  }
 
-  // --- Photo: grey offset ring, round photograph, brand ring ---------------
-  const r = 33;
-  const cx = x + CARD_W / 2;
-  const cy = top - 116;
+  // --- Avatar, overlapping the band's lower edge ----------------------------
+  const r = 19;
+  const cx = x + 36;
+  const cy = top - BAND_H - 4;
 
-  page.drawCircle({
-    x: cx + 4,
-    y: cy - 4,
-    size: r + 3,
-    borderColor: RING_GREY,
-    borderWidth: 2,
-  });
+  page.drawCircle({ x: cx, y: cy, size: r + 2.5, color: WHITE });
   if (photo) {
     page.drawImage(photo, { x: cx - r, y: cy - r, width: r * 2, height: r * 2 });
   } else {
-    page.drawCircle({ x: cx, y: cy, size: r, color: rgb(0.94, 0.95, 0.97) });
-    centred(page, "PHOTO", x, cy - 2, fonts.regular, 6, MUTED);
-  }
-  page.drawCircle({ x: cx, y: cy, size: r, borderColor: brand, borderWidth: 2.5 });
-
-  // --- Name: first word in the brand colour, like the reference ------------
-  const nameTop = cy - r - 16;
-  const upper = person.name.toUpperCase();
-  const usable = CARD_W - 20;
-  let nameBottom = nameTop;
-
-  if (fonts.bold.widthOfTextAtSize(upper, 10) <= usable && upper.includes(" ")) {
-    const [first, ...rest] = upper.split(" ");
-    const remainder = ` ${rest.join(" ")}`;
-    const total =
-      fonts.bold.widthOfTextAtSize(first, 10) +
-      fonts.bold.widthOfTextAtSize(remainder, 10);
-    const startX = x + (CARD_W - total) / 2;
-    page.drawText(first, { x: startX, y: nameTop, size: 10, font: fonts.bold, color: brand });
-    page.drawText(remainder, {
-      x: startX + fonts.bold.widthOfTextAtSize(first, 10),
-      y: nameTop,
-      size: 10,
+    page.drawCircle({ x: cx, y: cy, size: r, color: brand });
+    const initials = initialsOf(person.name);
+    const width = fonts.bold.widthOfTextAtSize(initials, 12);
+    page.drawText(initials, {
+      x: cx - width / 2,
+      y: cy - 4,
+      size: 12,
       font: fonts.bold,
-      color: INK,
+      color: WHITE,
     });
-  } else {
-    // Long names wrap onto two centred lines in ink alone, and everything
-    // below moves down with the extra line rather than colliding with it.
-    let y = nameTop;
-    for (const line of wrap(upper, fonts.bold, 8.5, usable).slice(0, 2)) {
-      centred(page, line, x, y, fonts.bold, 8.5, INK);
-      nameBottom = y;
-      y -= 10;
-    }
   }
 
-  const roleY = nameBottom - 12;
-  centredSpaced(
-    page,
-    truncate(person.role, fonts.regular, 5.5, usable),
-    x,
-    roleY,
-    fonts.regular,
-    5.5,
-    MUTED,
-  );
-  centredSpaced(page, title, x, roleY - 10, fonts.regular, 4.5, brand);
+  // --- Name and role pill ---------------------------------------------------
+  const nameX = x + 64;
+  const nameW = CARD_W - 78;
+  const nameSize = fonts.bold.widthOfTextAtSize(person.name, 11) <= nameW ? 11 : 9;
+  page.drawText(truncate(person.name, fonts.bold, nameSize, nameW), {
+    x: nameX,
+    y: top - BAND_H - 12,
+    size: nameSize,
+    font: fonts.bold,
+    color: INK,
+  });
 
-  // --- Colon-aligned fields -------------------------------------------------
-  const rows: Array<[string, string]> = [["ID No", person.number]];
+  const pillText = pill;
+  const pillSize = 5.5;
+  const pillTextW = fonts.bold.widthOfTextAtSize(pillText, pillSize) + pillText.length * 0.6;
+  const pillH = 10;
+  const pillW = pillTextW + 14;
+  const pillY = top - BAND_H - 30;
+  // A pill is a rectangle with a circle at each end.
+  page.drawCircle({ x: nameX + pillH / 2, y: pillY + pillH / 2, size: pillH / 2, color: brand });
+  page.drawCircle({
+    x: nameX + pillW - pillH / 2,
+    y: pillY + pillH / 2,
+    size: pillH / 2,
+    color: brand,
+  });
+  page.drawRectangle({
+    x: nameX + pillH / 2,
+    y: pillY,
+    width: pillW - pillH,
+    height: pillH,
+    color: brand,
+  });
+  // Letterspaced by hand — drawText has no tracking option.
+  let px = nameX + 7;
+  for (const char of pillText) {
+    page.drawText(char, { x: px, y: pillY + 3, size: pillSize, font: fonts.bold, color: WHITE });
+    px += fonts.bold.widthOfTextAtSize(char, pillSize) + 0.6;
+  }
+
+  // --- Field rows: muted label left, bold value right-aligned ---------------
+  const rows: Array<[string, string]> = [[roleLabel, person.role]];
   if (person.detail) rows.push([detailLabel, person.detail]);
+  rows.push(["ID No.", person.number]);
   if (validity) rows.push(["Valid", validity]);
 
-  const fieldX = x + 22;
-  const colonX = x + 62;
-  let fy = roleY - 26;
+  const labelX = x + 14;
+  const valueRight = x + CARD_W - 66;
+  let fy = top - BAND_H - 52;
   for (const [label, value] of rows) {
-    page.drawText(label, { x: fieldX, y: fy, size: 6, font: fonts.regular, color: MUTED });
-    page.drawText(":", { x: colonX, y: fy, size: 6, font: fonts.regular, color: MUTED });
-    page.drawText(truncate(value, fonts.bold, 6.5, CARD_W - 90), {
-      x: colonX + 6,
+    page.drawText(label, { x: labelX, y: fy, size: 6, font: fonts.regular, color: MUTED });
+    const shown = truncate(value, fonts.bold, 7, valueRight - labelX - 60);
+    const width = fonts.bold.widthOfTextAtSize(shown, 7);
+    page.drawText(shown, {
+      x: valueRight - width,
       y: fy,
-      size: 6.5,
+      size: 7,
       font: fonts.bold,
       color: INK,
     });
-    fy -= 10.5;
+    fy -= 12;
+  }
+
+  // --- QR: the ID number, readable by any phone -----------------------------
+  if (qr) {
+    const size = 40;
+    const qrX = x + CARD_W - size - 14;
+    const qrY = top - CARD_H + 20;
+    page.drawImage(qr, { x: qrX, y: qrY, width: size, height: size });
+    const caption = "Scan for ID no.";
+    const captionW = fonts.regular.widthOfTextAtSize(caption, 4.5);
+    page.drawText(caption, {
+      x: qrX + (size - captionW) / 2,
+      y: qrY - 7,
+      size: 4.5,
+      font: fonts.regular,
+      color: MUTED,
+    });
   }
 
   cutBorder(page, x, top);
@@ -550,89 +512,106 @@ function drawBack(
   top: number,
   options: {
     person: IdCardPerson;
-    brand: ReturnType<typeof rgb>;
-    school: { name: string; motto?: string | null; address?: string | null; phone?: string | null };
-    title: string;
-    validity: string;
+    crest: Awaited<ReturnType<typeof embed>>;
+    school: {
+      name: string;
+      address?: string | null;
+      phone?: string | null;
+      email?: string | null;
+    };
     fonts: Fonts;
   },
 ) {
-  const { person, brand, school, title, validity, fonts } = options;
+  const { person, crest, school, fonts } = options;
 
-  // Mirrored corners, as the reference's back shows.
-  drawCorner(page, x, top, "tr", brand);
-  drawCorner(page, x, top, "bl", brand);
-  punchGuide(page, x, top);
+  const inset = x + 16;
+  const usable = CARD_W - 32;
+  let y = top - 22;
 
-  let y = masthead(page, x, top - 34, {
-    crest: null,
-    school,
-    brand,
-    fonts,
-    crestBox: 0,
-    nameSize: 7.5,
-    maxWidth: CARD_W - 48,
+  // The crest sits quietly at the top-right, opposite the name.
+  if (crest) {
+    const box = 22;
+    const scale = Math.min(box / crest.width, box / crest.height);
+    page.drawImage(crest, {
+      x: x + CARD_W - 16 - crest.width * scale,
+      y: top - 14 - crest.height * scale,
+      width: crest.width * scale,
+      height: crest.height * scale,
+    });
+  }
+
+  page.drawText(truncate(school.name, fonts.bold, 9, usable - 28), {
+    x: inset,
+    y,
+    size: 9,
+    font: fonts.bold,
+    color: INK,
   });
-  y -= 10;
+  y -= 13;
 
-  const inset = x + 18;
-  const usable = CARD_W - 36;
+  for (const line of [school.phone, school.email, school.address].filter(
+    (value): value is string => Boolean(value),
+  )) {
+    page.drawText(truncate(line, fonts.regular, 6.5, usable), {
+      x: inset,
+      y,
+      size: 6.5,
+      font: fonts.regular,
+      color: MUTED,
+    });
+    y -= 9.5;
+  }
 
-  function bullet(text: string, emphasis = false) {
-    page.drawRectangle({ x: inset, y: y + 1.5, width: 3, height: 3, color: brand });
-    for (const line of wrap(text, emphasis ? fonts.bold : fonts.regular, 6, usable - 8)) {
-      page.drawText(line, {
-        x: inset + 7,
+  // --- Emergency block, when there is one -----------------------------------
+  const contact = [person.emergencyName, person.emergencyPhone].filter(Boolean).join(" · ");
+  if (contact || person.bloodGroup) {
+    y -= 8;
+    page.drawText("EMERGENCY", {
+      x: inset,
+      y,
+      size: 5,
+      font: fonts.bold,
+      color: MUTED,
+    });
+    y -= 9;
+    if (contact) {
+      page.drawText(truncate(contact, fonts.bold, 6.5, usable), {
+        x: inset,
         y,
-        size: 6,
-        font: emphasis ? fonts.bold : fonts.regular,
+        size: 6.5,
+        font: fonts.bold,
         color: INK,
       });
-      y -= 8;
+      y -= 9.5;
     }
-    y -= 4;
+    if (person.bloodGroup) {
+      page.drawText(`Blood group: ${person.bloodGroup}`, {
+        x: inset,
+        y,
+        size: 6.5,
+        font: fonts.regular,
+        color: INK,
+      });
+      y -= 9.5;
+    }
   }
 
-  const holder = title.toLowerCase().includes("staff") ? "staff member" : "student";
-  bullet(`This card identifies a registered ${holder} of ${school.name}.`);
-  bullet("It remains the property of the school and must be produced on request.");
-
-  const contact = [person.emergencyName, person.emergencyPhone].filter(Boolean).join(" · ");
-  if (contact) bullet(`Emergency: ${contact}`, true);
-  if (person.bloodGroup) bullet(`Blood group: ${person.bloodGroup}`, true);
-
-  y -= 2;
-  const rows: Array<[string, string]> = [];
-  if (validity) rows.push(["Valid", `${validity} academic year`]);
-  const returnTo = [school.address, school.phone].filter(Boolean).join(" · ");
-  if (returnTo) rows.push(["Return to", returnTo]);
-
-  const colonX = inset + 34;
-  for (const [label, value] of rows) {
-    page.drawText(label, { x: inset, y, size: 5.5, font: fonts.regular, color: MUTED });
-    page.drawText(":", { x: colonX, y, size: 5.5, font: fonts.regular, color: MUTED });
-    const lines = wrap(value, fonts.regular, 6, CARD_W - (colonX - x) - 24);
-    for (const line of lines) {
-      page.drawText(line, { x: colonX + 5, y, size: 6, font: fonts.regular, color: INK });
-      y -= 8;
-    }
-    y -= 2.5;
+  // --- Property statement, anchored to the card's foot ----------------------
+  const statement = [
+    `This card remains the property of ${school.name}.`,
+    "If found, please return to the school office.",
+  ];
+  let sy = top - CARD_H + 14 + (statement.length - 1) * 8;
+  for (const line of statement) {
+    page.drawText(truncate(line, fonts.regular, 5.5, usable), {
+      x: inset,
+      y: sy,
+      size: 5.5,
+      font: fonts.regular,
+      color: MUTED,
+    });
+    sy -= 8;
   }
-
-  // --- Signature ------------------------------------------------------------
-  const lineW = 62;
-  const lineX = x + CARD_W - 20 - lineW;
-  const lineY = top - CARD_H + 30;
-  page.drawRectangle({ x: lineX, y: lineY, width: lineW, height: 0.5, color: INK });
-  const label = "Signature";
-  const labelW = fonts.regular.widthOfTextAtSize(label, 5.5);
-  page.drawText(label, {
-    x: lineX + (lineW - labelW) / 2,
-    y: lineY - 8,
-    size: 5.5,
-    font: fonts.regular,
-    color: MUTED,
-  });
 
   cutBorder(page, x, top);
 }

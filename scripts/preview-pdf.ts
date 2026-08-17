@@ -195,10 +195,12 @@ async function main() {
         motto: "Knowledge, Character, Service",
         address: "12 Independence Avenue, Accra",
         phone: "+233 30 212 3456",
+        email: "info@goldencrest.edu.gh",
       },
       crest,
       brandHex: "#2C66CE",
       title: "Student Identity Card",
+      roleLabel: "Class",
       detailLabel: "House",
       validity: "2026/2027",
       people: [
