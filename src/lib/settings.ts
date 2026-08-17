@@ -106,7 +106,7 @@ export async function financeSettings() {
   const values = await getSettingGroup("finance");
   return {
     invoicePrefix: (values.invoicePrefix as string) || "INV",
-    receiptPrefix: (values.receiptPrefix as string) || "RCP",
+    receiptPrefix: (values.receiptPrefix as string) || "RCT",
     /** Days after the due date before an invoice is treated as overdue. */
     graceDays: Number(values.graceDays ?? 7),
     lateFeePercent: Number(values.lateFeePercent ?? 0),

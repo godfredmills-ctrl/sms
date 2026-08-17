@@ -430,7 +430,7 @@ export async function updateFinanceSettingsAction(
 
   await setSettings("finance", {
     invoicePrefix: text(formData, "invoicePrefix") || "INV",
-    receiptPrefix: text(formData, "receiptPrefix") || "RCP",
+    receiptPrefix: text(formData, "receiptPrefix") || "RCT",
     graceDays: Number(text(formData, "graceDays")) || 0,
     lateFeePercent: Number(text(formData, "lateFeePercent")) || 0,
     reminderLeadDays: Number(text(formData, "reminderLeadDays")) || 7,

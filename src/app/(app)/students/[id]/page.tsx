@@ -943,7 +943,7 @@ export default async function StudentProfilePage({
                       Form teacher&apos;s remark
                     </p>
                     <p className="mt-1 text-sm">
-                      {report.formTeacherRemark ?? report.aiRemark}
+                      {report.formTeacherRemark ?? `AI draft (not yet adopted): ${report.aiRemark}`}
                     </p>
                   </CardBody>
                 ) : null}

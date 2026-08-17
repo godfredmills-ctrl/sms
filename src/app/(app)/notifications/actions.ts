@@ -21,6 +21,9 @@ export async function markNotificationReadAction(formData: FormData) {
   });
 
   revalidatePath("/notifications");
+  // The unread badge lives in the app shell, which "/notifications" alone
+  // does not re-render.
+  revalidatePath("/", "layout");
 
   // Only same-origin paths are followed. An open redirect from a stored value
   // is a phishing primitive, and notification URLs are written by many parts
@@ -37,4 +40,7 @@ export async function markAllReadAction() {
   });
 
   revalidatePath("/notifications");
+  // The unread badge lives in the app shell, which "/notifications" alone
+  // does not re-render.
+  revalidatePath("/", "layout");
 }

@@ -9,6 +9,7 @@ import type {
 import { db } from "./db";
 import { generateCode } from "./crypto";
 import { applyPercentage, splitEvenly, sumMinor } from "./money";
+import { financeSettings } from "./settings";
 
 /**
  * Fee domain logic.
@@ -44,8 +45,11 @@ export function nextInvoiceNumber(attempt = 0) {
   return nextDocumentNumber("INV", () => db.invoice.count(), attempt);
 }
 
-export function nextReceiptNumber(attempt = 0) {
-  return nextDocumentNumber("RCT", () => db.payment.count(), attempt);
+export async function nextReceiptNumber(attempt = 0) {
+  // The prefix a school configures under Settings → Integrations. It was
+  // stored, displayed, and ignored — receipts said RCT whatever was typed.
+  const { receiptPrefix } = await financeSettings();
+  return nextDocumentNumber(receiptPrefix, () => db.payment.count(), attempt);
 }
 
 // -----------------------------------------------------------------------------
@@ -646,10 +650,16 @@ export async function allocatePaymentToOldestInvoices(
 
 /** Marks issued invoices past their due date as overdue. Run from cron. */
 export async function markOverdueInvoices(): Promise<number> {
+  // A configured grace period holds the OVERDUE stamp back that many days —
+  // a school that gives families a week does not want reminder rules firing
+  // on day one. The setting existed and was never consulted.
+  const { graceDays } = await financeSettings();
+  const cutoff = new Date(Date.now() - graceDays * 86_400_000);
+
   const result = await db.invoice.updateMany({
     where: {
       status: { in: ["ISSUED", "PART_PAID"] },
-      dueDate: { lt: new Date() },
+      dueDate: { lt: cutoff },
       balanceMinor: { gt: 0 },
     },
     data: { status: "OVERDUE" },

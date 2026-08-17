@@ -178,9 +178,11 @@ export async function buildReportCardPdf(id: string): Promise<Buffer | null> {
     remarks: [
       {
         label: "Form teacher's remark",
-        // The AI draft is a fallback, never a silent substitute: if a teacher
-        // has written something it is theirs that prints.
-        body: card.formTeacherRemark ?? card.aiRemark ?? "",
+        // Only what the teacher actually wrote. The AI draft is a drafting
+        // aid inside the review screen; printing it here put machine-written
+        // words above a teacher's name on a document that goes home — while
+        // the approver's screen showed the remark blank.
+        body: card.formTeacherRemark ?? "",
         signatory: card.classSection.formTeacher
           ? fullName(card.classSection.formTeacher)
           : undefined,
