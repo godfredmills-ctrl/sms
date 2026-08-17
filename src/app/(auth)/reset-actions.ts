@@ -23,6 +23,23 @@ export async function requestPasswordResetAction(
   _previous: ResetState,
   formData: FormData,
 ): Promise<ResetState> {
+  const started = Date.now();
+  const result = await performReset(formData);
+
+  // Every outcome leaves at the same time. The work above differs between
+  // real and unreal accounts — queries, a token insert — and response timing
+  // must not answer the question the message refuses to. The floor comfortably
+  // covers the database work; the provider send is deliberately not awaited
+  // below, because no fixed floor covers a slow SMS gateway.
+  const MIN_RESPONSE_MS = 500;
+  const elapsed = Date.now() - started;
+  if (elapsed < MIN_RESPONSE_MS) {
+    await new Promise((resolve) => setTimeout(resolve, MIN_RESPONSE_MS - elapsed));
+  }
+  return result;
+}
+
+async function performReset(formData: FormData): Promise<ResetState> {
   const identifier = String(formData.get("identifier") ?? "").trim();
   if (!identifier) return { error: "Enter the email or phone number you sign in with." };
 
@@ -38,13 +55,7 @@ export async function requestPasswordResetAction(
   // real and unreal accounts.
   const done = { ok: true as const };
 
-  if (!user || user.status !== "ACTIVE") {
-    // The unreal-account path must cost about what the real one costs, or
-    // response timing answers the question the message refuses to. Hashing a
-    // throwaway token approximates the real path's work.
-    hashToken(generateToken(32));
-    return done;
-  }
+  if (!user || user.status !== "ACTIVE") return done;
 
   // One live reset at a time, and no more than three requests an hour: a
   // reset form is also a free SMS cannon pointed at any number typed into it.
@@ -70,15 +81,18 @@ export async function requestPasswordResetAction(
 
   const link = `${env.appUrl}/reset-password/${token}`;
 
+  // Fire-and-forget: awaiting the provider would let its latency — a network
+  // round trip that only happens for real accounts — shape the response time.
+  // Failures were already swallowed; nothing is lost by not waiting.
   if (user.email) {
-    await sendEmail({
+    void sendEmail({
       to: user.email,
       subject: "Reset your password",
       text: `Hello ${user.firstName},\n\nSomeone asked to reset the password for this account. If it was you, open this link within the hour:\n\n${link}\n\nIf it was not you, ignore this message — nothing has changed.`,
       html: `<p>Hello ${user.firstName},</p><p>Someone asked to reset the password for this account. If it was you, open this link within the hour:</p><p><a href="${link}">${link}</a></p><p>If it was not you, ignore this message — nothing has changed.</p>`,
     }).catch(() => undefined);
   } else if (user.phone) {
-    await sendSms({
+    void sendSms({
       to: user.phone,
       message: `Password reset requested. Open ${link} within 1 hour. Ignore this if it was not you.`,
     }).catch(() => undefined);

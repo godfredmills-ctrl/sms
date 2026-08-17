@@ -2,9 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 
-import { authorize } from "@/lib/auth";
+import { authorize, userCan } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { notifyUsers } from "@/lib/messaging";
+import { sendSms } from "@/lib/messaging/providers";
+import { ownSectionIdsFor } from "@/lib/scope";
 import { humanise } from "@/lib/utils";
 
 import { CATEGORY_VALUES, SANCTION_VALUES, SEVERITY_VALUES } from "./fields";
@@ -82,11 +84,65 @@ export async function recordIncidentAction(
 
   const student = await db.student.findUnique({
     where: { id: studentId },
-    select: { firstName: true, lastName: true },
+    select: {
+      firstName: true,
+      lastName: true,
+      enrollments: {
+        where: { status: "ACTIVE" },
+        take: 1,
+        select: { classSectionId: true },
+      },
+    },
   });
   if (!student) return { error: "Student not found." };
 
+  // student.read.own holders work within their own classes here as everywhere
+  // else — the same scope the desk shows them.
+  if (!userCan(user, "student.read")) {
+    const own = await ownSectionIdsFor(user.staffId);
+    const sectionId = student.enrollments[0]?.classSectionId;
+    if (!sectionId || !own.includes(sectionId)) {
+      return {
+        error:
+          "This student is outside your classes — report the incident to their form teacher or the head of section.",
+      };
+    }
+  }
+
   const notifyGuardian = formData.get("notifyGuardian") === "on";
+
+  // Who can actually be reached, established BEFORE the record is written:
+  // guardianNotified is a claim on a child's file, and it must never say
+  // "told" about a family with no portal account and no phone on file.
+  const guardianLinks = notifyGuardian
+    ? await db.studentGuardian.findMany({
+        where: { studentId },
+        orderBy: { isPrimary: "desc" },
+        select: {
+          guardian: {
+            select: { user: { select: { id: true } }, phone: true },
+          },
+        },
+      })
+    : [];
+  const userIds = [
+    ...new Set(
+      guardianLinks
+        .map((link) => link.guardian.user?.id)
+        .filter((id): id is string => Boolean(id)),
+    ),
+  ];
+  // SMS for the guardians without a portal login — in this product's own
+  // framing, a parent's account is as likely to be a phone number as an app.
+  const phones = [
+    ...new Set(
+      guardianLinks
+        .filter((link) => !link.guardian.user)
+        .map((link) => link.guardian.phone)
+        .filter((value): value is string => Boolean(value)),
+    ),
+  ];
+  const familyReachable = userIds.length > 0 || phones.length > 0;
 
   const record = await db.disciplinaryRecord.create({
     data: {
@@ -101,31 +157,25 @@ export async function recordIncidentAction(
       sanction: sanction || null,
       suspensionDays,
       reportedBy: user.fullName,
-      guardianNotified: notifyGuardian,
-      guardianNotifiedAt: notifyGuardian ? new Date() : null,
+      guardianNotified: notifyGuardian && familyReachable,
+      guardianNotifiedAt: notifyGuardian && familyReachable ? new Date() : null,
     },
     select: { id: true },
   });
 
-  if (notifyGuardian) {
-    const guardians = await db.studentGuardian.findMany({
-      where: { studentId },
-      select: { guardian: { select: { user: { select: { id: true } } } } },
-    });
-    const userIds = guardians
-      .map((link) => link.guardian.user?.id)
-      .filter((id): id is string => Boolean(id));
+  if (notifyGuardian && familyReachable) {
+    // Category and consequence, not the narrative: this lands on lock
+    // screens, and the full account is a conversation with the school.
+    const summary = `A ${humanise(severity).toLowerCase()} conduct incident (${humanise(category).toLowerCase()}) involving ${student.firstName} ${student.lastName} has been recorded.${
+      sanction
+        ? ` Sanction: ${humanise(sanction).toLowerCase()}${suspensionDays ? ` (${suspensionDays} day${suspensionDays === 1 ? "" : "s"})` : ""}.`
+        : ""
+    } Please contact the school office to discuss.`;
 
     if (userIds.length) {
-      // Category and consequence, not the narrative: this lands on lock
-      // screens, and the full account is a conversation with the school.
       await notifyUsers(userIds, {
         title: `Conduct: ${student.firstName}`,
-        body: `A ${humanise(severity).toLowerCase()} conduct incident (${humanise(category).toLowerCase()}) involving ${student.firstName} ${student.lastName} has been recorded.${
-          sanction
-            ? ` Sanction: ${humanise(sanction).toLowerCase()}${suspensionDays ? ` (${suspensionDays} day${suspensionDays === 1 ? "" : "s"})` : ""}.`
-            : ""
-        } Please contact the school office to discuss.`,
+        body: summary,
         category: "GENERAL",
         priority:
           severity === "SEVERE" || sanction === "SUSPENSION" || sanction === "EXPULSION"
@@ -133,6 +183,9 @@ export async function recordIncidentAction(
             : "HIGH",
         url: "/portal/guardian",
       }).catch(() => undefined);
+    }
+    for (const phone of phones) {
+      await sendSms({ to: phone, message: summary }).catch(() => undefined);
     }
   }
 
@@ -151,9 +204,11 @@ export async function recordIncidentAction(
   revalidatePath(`/students/${studentId}`);
   return {
     ok: true,
-    message: notifyGuardian
-      ? "Recorded, and the family has been notified."
-      : "Recorded.",
+    message: !notifyGuardian
+      ? "Recorded."
+      : familyReachable
+        ? "Recorded, and the family has been notified."
+        : "Recorded — the family has no portal account or phone on file, so tell them directly.",
   };
 }
 
@@ -173,10 +228,28 @@ export async function resolveIncidentAction(formData: FormData) {
       status: true,
       category: true,
       studentId: true,
-      student: { select: { firstName: true, lastName: true } },
+      student: {
+        select: {
+          firstName: true,
+          lastName: true,
+          enrollments: {
+            where: { status: "ACTIVE" },
+            take: 1,
+            select: { classSectionId: true },
+          },
+        },
+      },
     },
   });
   if (!record || record.status === "RESOLVED") return;
+
+  // The same own-classes scope as recording: a read.own form teacher closes
+  // their own class's cases, not the school's.
+  if (!userCan(user, "student.read")) {
+    const own = await ownSectionIdsFor(user.staffId);
+    const sectionId = record.student.enrollments[0]?.classSectionId;
+    if (!sectionId || !own.includes(sectionId)) return;
+  }
 
   await db.disciplinaryRecord.update({
     where: { id },

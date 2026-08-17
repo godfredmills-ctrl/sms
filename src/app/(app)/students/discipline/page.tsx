@@ -16,16 +16,18 @@ import {
   EmptyState,
   PageHeader,
   StatCard,
-  StatusBadge,
   Textarea,
 } from "@/components/ui";
 import { Pager, pageOf } from "@/components/pager";
 import { RefreshButton } from "@/components/refresh-button";
-import { requirePermission } from "@/lib/auth";
+import { requirePermission, userCan } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { formatDate, humanise, listName, relativeTime } from "@/lib/utils";
 
+import { ownSectionIdsFor } from "@/lib/scope";
+
 import { resolveIncidentAction } from "./actions";
+import { CONDUCT_STATUS_TONES } from "./fields";
 import { IncidentForm } from "./incident-form";
 
 export const metadata: Metadata = { title: "Discipline" };
@@ -47,7 +49,22 @@ export default async function DisciplinePage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  await requirePermission("student.discipline.manage");
+  const user = await requirePermission("student.discipline.manage");
+
+  // A form teacher with student.read.own sees their classes' cases, exactly
+  // as the students list scopes them — not the whole school's incident feed
+  // and roster.
+  const schoolWide = userCan(user, "student.read");
+  const ownSections = schoolWide ? [] : await ownSectionIdsFor(user.staffId);
+  const studentScope = schoolWide
+    ? {}
+    : {
+        student: {
+          enrollments: {
+            some: { classSectionId: { in: ownSections }, status: "ACTIVE" as const },
+          },
+        },
+      };
 
   const params = await searchParams;
   const { page, skip, take } = pageOf(params, PER_PAGE);
@@ -58,6 +75,7 @@ export default async function DisciplinePage({
   const [records, total, openCount, monthCount, suspensions, students] =
     await Promise.all([
       db.disciplinaryRecord.findMany({
+        where: studentScope,
         orderBy: { incidentAt: "desc" },
         skip,
         take,
@@ -82,17 +100,29 @@ export default async function DisciplinePage({
           },
         },
       }),
-      db.disciplinaryRecord.count(),
-      db.disciplinaryRecord.count({ where: { status: { not: "RESOLVED" } } }),
-      db.disciplinaryRecord.count({ where: { incidentAt: { gte: monthAgo } } }),
+      db.disciplinaryRecord.count({ where: studentScope }),
+      db.disciplinaryRecord.count({
+        where: { ...studentScope, status: { not: "RESOLVED" } },
+      }),
+      db.disciplinaryRecord.count({
+        where: { ...studentScope, incidentAt: { gte: monthAgo } },
+      }),
       db.disciplinaryRecord.count({
         where: {
+          ...studentScope,
           incidentAt: { gte: quarterAgo },
           sanction: { in: ["SUSPENSION", "EXPULSION"] },
         },
       }),
       db.student.findMany({
-        where: { status: "ENROLLED" },
+        where: schoolWide
+          ? { status: "ENROLLED" }
+          : {
+              status: "ENROLLED",
+              enrollments: {
+                some: { classSectionId: { in: ownSections }, status: "ACTIVE" },
+              },
+            },
         orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
         take: 1500,
         select: {
@@ -147,7 +177,10 @@ export default async function DisciplinePage({
             </Card>
           ) : (
             <Card>
-              <CardHeader title="Incidents" description="Newest first." />
+              <CardHeader
+                title="Incidents"
+                description={schoolWide ? "Newest first." : "Your classes, newest first."}
+              />
               <ul className="divide-y divide-[var(--border)]">
                 {records.map((record) => {
                   const section = record.student.enrollments[0]?.classSection;
@@ -179,7 +212,9 @@ export default async function DisciplinePage({
                         >
                           {humanise(record.severity)}
                         </Badge>
-                        <StatusBadge status={record.status} />
+                        <Badge tone={CONDUCT_STATUS_TONES[record.status] ?? "neutral"}>
+                          {humanise(record.status)}
+                        </Badge>
                         <span className="flex-1" />
                         <span
                           className="text-xs text-[var(--text-subtle)]"

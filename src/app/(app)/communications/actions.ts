@@ -378,16 +378,25 @@ export async function createMemoAction(
     });
   } else {
     // Reference numbers are what staff quote in reply, so they are sequential
-    // and human-readable rather than an opaque id. Derived from the count and
-    // RETRIED on collision: discarding a draft shrinks the count, so the next
-    // number can repeat one already issued, and without the retry that unique
-    // constraint would refuse every new memo from then on.
+    // and human-readable rather than an opaque id. Allocated from the highest
+    // number ever issued this year, never from the row count: discarding a
+    // draft shrinks the count while the top of the sequence stays taken, and
+    // a count-derived candidate can land inside a permanently occupied run
+    // where no amount of retrying escapes. The maximum only ever grows. The
+    // retry that remains covers two people creating a memo at the same time.
     const year = new Date().getFullYear();
-    const count = await db.memo.count();
+    const issued = await db.memo.findMany({
+      where: { referenceNo: { startsWith: `MEMO/${year}/` } },
+      select: { referenceNo: true },
+    });
+    const highest = issued.reduce((max, row) => {
+      const tail = Number(row.referenceNo.split("/").pop());
+      return Number.isFinite(tail) && tail > max ? tail : max;
+    }, 0);
 
     memo = null as never;
     for (let attempt = 0; attempt < 5 && !memo; attempt += 1) {
-      const referenceNo = `MEMO/${year}/${String(count + 1 + attempt).padStart(4, "0")}`;
+      const referenceNo = `MEMO/${year}/${String(highest + 1 + attempt).padStart(4, "0")}`;
       try {
         memo = await db.memo.create({
           data: {

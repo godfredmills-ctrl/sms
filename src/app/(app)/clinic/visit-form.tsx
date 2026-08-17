@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useRef } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { Stethoscope } from "lucide-react";
 
@@ -29,14 +29,17 @@ export function VisitForm({ students }: { students: SelectOption[] }) {
     logClinicVisitAction,
     {},
   );
-  const formRef = useRef<HTMLFormElement>(null);
+  // Remount on success rather than form.reset(): the searchable select keeps
+  // its choice in its own state where reset() cannot reach, and state.ok stays
+  // true after the first success so an effect watching it fires exactly once.
+  const [formKey, setFormKey] = useState(0);
 
   useEffect(() => {
-    if (state.ok) formRef.current?.reset();
-  }, [state.ok]);
+    if (state.ok) setFormKey((key) => key + 1);
+  }, [state]);
 
   return (
-    <form ref={formRef} action={action}>
+    <form key={formKey} action={action}>
       <CardBody className="space-y-3">
         {state.error ? <Alert tone="danger">{state.error}</Alert> : null}
         {state.ok ? <Alert tone="success">{state.message}</Alert> : null}

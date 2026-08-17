@@ -36,6 +36,7 @@ import {
 import { requirePermission, userCan } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { getStudentStatement } from "@/lib/finance";
+import { CONDUCT_STATUS_TONES } from "../discipline/fields";
 import { formatMoney, percentOf } from "@/lib/money";
 import {
   calculateAge,
@@ -1129,7 +1130,9 @@ export default async function StudentProfilePage({
                       >
                         {humanise(record.severity)}
                       </Badge>
-                      <StatusBadge status={record.status} />
+                      <Badge tone={CONDUCT_STATUS_TONES[record.status] ?? "neutral"}>
+                        {humanise(record.status)}
+                      </Badge>
                     </div>
                   </div>
                   <p className="mt-2 text-sm">{record.description}</p>

@@ -32,6 +32,8 @@ import {
   humanise,
 } from "@/lib/utils";
 
+import { CONDUCT_STATUS_TONES } from "@/app/(app)/students/discipline/fields";
+
 import { NotLinked } from "../not-linked";
 import { wardsFor } from "../wards";
 
@@ -290,7 +292,11 @@ export default async function GuardianChildrenPage() {
                                   : ""}
                               </span>
                             ) : null}
-                            <StatusBadge status={record.status} />
+                            <Badge
+                              tone={CONDUCT_STATUS_TONES[record.status] ?? "neutral"}
+                            >
+                              {humanise(record.status)}
+                            </Badge>
                             {record.resolution ? (
                               <span className="text-[var(--text-subtle)]">
                                 — {record.resolution}

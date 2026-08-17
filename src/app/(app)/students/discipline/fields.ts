@@ -38,3 +38,18 @@ export const INCIDENT_SANCTIONS = [
 export const CATEGORY_VALUES = INCIDENT_CATEGORIES.map((entry) => entry.value);
 export const SEVERITY_VALUES = INCIDENT_SEVERITIES.map((entry) => entry.value);
 export const SANCTION_VALUES = INCIDENT_SANCTIONS.map((entry) => entry.value);
+
+/**
+ * Badge tones for a case's status, in discipline's own terms. The generic
+ * StatusBadge colours OPEN green — right for an election, exactly backwards
+ * for an unresolved bullying case on the page built to flag it.
+ */
+export const CONDUCT_STATUS_TONES: Record<
+  string,
+  "warning" | "info" | "danger" | "success" | "neutral"
+> = {
+  OPEN: "warning",
+  UNDER_REVIEW: "info",
+  ESCALATED: "danger",
+  RESOLVED: "success",
+};

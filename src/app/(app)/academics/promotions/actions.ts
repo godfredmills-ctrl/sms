@@ -116,6 +116,18 @@ export async function promoteClassAction(
   }
   if (!decisions.size) return { error: "No students to move." };
 
+  // A per-student GRADUATED decision is only meaningful under the whole-class
+  // graduating flag — which is what the final-level check above validated.
+  // Accepted here, a tampered form would graduate a JHS 1 child out of the
+  // school straight past that check, with no new enrolment and no way back
+  // through this screen.
+  if (!graduating && [...decisions.values()].includes("GRADUATED")) {
+    return {
+      error:
+        "Graduation is a whole-class decision — tick “This class is graduating”.",
+    };
+  }
+
   const enrollments = await db.enrollment.findMany({
     where: {
       classSectionId: fromSectionId,

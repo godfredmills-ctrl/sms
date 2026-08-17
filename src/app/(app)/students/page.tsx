@@ -13,6 +13,7 @@ import { RefreshButton } from "@/components/refresh-button";
 import { requirePermission, userCan } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { DOCUMENT_CATEGORIES } from "@/lib/person-documents";
+import { ownSectionIdsFor } from "@/lib/scope";
 import { toNumber } from "@/lib/utils";
 
 import { AdmitStudentButton } from "./admit-student-button";
@@ -24,18 +25,14 @@ export const dynamic = "force-dynamic";
 export default async function StudentsPage() {
   const user = await requirePermission(["student.read", "student.read.own"]);
 
-  // A subject teacher only sees students in classes they actually teach.
+  // A subject teacher only sees students in classes they actually teach —
+  // the shared "own classes" scope, so this list and the discipline desk can
+  // never quietly mean different classes.
   const restrictToOwnClasses =
     !userCan(user, "student.read") && userCan(user, "student.read.own");
 
   const ownSectionIds = restrictToOwnClasses
-    ? (
-        await db.subjectOffering.findMany({
-          where: { teacherId: user.staffId ?? "" },
-          select: { classSectionId: true },
-          distinct: ["classSectionId"],
-        })
-      ).map((offering) => offering.classSectionId)
+    ? await ownSectionIdsFor(user.staffId)
     : [];
 
   const students = await db.student.findMany({

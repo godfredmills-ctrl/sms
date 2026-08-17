@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useRef, useState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { ShieldAlert } from "lucide-react";
 
@@ -28,18 +28,22 @@ export function IncidentForm({ students }: { students: SelectOption[] }) {
     recordIncidentAction,
     {},
   );
-  const formRef = useRef<HTMLFormElement>(null);
   const [sanction, setSanction] = useState<string>("");
+  // Remounting via the key is the only reset that also clears the searchable
+  // selects, whose choices live in their own state where form.reset() cannot
+  // reach. Keyed off the state OBJECT, not state.ok: ok stays true from the
+  // first success onwards, and an effect watching it would fire exactly once.
+  const [formKey, setFormKey] = useState(0);
 
   useEffect(() => {
     if (state.ok) {
-      formRef.current?.reset();
+      setFormKey((key) => key + 1);
       setSanction("");
     }
-  }, [state.ok]);
+  }, [state]);
 
   return (
-    <form ref={formRef} action={action}>
+    <form key={formKey} action={action}>
       <CardBody className="space-y-3">
         {state.error ? <Alert tone="danger">{state.error}</Alert> : null}
         {state.ok ? <Alert tone="success">{state.message}</Alert> : null}
