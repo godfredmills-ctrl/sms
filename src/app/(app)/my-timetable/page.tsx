@@ -33,7 +33,10 @@ const DAYS = [
  * picking out their own name.
  *
  * No permission beyond being staff: this is the viewer's own diary, scoped
- * by the session's staffId, and it shows nobody else's.
+ * by the session's staffId, and it shows nobody else's. It deliberately
+ * lives OUTSIDE /academics — that segment's layout demands
+ * academic.structure.read, and a nurse who covers two first-aid lessons has
+ * a timetable without having the academics module.
  */
 export default async function MyTimetablePage() {
   const user = await requireUser();
@@ -55,7 +58,10 @@ export default async function MyTimetablePage() {
 
   const slots = await db.timetableSlot.findMany({
     where: { offering: { teacherId: user.staffId } },
-    orderBy: [{ dayOfWeek: "asc" }, { periodIndex: "asc" }],
+    // startTime is a zero-padded "HH:MM", so string order is time order.
+    // periodIndex is NOT a school-wide clock — each class numbers its own
+    // periods, and two classes' bell schedules are free to differ.
+    orderBy: [{ dayOfWeek: "asc" }, { startTime: "asc" }, { periodIndex: "asc" }],
     select: {
       id: true,
       dayOfWeek: true,
@@ -75,17 +81,35 @@ export default async function MyTimetablePage() {
     },
   });
 
-  // A teacher booked twice in one period is the timetable's worst bug, and
-  // this page is where the person it happens to would actually see it.
+  // A teacher booked in two places at once is the timetable's worst bug,
+  // and this page is where the person it happens to would actually see it.
+  // Compared by actual times, not period numbers: periodIndex only means
+  // something within one class, and two classes' bell schedules can differ —
+  // JHS 1's period 2 can overlap JHS 2's period 3 on the clock while never
+  // sharing an index.
+  const minutes = (time: string): number | null => {
+    const match = /^(d{1,2}):(d{2})$/.exec(time);
+    if (!match) return null;
+    return Number(match[1]) * 60 + Number(match[2]);
+  };
   const clashKeys = new Set<string>();
-  const seen = new Map<string, string>();
-  for (const slot of slots) {
-    const key = `${slot.dayOfWeek}:${slot.periodIndex}`;
-    if (seen.has(key)) {
-      clashKeys.add(seen.get(key)!);
-      clashKeys.add(slot.id);
-    } else {
-      seen.set(key, slot.id);
+  let clashPairs = 0;
+  for (let a = 0; a < slots.length; a += 1) {
+    for (let b = a + 1; b < slots.length; b += 1) {
+      const one = slots[a];
+      const two = slots[b];
+      if (one.dayOfWeek !== two.dayOfWeek) continue;
+      const oneStart = minutes(one.startTime);
+      const oneEnd = minutes(one.endTime);
+      const twoStart = minutes(two.startTime);
+      const twoEnd = minutes(two.endTime);
+      if (oneStart === null || oneEnd === null || twoStart === null || twoEnd === null)
+        continue;
+      if (oneStart < twoEnd && twoStart < oneEnd) {
+        clashKeys.add(one.id);
+        clashKeys.add(two.id);
+        clashPairs += 1;
+      }
     }
   }
 
@@ -136,14 +160,14 @@ export default async function MyTimetablePage() {
             />
             <StatCard
               label="Clashes"
-              value={clashKeys.size ? clashKeys.size : 0}
-              hint={clashKeys.size ? "Two classes, one period" : "None"}
-              tone={clashKeys.size ? "danger" : "success"}
+              value={clashPairs}
+              hint={clashPairs ? "Two classes at the same time" : "None"}
+              tone={clashPairs ? "danger" : "success"}
               icon={<AlertTriangle className="size-4" />}
             />
           </div>
 
-          {clashKeys.size ? (
+          {clashPairs ? (
             <Alert tone="danger" className="mb-4">
               You are booked in two classes at the same time — the affected lessons
               are outlined below. Tell whoever keeps the timetable before week one

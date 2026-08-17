@@ -51,7 +51,9 @@ export default async function DashboardPage() {
           dayOfWeek: jsDay === 0 ? 7 : jsDay,
           offering: { teacherId: user.staffId },
         },
-        orderBy: { periodIndex: "asc" },
+        // "In order" means clock order: periodIndex is per-class, and a
+        // teacher's day spans classes whose bell schedules can differ.
+        orderBy: [{ startTime: "asc" }, { periodIndex: "asc" }],
         select: {
           id: true,
           startTime: true,
@@ -230,13 +232,13 @@ export default async function DashboardPage() {
             title="Today's lessons"
             description="Your day, in order."
             action={
-              <LinkButton href="/academics/timetable/mine" variant="outline" size="sm">
+              <LinkButton href="/my-timetable" variant="outline" size="sm">
                 <CalendarClock className="size-4" />
                 Full week
               </LinkButton>
             }
           />
-          <div className="flex gap-2 overflow-x-auto px-5 pb-4">
+          <div className="flex gap-2 overflow-x-auto px-5 pb-4 pt-1">
             {todaysLessons.map((slot) => (
               <div
                 key={slot.id}
@@ -265,6 +267,10 @@ export default async function DashboardPage() {
                 </p>
               </div>
             ))}
+            {/* Trailing spacer: some engines drop a scroller's inline-end
+                padding from the scrollable area, leaving the last chip flush
+                against the edge. */}
+            <div aria-hidden className="w-px shrink-0" />
           </div>
         </Card>
       ) : null}

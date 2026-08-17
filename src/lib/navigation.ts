@@ -126,6 +126,14 @@ export const STAFF_NAVIGATION: NavGroup[] = [
   {
     label: "Academics",
     items: [
+      // Ungated: every staff member has a week, and the page itself scopes
+      // to the viewer's own staffId. It sits outside /academics because that
+      // segment's layout demands academic.structure.read.
+      {
+        label: "My Timetable",
+        href: "/my-timetable",
+        icon: "Clock",
+      },
       {
         label: "Classes & Subjects",
         href: "/academics",
@@ -141,15 +149,9 @@ export const STAFF_NAVIGATION: NavGroup[] = [
             permissions: ["academic.year.manage"],
           },
           {
-            label: "My timetable",
-            href: "/academics/timetable/mine",
-            icon: "CalendarClock",
-            permissions: ["academic.timetable.read"],
-          },
-          {
             label: "Timetable",
             href: "/academics/timetable",
-            icon: "CalendarRange",
+            icon: "CalendarClock",
             permissions: ["academic.timetable.read"],
           },
           {
