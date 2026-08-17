@@ -110,6 +110,15 @@ export const STAFF_NAVIGATION: NavGroup[] = [
             icon: "UserPlus",
             permissions: ["staff.create"],
           },
+          // Also under Students; listed here too because a child link cannot
+          // resurrect a hidden parent, and an HR-style role with staff.read
+          // but no student.read would otherwise have no way in at all.
+          {
+            label: "ID cards",
+            href: "/students/id-cards",
+            icon: "IdCard",
+            permissions: ["staff.read"],
+          },
         ],
       },
     ],

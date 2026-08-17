@@ -72,6 +72,42 @@ function truncate(text: string, font: PDFFont, size: number, maxWidth: number): 
   return value === text ? value : `${value.slice(0, -1)}…`;
 }
 
+/**
+ * Ghanaian orthography letters that standard Helvetica cannot encode, mapped
+ * to their closest Latin letters. Kwabɛna prints as Kwabena rather than
+ * crashing the whole batch — pdf-lib throws on the first character outside
+ * WinAnsi, and one name in one class is all it would take.
+ */
+const TRANSLITERATE: Record<string, string> = {
+  "ɛ": "e", "Ɛ": "E",
+  "ɔ": "o", "Ɔ": "O",
+  "ŋ": "n", "Ŋ": "N",
+  "ƒ": "f", "Ƒ": "F",
+  "ʋ": "v", "Ʋ": "V",
+  "ɖ": "d", "Ɖ": "D",
+};
+
+function sanitise(text: string, font: PDFFont): string {
+  const mapped = text.replace(/[ɛƐɔƆŋŊƒƑʋƲɖƉ]/g, (char) => TRANSLITERATE[char]);
+  try {
+    font.widthOfTextAtSize(mapped, 8);
+    return mapped;
+  } catch {
+    // Anything else the font cannot take is dropped character by character —
+    // a missing diacritic beats a missing card.
+    return [...mapped]
+      .filter((char) => {
+        try {
+          font.widthOfTextAtSize(char, 8);
+          return true;
+        } catch {
+          return false;
+        }
+      })
+      .join("");
+  }
+}
+
 export type IdCardPerson = {
   name: string;
   /** Admission number or staff number. */
@@ -115,13 +151,37 @@ export async function renderIdCardsPdf(input: IdCardBatch): Promise<Buffer> {
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
   const brand = hexToRgb(input.brandHex);
 
+  // Every string that reaches a drawText goes through the encoder check once,
+  // here, so the drawing code below can measure and wrap freely.
+  const clean = (value: string | null | undefined) =>
+    value ? sanitise(value, regular) : value ?? null;
+  const school = {
+    name: clean(input.school.name) ?? "",
+    address: clean(input.school.address),
+    phone: clean(input.school.phone),
+  };
+  const title = clean(input.title) ?? "";
+  const validity = clean(input.validity) ?? "";
+  const roleLabel = clean(input.roleLabel) ?? "";
+  const detailLabel = clean(input.detailLabel) ?? "";
+  const people = input.people.map((person) => ({
+    ...person,
+    name: clean(person.name) ?? "",
+    number: clean(person.number) ?? "",
+    role: clean(person.role) ?? "",
+    detail: clean(person.detail),
+    emergencyName: clean(person.emergencyName),
+    emergencyPhone: clean(person.emergencyPhone),
+    bloodGroup: clean(person.bloodGroup),
+  }));
+
   const crest = input.crest ? await embed(pdf, input.crest) : null;
 
   let page = pdf.addPage([PAGE_W, PAGE_H]);
   footerNote(page, regular);
   let row = 0;
 
-  for (const person of input.people) {
+  for (const person of people) {
     if (row === ROWS_PER_PAGE) {
       page = pdf.addPage([PAGE_W, PAGE_H]);
       footerNote(page, regular);
@@ -136,18 +196,18 @@ export async function renderIdCardsPdf(input: IdCardBatch): Promise<Buffer> {
       photo,
       crest,
       brand,
-      school: input.school,
-      title: input.title,
-      roleLabel: input.roleLabel,
-      detailLabel: input.detailLabel,
-      validity: input.validity,
+      school,
+      title,
+      roleLabel,
+      detailLabel,
+      validity,
       fonts: { regular, bold },
     });
     drawBack(page, MARGIN_X + CARD_W + GUTTER_X, top, {
       person,
       brand,
-      school: input.school,
-      title: input.title,
+      school,
+      title,
       fonts: { regular, bold },
     });
 
@@ -211,10 +271,63 @@ function drawFront(
   const { person, photo, crest, brand, school, title, roleLabel, detailLabel, validity, fonts } =
     options;
 
-  cutBorder(page, x, top);
+  // --- Photo (drawn FIRST) -------------------------------------------------
+  // The photo is covered-and-masked: scaled to fill its frame and the
+  // overflow painted back out with white strips. Those strips can reach
+  // beyond the frame — above it for a tall photo, beside it for a wide one —
+  // so everything that must survive them (the brand band, the cut border) is
+  // drawn AFTER the photo, painting over any spill instead of under it.
+  const bandH = 40;
+  const photoX = x + 10;
+  const photoW = 60;
+  const photoH = 74;
+  const photoTop = top - bandH - 10;
+
+  if (photo) {
+    const scale = Math.max(photoW / photo.width, photoH / photo.height);
+    const drawW = photo.width * scale;
+    const drawH = photo.height * scale;
+    page.drawImage(photo, {
+      x: photoX + (photoW - drawW) / 2,
+      y: photoTop - photoH + (photoH - drawH) / 2,
+      width: drawW,
+      height: drawH,
+    });
+    if (drawW > photoW) {
+      const over = (drawW - photoW) / 2;
+      page.drawRectangle({ x: photoX - over, y: photoTop - photoH, width: over, height: photoH, color: WHITE });
+      page.drawRectangle({ x: photoX + photoW, y: photoTop - photoH, width: over, height: photoH, color: WHITE });
+    }
+    if (drawH > photoH) {
+      const over = (drawH - photoH) / 2;
+      page.drawRectangle({ x: photoX, y: photoTop, width: photoW, height: over, color: WHITE });
+      page.drawRectangle({ x: photoX, y: photoTop - photoH - over, width: photoW, height: over, color: WHITE });
+    }
+  }
+
+  // The frame, over the masked edges; the placeholder when there is nothing
+  // to frame.
+  page.drawRectangle({
+    x: photoX,
+    y: photoTop - photoH,
+    width: photoW,
+    height: photoH,
+    borderColor: FAINT,
+    borderWidth: 0.5,
+  });
+  if (!photo) {
+    const label = "PHOTO";
+    const labelW = fonts.regular.widthOfTextAtSize(label, 6);
+    page.drawText(label, {
+      x: photoX + (photoW - labelW) / 2,
+      y: photoTop - photoH / 2 - 3,
+      size: 6,
+      font: fonts.regular,
+      color: MUTED,
+    });
+  }
 
   // --- Header band ---------------------------------------------------------
-  const bandH = 40;
   page.drawRectangle({ x, y: top - bandH, width: CARD_W, height: bandH, color: brand });
 
   if (crest) {
@@ -243,66 +356,6 @@ function drawFront(
     font: fonts.regular,
     color: WHITE,
   });
-
-  // --- Photo ---------------------------------------------------------------
-  const photoX = x + 10;
-  const photoW = 60;
-  const photoH = 74;
-  const photoTop = top - bandH - 10;
-
-  page.drawRectangle({
-    x: photoX,
-    y: photoTop - photoH,
-    width: photoW,
-    height: photoH,
-    borderColor: FAINT,
-    borderWidth: 0.5,
-  });
-
-  if (photo) {
-    // Cover the box rather than fit inside it: a passport photo cropped a
-    // little beats one floating in white space. Clipping is done by scaling
-    // to the larger ratio and centring, then masking with white strips.
-    const scale = Math.max(photoW / photo.width, photoH / photo.height);
-    const drawW = photo.width * scale;
-    const drawH = photo.height * scale;
-    page.drawImage(photo, {
-      x: photoX + (photoW - drawW) / 2,
-      y: photoTop - photoH + (photoH - drawH) / 2,
-      width: drawW,
-      height: drawH,
-    });
-    // Mask the overflow back to the page: left/right or top/bottom strips.
-    if (drawW > photoW) {
-      const over = (drawW - photoW) / 2;
-      page.drawRectangle({ x: photoX - over, y: photoTop - photoH, width: over, height: photoH, color: WHITE });
-      page.drawRectangle({ x: photoX + photoW, y: photoTop - photoH, width: over, height: photoH, color: WHITE });
-    }
-    if (drawH > photoH) {
-      const over = (drawH - photoH) / 2;
-      page.drawRectangle({ x: photoX, y: photoTop, width: photoW, height: over, color: WHITE });
-      page.drawRectangle({ x: photoX, y: photoTop - photoH - over, width: photoW, height: over, color: WHITE });
-    }
-    // Redraw the border over the masked edges.
-    page.drawRectangle({
-      x: photoX,
-      y: photoTop - photoH,
-      width: photoW,
-      height: photoH,
-      borderColor: FAINT,
-      borderWidth: 0.5,
-    });
-  } else {
-    const label = "PHOTO";
-    const labelW = fonts.regular.widthOfTextAtSize(label, 6);
-    page.drawText(label, {
-      x: photoX + (photoW - labelW) / 2,
-      y: photoTop - photoH / 2 - 3,
-      size: 6,
-      font: fonts.regular,
-      color: MUTED,
-    });
-  }
 
   // --- Fields --------------------------------------------------------------
   const fieldX = x + 80;
@@ -342,6 +395,9 @@ function drawFront(
 
   // --- Footer band ---------------------------------------------------------
   page.drawRectangle({ x, y: top - CARD_H, width: CARD_W, height: 6, color: brand });
+
+  // Last, over anything a photo mask spilled onto.
+  cutBorder(page, x, top);
 }
 
 function drawBack(

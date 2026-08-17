@@ -13,7 +13,7 @@ import {
 import { RefreshButton } from "@/components/refresh-button";
 import { requirePermission } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { humanise, listName } from "@/lib/utils";
+import { listName } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Boarding" };
 export const dynamic = "force-dynamic";
@@ -59,6 +59,9 @@ export default async function BoardingPage() {
   const unassigned = boarders.filter((student) => !student.dormitory);
   const girls = boarders.filter((student) => student.gender === "FEMALE").length;
   const boys = boarders.filter((student) => student.gender === "MALE").length;
+  // Gender also holds OTHER and UNDISCLOSED, and defaults to UNDISCLOSED —
+  // "48 boarders, 3 girls, 2 boys" with no third number reads as data loss.
+  const unrecorded = boarders.length - girls - boys;
 
   // House → dormitory → students. A boarder without a house files under
   // "Unassigned", which keeps them visible instead of dropped.
@@ -90,6 +93,7 @@ export default async function BoardingPage() {
         <StatCard
           label="Girls / Boys"
           value={`${girls} / ${boys}`}
+          hint={unrecorded ? `${unrecorded} not recorded` : undefined}
           tone="info"
           icon={<Users className="size-4" />}
         />
@@ -162,9 +166,11 @@ export default async function BoardingPage() {
                               ) : (
                                 <Badge tone="warning">No room</Badge>
                               )}
-                              <span className="shrink-0 text-[10px] text-[var(--text-subtle)]">
-                                {humanise(student.gender).slice(0, 1)}
-                              </span>
+                              {student.gender === "MALE" || student.gender === "FEMALE" ? (
+                                <span className="shrink-0 text-[10px] text-[var(--text-subtle)]">
+                                  {student.gender === "MALE" ? "M" : "F"}
+                                </span>
+                              ) : null}
                             </li>
                           );
                         })}

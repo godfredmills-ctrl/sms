@@ -222,7 +222,8 @@ async function main() {
           emergencyPhone: "+233 20 555 8871",
         },
         {
-          name: "Kwabena Asante",
+          // Twi orthography: transliterated by the renderer, not crashed on.
+          name: "Kwabɛna Asantɛ-Ɔboɔ",
           number: "GCS/2025/0501",
           role: "JHS 1 Amber",
           detail: "Topaz house",

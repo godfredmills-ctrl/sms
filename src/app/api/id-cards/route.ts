@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { authorize } from "@/lib/auth";
+import { authorize, userCan } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { loadDocumentImage, type EmbeddedImage } from "@/lib/document-images";
 import { renderIdCardsPdf, type IdCardPerson } from "@/lib/id-card-pdf";
@@ -21,8 +21,28 @@ import { listName } from "@/lib/utils";
  */
 export const dynamic = "force-dynamic";
 
-/** Batches are printed a class at a time; this is a hard stop, not a page size. */
-const MAX_CARDS = 200;
+/**
+ * The runaway-request stop, far above any real class and above most staff
+ * rooms. When a batch would exceed it the request is refused with an
+ * explanation rather than silently truncated — 200 cards handed out and 30
+ * people quietly missing is the worse failure.
+ */
+const MAX_CARDS = 500;
+
+/**
+ * These links open in a new tab straight from the launcher page, so the
+ * failure states a person can actually reach — an empty class, an expired
+ * session — read as a sentence, not as raw JSON in a bare tab.
+ */
+function message(status: number, title: string, body: string) {
+  return new NextResponse(
+    `<!doctype html><html><head><meta charset="utf-8"><title>${title}</title></head>
+<body style="font-family:system-ui,sans-serif;max-width:32rem;margin:15vh auto;padding:0 1.5rem;color:#111">
+<h1 style="font-size:1.1rem">${title}</h1><p style="color:#555;line-height:1.5">${body}</p>
+</body></html>`,
+    { status, headers: { "Content-Type": "text/html; charset=utf-8" } },
+  );
+}
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
@@ -32,7 +52,7 @@ export async function GET(request: Request) {
   try {
     user = await authorize(kind === "staff" ? "staff.read" : "student.read");
   } catch (error) {
-    return NextResponse.json({ error: (error as Error).message }, { status: 403 });
+    return message(403, "Not signed in for this", (error as Error).message);
   }
 
   const school = await db.school.findFirst({
@@ -47,7 +67,7 @@ export async function GET(request: Request) {
     },
   });
   if (!school) {
-    return NextResponse.json({ error: "Set up the school profile first." }, { status: 400 });
+    return message(400, "No school profile", "Set up the school profile under Settings first.");
   }
 
   const year = await db.academicYear.findFirst({
@@ -68,10 +88,11 @@ export async function GET(request: Request) {
 
   if (kind === "staff") {
     const staffId = url.searchParams.get("staffId");
+    // Active only, single card included: a card asserts current employment.
     const staff = await db.staff.findMany({
-      where: staffId ? { id: staffId } : { status: "ACTIVE" },
+      where: staffId ? { id: staffId, status: "ACTIVE" } : { status: "ACTIVE" },
       orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
-      take: MAX_CARDS,
+      take: MAX_CARDS + 1,
       select: {
         firstName: true,
         lastName: true,
@@ -84,7 +105,14 @@ export async function GET(request: Request) {
       },
     });
     if (!staff.length) {
-      return NextResponse.json({ error: "No staff to print." }, { status: 404 });
+      return message(404, "No staff to print", "There are no active staff matching this request.");
+    }
+    if (staff.length > MAX_CARDS) {
+      return message(
+        400,
+        "Too many cards for one batch",
+        `This would be more than ${MAX_CARDS} cards. Print a department at a time instead.`,
+      );
     }
 
     people = await Promise.all(
@@ -99,20 +127,28 @@ export async function GET(request: Request) {
     title = "Staff Identity Card";
     roleLabel = "Job title";
     detailLabel = "Department";
-    filename = staffId ? `id-card-${staff[0].staffNo}` : "id-cards-staff";
+    filename = staffId
+      ? `id-card-${staff[0].staffNo.replace(/[^A-Za-z0-9._-]+/g, "-")}`
+      : "id-cards-staff";
   } else {
     const sectionId = url.searchParams.get("sectionId");
     const studentId = url.searchParams.get("studentId");
     if (!sectionId && !studentId) {
-      return NextResponse.json(
-        { error: "Choose a class (sectionId) or a student (studentId)." },
-        { status: 400 },
-      );
+      return message(400, "Nothing chosen", "Choose a class or a student first.");
     }
 
+    // The blood group is a medical record. The rest of the app keeps the
+    // medical file behind its own permission, and a printout is not a way
+    // around that: without student.medical.read the card back simply goes
+    // without it.
+    const includeMedical = userCan(user, "student.medical.read");
+
+    // Enrolled only, single card included: an identity card asserts current
+    // membership, which an applicant does not yet have and a graduate no
+    // longer does.
     const students = await db.student.findMany({
       where: studentId
-        ? { id: studentId }
+        ? { id: studentId, status: "ENROLLED" }
         : {
             status: "ENROLLED",
             enrollments: {
@@ -120,7 +156,7 @@ export async function GET(request: Request) {
             },
           },
       orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
-      take: MAX_CARDS,
+      take: MAX_CARDS + 1,
       select: {
         firstName: true,
         lastName: true,
@@ -128,7 +164,7 @@ export async function GET(request: Request) {
         admissionNo: true,
         house: true,
         photoUrl: true,
-        medical: { select: { bloodGroup: true } },
+        medical: includeMedical ? { select: { bloodGroup: true } } : undefined,
         guardians: {
           orderBy: [{ isEmergency: "desc" }, { isPrimary: "desc" }],
           take: 1,
@@ -148,7 +184,18 @@ export async function GET(request: Request) {
       },
     });
     if (!students.length) {
-      return NextResponse.json({ error: "No students to print." }, { status: 404 });
+      return message(
+        404,
+        "No students to print",
+        "No enrolled students match this request. An applicant or a graduate does not get a membership card.",
+      );
+    }
+    if (students.length > MAX_CARDS) {
+      return message(
+        400,
+        "Too many cards for one batch",
+        `This would be more than ${MAX_CARDS} cards. Print a class at a time instead.`,
+      );
     }
 
     people = await Promise.all(
@@ -163,7 +210,7 @@ export async function GET(request: Request) {
           photo: await loadDocumentImage(student.photoUrl),
           emergencyName: contact ? `${contact.firstName} ${contact.lastName}` : null,
           emergencyPhone: contact?.phone ?? null,
-          bloodGroup: student.medical?.bloodGroup ?? null,
+          bloodGroup: includeMedical ? (student.medical?.bloodGroup ?? null) : null,
         };
       }),
     );
