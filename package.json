@@ -26,7 +26,8 @@
     "db:seed": "tsx prisma/seed.ts",
     "db:seed:force": "npx --yes tsx prisma/seed.ts",
     "db:studio": "prisma studio",
-    "setup": "prisma generate && prisma migrate dev --name init && npm run db:seed"
+    "setup": "prisma generate && prisma migrate dev --name init && npm run db:seed",
+    "payroll:check": "tsx scripts/check-payroll.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

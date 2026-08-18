@@ -12,6 +12,7 @@ import sharp from "sharp";
 
 import { hashPassword } from "../src/lib/crypto";
 import { generateClassReportCards } from "../src/lib/grading";
+import { computePayslip, parseAllowances } from "../src/lib/payroll";
 import { PERMISSIONS, ROLE_PRESETS } from "../src/lib/rbac";
 import { storeFile } from "../src/lib/storage";
 import { starterLayout } from "../src/lib/templates";
@@ -151,6 +152,7 @@ async function main() {
   await seedQuestionBank(subjects);
   await seedReportCards(terms, sections, demoStudentSectionId);
   await seedWebsite(school);
+  await seedPayroll(staff);
 
   console.log("\nDone.\n");
   await printCredentials();
@@ -220,6 +222,7 @@ async function reset() {
     "reportRun", "reportDefinition", "aiInsight", "dataJob",
     "customFieldValue", "customFieldDef", "optionItem", "optionSet",
     "gradeBand", "gradeScale", "calendarEvent",
+    "payslip", "payrollRun",
     "staffLeave", "student", "guardian", "staff",
     "classSection", "classLevel", "subject",
     "auditLog", "session", "verificationToken",
@@ -803,6 +806,23 @@ async function seedSubjects(levels: LevelRow[]) {
 
 type SubjectRow = Awaited<ReturnType<typeof seedSubjects>>[number];
 
+/**
+ * Monthly basic salary in pesewas, by role. Realistic Ghanaian private-school
+ * figures so the payroll screens show something a bursar recognises.
+ */
+const SALARY_BY_ROLE: Record<string, number> = {
+  super_admin: 650000,
+  head_teacher: 850000,
+  assistant_head: 620000,
+  bursar: 550000,
+  registrar: 380000,
+  form_teacher: 320000,
+  teacher: 280000,
+  nurse: 260000,
+  librarian: 220000,
+  front_desk: 190000,
+};
+
 async function seedStaff(roles: Record<string, string>, schoolId: string) {
   console.log("  Staff and user accounts…");
 
@@ -865,6 +885,16 @@ async function seedStaff(roles: Record<string, string>, schoolId: string) {
         qualifications: [
           { qualification: pick(["B.Ed", "B.Sc", "M.Ed", "B.A"]), institution: pick(["University of Ghana", "KNUST", "University of Cape Coast", "UEW"]), year: 2000 + between(5, 20) },
         ],
+        // Salary by seniority, deterministic — no RNG, so re-seeding gives
+        // the same payroll every time.
+        basicSalaryMinor: SALARY_BY_ROLE[definition.role] ?? 180000,
+        salaryAllowances:
+          definition.role === "teacher" || definition.role === "form_teacher"
+            ? [
+                { name: "Transport", amountMinor: 25000 },
+                { name: "Teaching allowance", amountMinor: 20000 },
+              ]
+            : [{ name: "Transport", amountMinor: 30000 }],
         momoNumber: user.phone,
         momoNetwork: "MTN",
         emergencyName: `${pick(MALE_NAMES)} ${pick(SURNAMES)}`,
@@ -2771,6 +2801,67 @@ async function seedSiteArt(siteId: string): Promise<Record<string, string>> {
  * open any quiz and its subject's shelf offers questions to copy in.
  * Deterministic, no RNG.
  */
+/**
+ * Three months of payroll: two paid, the month just gone left as a draft so
+ * the approval flow has something to approve on a fresh demo. No RNG — the
+ * figures come from the salaries, which are themselves deterministic.
+ */
+async function seedPayroll(staff: StaffRow[]) {
+  console.log("  Payroll…");
+
+  const onPayroll = staff.filter((member) => member.basicSalaryMinor !== null);
+  if (!onPayroll.length) return;
+
+  const now = new Date();
+  const periods = [0, 1, 2].map((back) => {
+    const date = new Date(now.getFullYear(), now.getMonth() - back - 1, 1);
+    return { year: date.getFullYear(), month: date.getMonth() + 1, back };
+  });
+
+  for (const period of periods) {
+    const status = period.back === 0 ? "DRAFT" : "PAID";
+    const paidOn = new Date(period.year, period.month, 0);
+
+    const run = await db.payrollRun.create({
+      data: {
+        year: period.year,
+        month: period.month,
+        status,
+        approvedBy: status === "PAID" ? "Mrs Abena Owusu" : null,
+        approvedAt: status === "PAID" ? paidOn : null,
+        paidAt: status === "PAID" ? paidOn : null,
+      },
+      select: { id: true },
+    });
+
+    await db.payslip.createMany({
+      data: onPayroll.map((member) => {
+        const allowances = parseAllowances(member.salaryAllowances);
+        const figures = computePayslip({
+          basicMinor: member.basicSalaryMinor ?? 0,
+          allowances,
+        });
+        return {
+          runId: run.id,
+          staffId: member.id,
+          staffName: [member.title, member.firstName, member.lastName]
+            .filter(Boolean)
+            .join(" "),
+          staffNo: member.staffNo,
+          basicMinor: figures.basicMinor,
+          allowances,
+          grossMinor: figures.grossMinor,
+          ssnitEmployeeMinor: figures.ssnitEmployeeMinor,
+          ssnitEmployerMinor: figures.ssnitEmployerMinor,
+          payeMinor: figures.payeMinor,
+          netMinor: figures.netMinor,
+          paymentMethod: member.bankAccountNo ? "BANK" : member.momoNumber ? "MOMO" : "CASH",
+        };
+      }),
+    });
+  }
+}
+
 async function seedQuestionBank(subjects: SubjectRow[]) {
   console.log("  Question bank…");
 

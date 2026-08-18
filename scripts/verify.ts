@@ -20,6 +20,7 @@
  */
 import { PrismaClient } from "@prisma/client";
 
+import { computePayslip, parseAllowances } from "../src/lib/payroll";
 import {
   CATEGORY_VALUES,
   SANCTION_VALUES,
@@ -750,6 +751,84 @@ async function checkStructure() {
 
 // --- Report ---------------------------------------------------------------
 
+/**
+ * Payroll: the one module whose bugs end up in someone's bank account.
+ * Every stored payslip is recomputed from its own basic and allowances and
+ * compared with what was written down — a drift means the arithmetic changed
+ * under slips that had already been issued.
+ */
+async function checkPayroll() {
+  const g = "Payroll";
+
+  const runs = await db.payrollRun.count();
+  if (runs === 0) {
+    warn(g, "Payroll runs exist", "The payroll module has nothing to show.");
+    return;
+  }
+  pass(g, "Payroll runs exist", String(runs));
+
+  const slips = await db.payslip.findMany({
+    select: {
+      id: true,
+      basicMinor: true,
+      allowances: true,
+      grossMinor: true,
+      ssnitEmployeeMinor: true,
+      payeMinor: true,
+      netMinor: true,
+    },
+  });
+
+  let drifted = 0;
+  let negative = 0;
+  for (const slip of slips) {
+    const figures = computePayslip({
+      basicMinor: slip.basicMinor,
+      allowances: parseAllowances(slip.allowances),
+    });
+    if (
+      figures.grossMinor !== slip.grossMinor ||
+      figures.ssnitEmployeeMinor !== slip.ssnitEmployeeMinor ||
+      figures.payeMinor !== slip.payeMinor ||
+      figures.netMinor !== slip.netMinor
+    ) {
+      drifted += 1;
+    }
+    if (slip.netMinor < 0 || slip.grossMinor < slip.netMinor) negative += 1;
+  }
+
+  if (drifted) {
+    warn(
+      g,
+      "Stored payslips match the current rules",
+      `${drifted} of ${slips.length} differ — expected after a tax-table change, wrong otherwise.`,
+    );
+  } else {
+    pass(g, "Stored payslips match the current rules", `${slips.length} slips`);
+  }
+
+  if (negative) {
+    fail(g, "Net pay is sane", `${negative} slip(s) with impossible figures.`);
+  } else {
+    pass(g, "Net pay is sane");
+  }
+
+  // A paid run whose staff cannot be paid is the failure a bursar discovers
+  // at the bank, not on screen.
+  const cashSlips = await db.payslip.count({
+    where: { paymentMethod: "CASH", run: { status: { in: ["APPROVED", "PAID"] } } },
+  });
+  if (cashSlips) {
+    warn(
+      g,
+      "Approved payslips have payment details",
+      `${cashSlips} fall back to cash.`,
+    );
+  } else {
+    pass(g, "Approved payslips have payment details");
+  }
+}
+
 const MARK: Record<Level, string> = { pass: "  ok  ", warn: " warn ", fail: " FAIL " };
 
 // Wrapped rather than top-level await: the project compiles to CommonJS, where
@@ -764,6 +843,7 @@ async function main() {
   await checkFinance();
   await checkOutputs();
   await checkStructure();
+  await checkPayroll();
 
   let group: string | null = null;
   for (const result of results) {

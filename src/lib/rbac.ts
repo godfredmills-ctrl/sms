@@ -46,6 +46,12 @@ export const PERMISSIONS: PermissionDef[] = [
     ["import", "create", "Bulk import students"],
   ]),
 
+  ...define("payroll", [
+    ["read", "read", "View payroll runs and payslips"],
+    ["manage", "update", "Prepare payroll runs and set salaries"],
+    ["approve", "approve", "Approve payroll and mark it paid"],
+  ]),
+
   ...define("staff", [
     ["read", "read", "View staff records"],
     ["create", "create", "Create staff records"],
@@ -237,6 +243,8 @@ export const ROLE_PRESETS: RolePreset[] = [
       "finance.read",
       "finance.report",
       "finance.discount.manage",
+      "payroll.read",
+      "payroll.approve",
       "settings.read",
       "settings.school.manage",
       "user.read",
@@ -268,6 +276,8 @@ export const ROLE_PRESETS: RolePreset[] = [
       "dashboard.view",
       "dashboard.finance",
       ...expand("finance"),
+      "payroll.read",
+      "payroll.manage",
       "student.read",
       "student.export",
       "communication.announcement.read",

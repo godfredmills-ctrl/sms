@@ -773,6 +773,11 @@ model Staff {
   momoNumber    String?
   momoNetwork   String?
 
+  /// Monthly basic salary in pesewas. Null = not on the payroll.
+  basicSalaryMinor Int?
+  /// [{ name, amountMinor }] — monthly allowances (housing, transport…).
+  salaryAllowances Json?
+
   emergencyName     String?
   emergencyPhone    String?
   emergencyRelation String?
@@ -789,6 +794,7 @@ model Staff {
   gradedScores     AssessmentScore[]
   takenAttendance  AttendanceSession[]
   leaveRequests    StaffLeave[]
+  payslips         Payslip[]
   documents        StaffDocument[]
 
   @@index([status])
@@ -812,6 +818,56 @@ model StaffLeave {
   createdAt  DateTime  @default(now())
 
   @@index([staffId, startDate])
+}
+
+/// One month's payroll: created as a draft from every staff member with a
+/// salary, checked, approved, then marked paid. The slips freeze the numbers
+/// as they were computed — salary history lives in the slips, not on Staff.
+model PayrollRun {
+  id     String  @id @default(cuid())
+  year   Int
+  month  Int // 1..12
+  status String  @default("DRAFT") // DRAFT, APPROVED, PAID
+  note   String?
+
+  createdById String?
+  createdAt   DateTime  @default(now())
+  approvedBy  String?
+  approvedAt  DateTime?
+  paidAt      DateTime?
+
+  payslips Payslip[]
+
+  @@unique([year, month])
+}
+
+model Payslip {
+  id      String     @id @default(cuid())
+  runId   String
+  run     PayrollRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  staffId String
+  staff   Staff      @relation(fields: [staffId], references: [id], onDelete: Cascade)
+
+  /// Denormalised so a slip stays true after a name change or departure.
+  staffName String
+  staffNo   String
+
+  basicMinor         Int
+  /// [{ name, amountMinor }]
+  allowances         Json?
+  grossMinor         Int
+  ssnitEmployeeMinor Int
+  ssnitEmployerMinor Int
+  payeMinor          Int
+  /// [{ name, amountMinor }] — loan repayments, welfare dues…
+  otherDeductions    Json?
+  netMinor           Int
+
+  paymentMethod String? // BANK, MOMO, CASH
+  paymentRef    String?
+
+  @@unique([runId, staffId])
+  @@index([staffId])
 }
 
 // =============================================================================
@@ -1048,7 +1104,7 @@ model Guardian {
   updatedAt DateTime @updatedAt
 
   students  StudentGuardian[]
-  relations FamilyRelation[]  @relation("GuardianRelations")
+  relations FamilyRelation[]   @relation("GuardianRelations")
   payments  Payment[]
   documents GuardianDocument[]
 
@@ -1165,60 +1221,60 @@ model EducationHistory {
 /// identity document is a data-protection problem, not an untidy row. The
 /// cascade is the point.
 model StudentDocument {
-  id         String    @id @default(cuid())
-  studentId  String
-  student    Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  fileId     String
-  file       FileAsset @relation(fields: [fileId], references: [id], onDelete: Cascade)
-  category   String // BIRTH_CERTIFICATE, PASSPORT, PHOTO, REPORT, MEDICAL, TRANSFER_LETTER
-  title      String
-  notes      String?
-  expiresAt  DateTime?
-  isVerified Boolean   @default(false)
-  verifiedBy String?
-  verifiedAt DateTime?
+  id           String    @id @default(cuid())
+  studentId    String
+  student      Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  fileId       String
+  file         FileAsset @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  category     String // BIRTH_CERTIFICATE, PASSPORT, PHOTO, REPORT, MEDICAL, TRANSFER_LETTER
+  title        String
+  notes        String?
+  expiresAt    DateTime?
+  isVerified   Boolean   @default(false)
+  verifiedBy   String?
+  verifiedAt   DateTime?
   uploadedById String?
-  uploadedAt DateTime  @default(now())
+  uploadedAt   DateTime  @default(now())
 
   @@index([studentId, category])
 }
 
 model StaffDocument {
-  id         String    @id @default(cuid())
-  staffId    String
-  staff      Staff     @relation(fields: [staffId], references: [id], onDelete: Cascade)
-  fileId     String
-  file       FileAsset @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  id           String    @id @default(cuid())
+  staffId      String
+  staff        Staff     @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  fileId       String
+  file         FileAsset @relation(fields: [fileId], references: [id], onDelete: Cascade)
   /// CONTRACT, CERTIFICATE, GHANA_CARD, SSNIT, CV, REFERENCE, POLICE_CHECK, MEDICAL
-  category   String
-  title      String
-  notes      String?
-  expiresAt  DateTime?
-  isVerified Boolean   @default(false)
-  verifiedBy String?
-  verifiedAt DateTime?
+  category     String
+  title        String
+  notes        String?
+  expiresAt    DateTime?
+  isVerified   Boolean   @default(false)
+  verifiedBy   String?
+  verifiedAt   DateTime?
   uploadedById String?
-  uploadedAt DateTime  @default(now())
+  uploadedAt   DateTime  @default(now())
 
   @@index([staffId, category])
 }
 
 model GuardianDocument {
-  id         String    @id @default(cuid())
-  guardianId String
-  guardian   Guardian  @relation(fields: [guardianId], references: [id], onDelete: Cascade)
-  fileId     String
-  file       FileAsset @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  id           String    @id @default(cuid())
+  guardianId   String
+  guardian     Guardian  @relation(fields: [guardianId], references: [id], onDelete: Cascade)
+  fileId       String
+  file         FileAsset @relation(fields: [fileId], references: [id], onDelete: Cascade)
   /// GHANA_CARD, PASSPORT, PROOF_OF_ADDRESS, CUSTODY_ORDER, EMPLOYMENT_LETTER
-  category   String
-  title      String
-  notes      String?
-  expiresAt  DateTime?
-  isVerified Boolean   @default(false)
-  verifiedBy String?
-  verifiedAt DateTime?
+  category     String
+  title        String
+  notes        String?
+  expiresAt    DateTime?
+  isVerified   Boolean   @default(false)
+  verifiedBy   String?
+  verifiedAt   DateTime?
   uploadedById String?
-  uploadedAt DateTime  @default(now())
+  uploadedAt   DateTime  @default(now())
 
   @@index([guardianId, category])
 }
@@ -1320,7 +1376,7 @@ model Subject {
   levels          LevelSubject[]
   reportLines     ReportCardLine[]
   transcriptLines TranscriptLine[]
-  bankQuestions QuizQuestion[] @relation("BankQuestions")
+  bankQuestions   QuizQuestion[]    @relation("BankQuestions")
 
   @@index([department])
 }
@@ -2887,7 +2943,7 @@ model Quiz {
 }
 
 model QuizQuestion {
-  id     String @id @default(cuid())
+  id     String  @id @default(cuid())
   /// Null for question-bank entries — a bank question belongs to a subject
   /// shelf, not a quiz, and is COPIED into quizzes rather than shared, so
   /// editing a quiz never rewrites the bank or another teacher's quiz.

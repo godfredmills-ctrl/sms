@@ -91,6 +91,13 @@ export const STAFF_NAVIGATION: NavGroup[] = [
         href: "/leave",
         icon: "CalendarOff",
       },
+      // Ungated like Leave: everyone with a staff record is paid, and the
+      // page scopes to the viewer's own payslips.
+      {
+        label: "My Payslips",
+        href: "/payroll/mine",
+        icon: "Receipt",
+      },
       {
         label: "Clinic",
         href: "/clinic",
@@ -251,6 +258,21 @@ export const STAFF_NAVIGATION: NavGroup[] = [
             href: "/finance/reminders",
             icon: "BellRing",
             permissions: ["finance.reminder.manage"],
+          },
+        ],
+      },
+      {
+        label: "Payroll",
+        href: "/payroll",
+        icon: "Banknote",
+        permissions: ["payroll.read"],
+        children: [
+          { label: "Runs", href: "/payroll", icon: "CalendarRange" },
+          {
+            label: "Salaries",
+            href: "/payroll/salaries",
+            icon: "Users",
+            permissions: ["payroll.read"],
           },
         ],
       },
