@@ -19,6 +19,7 @@ import QRCode from "qrcode";
 import sharp from "sharp";
 
 import { renderIdCardsPdf } from "../src/lib/id-card-pdf";
+import { renderPayslipsPdf } from "../src/lib/payslip-pdf";
 import { renderTimetablePdf } from "../src/lib/timetable-pdf";
 import { renderReportCardPdf, renderTablePdf, renderTemplatePdf } from "../src/lib/pdf";
 import { starterLayout } from "../src/lib/templates";
@@ -257,7 +258,68 @@ async function main() {
     }),
   );
 
-  console.log(`Wrote six PDFs to ${out}`);
+  writeFileSync(
+    `${out}/payslips.pdf`,
+    await renderPayslipsPdf({
+      school: {
+        name: "Golden Crest International School",
+        address: "12 Independence Avenue, Accra",
+        phone: "+233 30 212 3456",
+      },
+      crest,
+      brandHex: "#2C66CE",
+      slips: [
+        {
+          period: "August 2026",
+          staffName: "Mrs Akosua Mensah",
+          staffNo: "GCS/STF/004",
+          jobTitle: "Mathematics Teacher",
+          department: "Sciences",
+          ssnitNumber: "C0123456789",
+          paymentMethod: "Bank transfer",
+          paymentDestination: "GCB Bank 1441000123456",
+          earnings: [
+            { label: "Basic salary", amount: "GH₵2,800.00" },
+            { label: "Transport", amount: "GH₵250.00" },
+            { label: "Teaching allowance", amount: "GH₵200.00" },
+          ],
+          deductions: [
+            { label: "SSNIT (5.5%)", amount: "GH₵154.00" },
+            { label: "PAYE", amount: "GH₵376.61" },
+            { label: "Welfare dues", amount: "GH₵20.00" },
+          ],
+          grossPay: "GH₵3,250.00",
+          totalDeductions: "GH₵550.61",
+          netPay: "GH₵2,699.39",
+          employerSsnit: "GH₵364.00",
+          paidOn: "31 August 2026",
+        },
+        {
+          // The awkward case: a long Twi name, no allowances, cash payment.
+          period: "August 2026",
+          staffName: "Mr Kwabɛna Owusu-Ansah Boateng-Mensah",
+          staffNo: "GCS/STF/011",
+          jobTitle: "Caretaker",
+          department: null,
+          ssnitNumber: null,
+          paymentMethod: "Cash",
+          paymentDestination: null,
+          earnings: [{ label: "Basic salary", amount: "GH₵1,900.00" }],
+          deductions: [
+            { label: "SSNIT (5.5%)", amount: "GH₵104.50" },
+            { label: "PAYE", amount: "GH₵168.66" },
+          ],
+          grossPay: "GH₵1,900.00",
+          totalDeductions: "GH₵273.16",
+          netPay: "GH₵1,626.84",
+          employerSsnit: "GH₵247.00",
+          paidOn: "31 August 2026",
+        },
+      ],
+    }),
+  );
+
+  console.log(`Wrote seven PDFs to ${out}`);
   await checkMastheadClearance();
   await checkBackgroundIsDrawn(layout, backdrop);
   await checkVerificationCode();

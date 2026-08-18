@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Banknote, Receipt } from "lucide-react";
+import { Banknote, Download, Receipt } from "lucide-react";
 
 import {
   Card,
@@ -7,6 +7,7 @@ import {
   CardHeader,
   DescriptionList,
   EmptyState,
+  LinkButton,
   PageHeader,
   StatCard,
 } from "@/components/ui";
@@ -26,6 +27,9 @@ export const dynamic = "force-dynamic";
  * session's staffId, and it shows nobody else's. Only slips from a PAID run
  * appear — a draft is the bursar's working, and a member of staff seeing a
  * figure that later changes is worse than seeing nothing.
+ *
+ * Each slip downloads as a PDF: the document a bank, a landlord or an
+ * embassy asks for, which a figure on a screen cannot be.
  */
 export default async function MyPayslipsPage() {
   const user = await requireUser();
@@ -130,9 +134,20 @@ export default async function MyPayslipsPage() {
                       slip.run.paidAt ? `Paid ${formatDate(slip.run.paidAt, "long")}` : undefined
                     }
                     action={
-                      <span className="numeric text-base font-semibold">
-                        {formatMoney(slip.netMinor, "GHS")}
-                      </span>
+                      <>
+                        <span className="numeric text-base font-semibold">
+                          {formatMoney(slip.netMinor, "GHS")}
+                        </span>
+                        <LinkButton
+                          href={`/api/payslips?id=${slip.id}`}
+                          target="_blank"
+                          variant="outline"
+                          size="sm"
+                        >
+                          <Download className="size-4" />
+                          Payslip
+                        </LinkButton>
+                      </>
                     }
                   />
                   <CardBody>

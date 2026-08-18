@@ -1,7 +1,16 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Banknote, CheckCircle2, Landmark, Smartphone, Trash2 } from "lucide-react";
+import {
+  Banknote,
+  CheckCircle2,
+  FileSpreadsheet,
+  Landmark,
+  Printer,
+  Receipt,
+  Smartphone,
+  Trash2,
+} from "lucide-react";
 
 import {
   Alert,
@@ -108,6 +117,23 @@ export default async function PayrollRunPage({
           <>
             <LinkButton href="/payroll" variant="ghost" size="sm">
               All runs
+            </LinkButton>
+            <LinkButton
+              href={`/api/payslips?runId=${run.id}`}
+              target="_blank"
+              variant="outline"
+              size="sm"
+            >
+              <Printer className="size-4" />
+              Payslips
+            </LinkButton>
+            <LinkButton
+              href={`/api/payroll-schedule?runId=${run.id}`}
+              variant="outline"
+              size="sm"
+            >
+              <FileSpreadsheet className="size-4" />
+              Bank schedule
             </LinkButton>
             {run.status === "DRAFT" && canApprove ? (
               <form action={advanceRunFormAction}>
@@ -242,6 +268,16 @@ export default async function PayrollRunPage({
                       {formatMoney(slip.netMinor, "GHS")}
                     </td>
                     <td className="px-5 py-2.5">
+                      <a
+                        href={`/api/payslips?id=${slip.id}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="mr-2 inline-flex text-[var(--text-subtle)] hover:text-[var(--primary)]"
+                        title="Print this payslip"
+                        aria-label={`Print the payslip for ${slip.staffName}`}
+                      >
+                        <Receipt className="size-3.5" />
+                      </a>
                       <Badge tone={slip.paymentMethod === "CASH" ? "warning" : "neutral"}>
                         {slip.paymentMethod === "BANK" ? (
                           <Landmark className="size-2.5" />

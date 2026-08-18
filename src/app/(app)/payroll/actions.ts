@@ -160,36 +160,45 @@ export async function createPayrollRunAction(
     };
   }
 
-  const run = await db.payrollRun.create({
-    data: { year, month, createdById: user.id },
-    select: { id: true },
-  });
+  // One row per person, computed once and stored, in the SAME transaction as
+  // the run — a payroll that exists with no payslips would look like a month
+  // where nobody was owed anything.
+  const run = await db.$transaction(async (tx) => {
+    const created = await tx.payrollRun.create({
+      data: { year, month, createdById: user.id },
+      select: { id: true },
+    });
 
-  // One row per person, computed once and stored. Written in a transaction
-  // with the run so a half-built payroll cannot exist.
-  await db.payslip.createMany({
-    data: staff.map((member) => {
-      const figures = computePayslip({
-        basicMinor: member.basicSalaryMinor ?? 0,
-        allowances: parseAllowances(member.salaryAllowances),
-      });
-      return {
-        runId: run.id,
-        staffId: member.id,
-        staffName: [member.title, member.firstName, member.lastName]
-          .filter(Boolean)
-          .join(" "),
-        staffNo: member.staffNo,
-        basicMinor: figures.basicMinor,
-        allowances: parseAllowances(member.salaryAllowances),
-        grossMinor: figures.grossMinor,
-        ssnitEmployeeMinor: figures.ssnitEmployeeMinor,
-        ssnitEmployerMinor: figures.ssnitEmployerMinor,
-        payeMinor: figures.payeMinor,
-        netMinor: figures.netMinor,
-        paymentMethod: member.bankAccountNo ? "BANK" : member.momoNumber ? "MOMO" : "CASH",
-      };
-    }),
+    await tx.payslip.createMany({
+      data: staff.map((member) => {
+        const figures = computePayslip({
+          basicMinor: member.basicSalaryMinor ?? 0,
+          allowances: parseAllowances(member.salaryAllowances),
+        });
+        return {
+          runId: created.id,
+          staffId: member.id,
+          staffName: [member.title, member.firstName, member.lastName]
+            .filter(Boolean)
+            .join(" "),
+          staffNo: member.staffNo,
+          basicMinor: figures.basicMinor,
+          allowances: parseAllowances(member.salaryAllowances),
+          grossMinor: figures.grossMinor,
+          ssnitEmployeeMinor: figures.ssnitEmployeeMinor,
+          ssnitEmployerMinor: figures.ssnitEmployerMinor,
+          payeMinor: figures.payeMinor,
+          netMinor: figures.netMinor,
+          paymentMethod: member.bankAccountNo
+            ? "BANK"
+            : member.momoNumber
+              ? "MOMO"
+              : "CASH",
+        };
+      }),
+    });
+
+    return created;
   });
 
   await db.auditLog.create({
