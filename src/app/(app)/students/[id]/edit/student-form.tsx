@@ -111,7 +111,14 @@ export type StudentFormValues = {
  * the table is laid out: who they are, where they come from, how to reach
  * them, how they get here and where they sleep, and what support they need.
  */
-export function StudentForm({ values }: { values: StudentFormValues }) {
+export function StudentForm({
+  values,
+  canSeeBackground,
+}: {
+  values: StudentFormValues;
+  /** The family's circumstances: hidden, and unwritable, without the permission. */
+  canSeeBackground: boolean;
+}) {
   const [state, action] = useActionState<StudentState, FormData>(
     updateStudentAction,
     {},
@@ -256,14 +263,6 @@ export function StudentForm({ values }: { values: StudentFormValues }) {
           description="The boarding register reads the house, dormitory and room set here."
         />
         <CardBody className="grid gap-3 sm:grid-cols-2">
-          <Field label="Living with" htmlFor="livingWith">
-            <SearchableSelect
-              id="livingWith"
-              name="livingWith"
-              options={LIVING_WITH}
-              defaultValue={values.livingWith}
-            />
-          </Field>
           <Field label="Transport" htmlFor="transportMode">
             <SearchableSelect
               id="transportMode"
@@ -295,9 +294,18 @@ export function StudentForm({ values }: { values: StudentFormValues }) {
         </CardBody>
       </Card>
 
+      {canSeeBackground ? (
       <Card>
         <CardHeader title="Support and circumstances" />
         <CardBody className="space-y-3">
+          <Field label="Living with" htmlFor="livingWith">
+            <SearchableSelect
+              id="livingWith"
+              name="livingWith"
+              options={LIVING_WITH}
+              defaultValue={values.livingWith}
+            />
+          </Field>
           <CheckboxField
             name="hasSpecialNeeds"
             defaultChecked={values.hasSpecialNeeds}
@@ -341,6 +349,7 @@ export function StudentForm({ values }: { values: StudentFormValues }) {
           </Field>
         </CardBody>
       </Card>
+      ) : null}
 
       <Submit />
     </form>

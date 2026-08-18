@@ -126,10 +126,30 @@ export function LifecycleCard({
                 <Field
                   label="Effective from"
                   htmlFor="lifecycle-date"
-                  hint="Blank means today."
+                  hint="Blank means today. The change takes effect when you save it."
                 >
                   <Input id="lifecycle-date" name="effectiveOn" type="date" />
                 </Field>
+
+                {/* Coming back needs a class to come back to: the enrolment
+                    is what puts them on a register and into billing. */}
+                {choice === "ENROLLED" ? (
+                  <Field
+                    label="Class they return to"
+                    htmlFor="lifecycle-section"
+                    hint={
+                      currentClass
+                        ? `Leave blank to put them back in ${currentClass}.`
+                        : "Required — they have no class to return to."
+                    }
+                  >
+                    <SearchableSelect
+                      id="lifecycle-section"
+                      name="classSectionId"
+                      options={sections}
+                    />
+                  </Field>
+                ) : null}
 
                 {transition.endsEnrolment ? (
                   <>

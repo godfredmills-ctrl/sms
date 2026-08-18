@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { HeartPulse, Plus, X } from "lucide-react";
 
@@ -58,14 +58,25 @@ export function MedicalForm({
     {},
   );
 
-  const [allergies, setAllergies] = useState(
-    values.allergies.length ? values.allergies : [{ name: "", severity: "MILD", reaction: "" }],
+  // Rows carry their own key. Keyed by array index, removing the second of
+  // three allergies left the severity select seeded from the row that used
+  // to be there — a peanut anaphylaxis quietly re-labelled mild, on the one
+  // form where that is dangerous.
+  const nextKey = useRef(0);
+  const keyed = <T,>(rows: T[]) => rows.map((row) => ({ key: nextKey.current++, row }));
+
+  const [allergies, setAllergies] = useState(() =>
+    keyed(
+      values.allergies.length
+        ? values.allergies
+        : [{ name: "", severity: "MILD", reaction: "" }],
+    ),
   );
-  const [conditions, setConditions] = useState(
-    values.conditions.length ? values.conditions : [{ condition: "", notes: "" }],
+  const [conditions, setConditions] = useState(() =>
+    keyed(values.conditions.length ? values.conditions : [{ condition: "", notes: "" }]),
   );
-  const [medications, setMedications] = useState(
-    values.medications.length ? values.medications : [{ name: "", dosage: "" }],
+  const [medications, setMedications] = useState(() =>
+    keyed(values.medications.length ? values.medications : [{ name: "", dosage: "" }]),
   );
 
   return (
@@ -94,8 +105,8 @@ export function MedicalForm({
         {/* --- Allergies ---------------------------------------------------- */}
         <div className="space-y-2">
           <p className="text-xs font-medium text-[var(--text-muted)]">Allergies</p>
-          {allergies.map((entry, index) => (
-            <div key={index} className="flex items-start gap-2">
+          {allergies.map(({ key, row: entry }, index) => (
+            <div key={key} className="flex items-start gap-2">
               <Input
                 name="allergyName"
                 defaultValue={entry.name}
@@ -105,11 +116,12 @@ export function MedicalForm({
               />
               <div className="w-36">
                 <SearchableSelect
+                  key={key}
+                  id={`allergy-severity-${key}`}
                   name="allergySeverity"
                   options={SEVERITIES}
                   defaultValue={entry.severity || "MILD"}
                   clearable={false}
-                  aria-label={`Allergy ${index + 1} severity`}
                 />
               </div>
               <Input
@@ -122,7 +134,7 @@ export function MedicalForm({
               {allergies.length > 1 ? (
                 <button
                   type="button"
-                  onClick={() => setAllergies((all) => all.filter((_, at) => at !== index))}
+                  onClick={() => setAllergies((all) => all.filter((row) => row.key !== key))}
                   className="mt-2 text-[var(--text-subtle)] hover:text-[var(--danger)]"
                   aria-label={`Remove allergy ${index + 1}`}
                 >
@@ -134,7 +146,10 @@ export function MedicalForm({
           <AddRow
             label="Add an allergy"
             onClick={() =>
-              setAllergies((all) => [...all, { name: "", severity: "MILD", reaction: "" }])
+              setAllergies((all) => [
+                ...all,
+                { key: nextKey.current++, row: { name: "", severity: "MILD", reaction: "" } },
+              ])
             }
           />
         </div>
@@ -142,8 +157,8 @@ export function MedicalForm({
         {/* --- Conditions --------------------------------------------------- */}
         <div className="space-y-2">
           <p className="text-xs font-medium text-[var(--text-muted)]">Conditions</p>
-          {conditions.map((entry, index) => (
-            <div key={index} className="flex items-start gap-2">
+          {conditions.map(({ key, row: entry }, index) => (
+            <div key={key} className="flex items-start gap-2">
               <Input
                 name="conditionName"
                 defaultValue={entry.condition}
@@ -161,7 +176,7 @@ export function MedicalForm({
               {conditions.length > 1 ? (
                 <button
                   type="button"
-                  onClick={() => setConditions((all) => all.filter((_, at) => at !== index))}
+                  onClick={() => setConditions((all) => all.filter((row) => row.key !== key))}
                   className="mt-2 text-[var(--text-subtle)] hover:text-[var(--danger)]"
                   aria-label={`Remove condition ${index + 1}`}
                 >
@@ -172,7 +187,12 @@ export function MedicalForm({
           ))}
           <AddRow
             label="Add a condition"
-            onClick={() => setConditions((all) => [...all, { condition: "", notes: "" }])}
+            onClick={() =>
+              setConditions((all) => [
+                ...all,
+                { key: nextKey.current++, row: { condition: "", notes: "" } },
+              ])
+            }
           />
         </div>
 
@@ -181,8 +201,8 @@ export function MedicalForm({
           <p className="text-xs font-medium text-[var(--text-muted)]">
             Medication kept at school
           </p>
-          {medications.map((entry, index) => (
-            <div key={index} className="flex items-start gap-2">
+          {medications.map(({ key, row: entry }, index) => (
+            <div key={key} className="flex items-start gap-2">
               <Input
                 name="medicationName"
                 defaultValue={entry.name}
@@ -200,7 +220,7 @@ export function MedicalForm({
               {medications.length > 1 ? (
                 <button
                   type="button"
-                  onClick={() => setMedications((all) => all.filter((_, at) => at !== index))}
+                  onClick={() => setMedications((all) => all.filter((row) => row.key !== key))}
                   className="mt-2 text-[var(--text-subtle)] hover:text-[var(--danger)]"
                   aria-label={`Remove medication ${index + 1}`}
                 >
@@ -211,7 +231,12 @@ export function MedicalForm({
           ))}
           <AddRow
             label="Add a medication"
-            onClick={() => setMedications((all) => [...all, { name: "", dosage: "" }])}
+            onClick={() =>
+              setMedications((all) => [
+                ...all,
+                { key: nextKey.current++, row: { name: "", dosage: "" } },
+              ])
+            }
           />
         </div>
 

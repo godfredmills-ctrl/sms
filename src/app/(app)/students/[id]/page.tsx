@@ -154,10 +154,10 @@ export default async function StudentProfilePage({
   // Class options for the pipeline card, only fetched while there is a
   // pipeline to move through.
   const canMoveClass = userCan(user, "academic.enrollment.manage");
-  const stageSections =
-    (["APPLICANT", "OFFERED"].includes(student.status) &&
-      userCan(user, "student.update")) ||
-    (student.status === "ENROLLED" && canMoveClass)
+  // Class options: for admitting, for a mid-year move, and for putting a
+  // student who left back into a class — reinstating without one would
+  // leave them on the roll and off every register.
+  const stageSections = userCan(user, "student.update")
       ? (
           await db.classSection.findMany({
             where: { isActive: true },
@@ -329,8 +329,10 @@ export default async function StudentProfilePage({
 
       {/* What happens to a record after admission: a change of class, and
           the ways it pauses or ends. Only for someone who can decide. */}
+      {/* Not for a closed record: a graduate's five options were all
+          refused by the action, which is a menu that does nothing. */}
       {active === "overview" &&
-      !["APPLICANT", "OFFERED"].includes(student.status) &&
+      !["APPLICANT", "OFFERED", "GRADUATED", "ALUMNI"].includes(student.status) &&
       userCan(user, "student.update") ? (
         <div className="mb-4 grid gap-4 lg:grid-cols-2">
           <LifecycleCard

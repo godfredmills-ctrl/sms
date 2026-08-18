@@ -6,6 +6,7 @@ import { authorize } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { hashPassword } from "@/lib/crypto";
 import { parseAttachedDocuments } from "@/lib/person-documents";
+import { studentOutOfScope } from "@/lib/scope";
 import { normalisePhone, slugify } from "@/lib/utils";
 
 export type AdmissionState = {
@@ -86,13 +87,16 @@ export async function admitStudentAction(
             placeOfBirth: optional(formData, "placeOfBirth"),
             status: (text(formData, "status") || "ENROLLED") as never,
 
-            nationality: text(formData, "nationality") || "Ghanaian",
+            // Emptied means unknown, not Ghanaian: nationality selects the fee
+        // structure (local or international), so a default here re-prices a
+        // child's next invoice.
+        nationality: optional(formData, "nationality"),
             nationalId: optional(formData, "nationalId"),
             birthCertNo: optional(formData, "birthCertNo"),
             religion: optional(formData, "religion"),
             hometown: optional(formData, "hometown"),
             homeRegion: optional(formData, "homeRegion"),
-            firstLanguage: text(formData, "firstLanguage") || "English",
+            firstLanguage: optional(formData, "firstLanguage"),
 
             email: optional(formData, "email"),
             phone: normalisePhone(text(formData, "phone")),
@@ -479,6 +483,17 @@ export async function updateStudentAction(
   const id = text(formData, "id");
   if (!id) return { error: "No student given." };
 
+  // A form teacher holds student.update for their own class, not for the
+  // school. Without this they could rewrite any child's name, date of birth
+  // or admission number — the fields that go to WAEC.
+  const refusal = await studentOutOfScope(user, id);
+  if (refusal) return { error: refusal };
+
+  // The background fields carry the family's circumstances, and the profile
+  // hides them behind their own permission. A form that cannot show them
+  // must not write them either — silence here would blank them.
+  const mayEditBackground = user.permissions.has("student.background.read");
+
   const firstName = text(formData, "firstName");
   const lastName = text(formData, "lastName");
   if (!firstName || !lastName) return { error: "First and last name are required." };
@@ -522,14 +537,17 @@ export async function updateStudentAction(
         placeOfBirth: optional(formData, "placeOfBirth"),
         photoUrl: optional(formData, "photoUrl"),
 
-        nationality: text(formData, "nationality") || "Ghanaian",
+        // Emptied means unknown, not Ghanaian: nationality selects the fee
+        // structure (local or international), so a default here re-prices a
+        // child's next invoice.
+        nationality: optional(formData, "nationality"),
         nationalId: optional(formData, "nationalId"),
         birthCertNo: optional(formData, "birthCertNo"),
         nhisNumber: optional(formData, "nhisNumber"),
         religion: optional(formData, "religion"),
         hometown: optional(formData, "hometown"),
         homeRegion: optional(formData, "homeRegion"),
-        firstLanguage: text(formData, "firstLanguage") || "English",
+        firstLanguage: optional(formData, "firstLanguage"),
 
         email: optional(formData, "email"),
         phone: normalisePhone(text(formData, "phone")),
@@ -538,7 +556,6 @@ export async function updateStudentAction(
         city: optional(formData, "city"),
         region: optional(formData, "region"),
 
-        livingWith: optional(formData, "livingWith"),
         transportMode: optional(formData, "transportMode"),
         busRoute: optional(formData, "busRoute"),
 
@@ -547,18 +564,22 @@ export async function updateStudentAction(
         dormitory: optional(formData, "dormitory"),
         roomNumber: optional(formData, "roomNumber"),
 
-        hasSpecialNeeds: formData.get("hasSpecialNeeds") === "on",
-        specialNeedsNotes: optional(formData, "specialNeedsNotes"),
-        // One per line in a textarea: a school types a list, and a list of
-        // needs is not worth a row-management widget.
-        learningSupport: text(formData, "learningSupport")
-          .split(/\r?\n/)
-          .map((value) => value.trim())
-          .filter(Boolean),
-
-        onScholarship: formData.get("onScholarship") === "on",
-        scholarshipDetails: optional(formData, "scholarshipDetails"),
-        notes: optional(formData, "notes"),
+        ...(mayEditBackground
+          ? {
+              livingWith: optional(formData, "livingWith"),
+              hasSpecialNeeds: formData.get("hasSpecialNeeds") === "on",
+              specialNeedsNotes: optional(formData, "specialNeedsNotes"),
+              // One per line in a textarea: a school types a list, and a
+              // list of needs is not worth a row-management widget.
+              learningSupport: text(formData, "learningSupport")
+                .split(/\r?\n/)
+                .map((value) => value.trim())
+                .filter(Boolean),
+              onScholarship: formData.get("onScholarship") === "on",
+              scholarshipDetails: optional(formData, "scholarshipDetails"),
+              notes: optional(formData, "notes"),
+            }
+          : {}),
       },
     });
   } catch (error) {
@@ -586,13 +607,15 @@ export const LIFECYCLE_TRANSITIONS = [
   {
     value: "ON_LEAVE",
     label: "On leave",
-    description: "Away for a while and expected back. Stays on the class register.",
+    description:
+      "Away for a while and expected back. Keeps their class place, but comes out of the headcount and the next billing run.",
     endsEnrolment: false,
   },
   {
     value: "SUSPENDED",
     label: "Suspended",
-    description: "Excluded temporarily. Stays enrolled and keeps their place.",
+    description:
+      "Excluded temporarily. Keeps their class place, but comes out of the headcount and the next billing run.",
     endsEnrolment: false,
   },
   {
@@ -643,6 +666,11 @@ export async function setStudentLifecycleAction(
   const transition = LIFECYCLE_TRANSITIONS.find((entry) => entry.value === status);
   if (!id || !transition) return { error: "Choose what is happening to this student." };
 
+  // Same scope as editing, and more important here: this write takes a child
+  // off the register and out of the billing run.
+  const refusal = await studentOutOfScope(user, id);
+  if (refusal) return { error: refusal };
+
   const reason = text(formData, "reason");
   if (transition.endsEnrolment && !reason) {
     return { error: "Say why they are leaving — this is the record of it." };
@@ -666,16 +694,56 @@ export async function setStudentLifecycleAction(
   const effectiveRaw = text(formData, "effectiveOn");
   const effectiveOn = effectiveRaw ? new Date(effectiveRaw + "T00:00:00") : new Date();
   if (Number.isNaN(effectiveOn.getTime())) return { error: "That date is not valid." };
+  // The change takes effect the moment it is saved, so a future date would
+  // promise something the record does not do — the child would be off the
+  // register today under a date that has not arrived.
+  if (effectiveOn.getTime() > Date.now() + 24 * 60 * 60 * 1000) {
+    return { error: "That date is in the future. Record it on the day it happens." };
+  }
+
+  // Coming back needs somewhere to come back to. Reinstating reopens the
+  // enrolment that was closed on the way out, or places them in a class
+  // chosen on the form — because ENROLLED with no active enrolment is a
+  // child on the roll, off every register, and invisible to billing.
+  let reopened: string | null = null;
+  if (status === "ENROLLED") {
+    const year = await db.academicYear.findFirst({
+      where: { isCurrent: true },
+      select: { id: true },
+    });
+    if (!year) return { error: "No academic year is current, so there is nothing to enrol into." };
+
+    const existing = await db.enrollment.findUnique({
+      where: { studentId_academicYearId: { studentId: id, academicYearId: year.id } },
+      select: { id: true, status: true, classSectionId: true },
+    });
+    const chosenSection = text(formData, "classSectionId");
+
+    if (!existing && !chosenSection) {
+      return { error: "Choose the class they are coming back into." };
+    }
+    if (existing && existing.status !== "ACTIVE" && !chosenSection) {
+      reopened = existing.classSectionId;
+    }
+  }
 
   await db.$transaction(async (tx) => {
     await tx.student.update({
       where: { id },
       data: {
         status: status as never,
-        exitDate: transition.endsEnrolment ? effectiveOn : null,
-        exitReason: transition.endsEnrolment ? reason : null,
-        transferredTo:
-          status === "TRANSFERRED_OUT" ? optional(formData, "transferredTo") : null,
+        // The departure record is cleared only when they are actually back.
+        // Suspending someone who has left must not erase why they left.
+        ...(status === "ENROLLED"
+          ? { exitDate: null, exitReason: null, transferredTo: null }
+          : transition.endsEnrolment
+            ? {
+                exitDate: effectiveOn,
+                exitReason: reason,
+                transferredTo:
+                  status === "TRANSFERRED_OUT" ? optional(formData, "transferredTo") : null,
+              }
+            : {}),
       },
     });
 
@@ -689,7 +757,34 @@ export async function setStudentLifecycleAction(
         },
       });
     }
+
+    if (status === "ENROLLED") {
+      const year = await tx.academicYear.findFirst({
+        where: { isCurrent: true },
+        select: { id: true },
+      });
+      if (year) {
+        const chosenSection = text(formData, "classSectionId");
+        await tx.enrollment.upsert({
+          where: {
+            studentId_academicYearId: { studentId: id, academicYearId: year.id },
+          },
+          create: {
+            studentId: id,
+            academicYearId: year.id,
+            classSectionId: chosenSection,
+            status: "ACTIVE",
+          },
+          update: {
+            status: "ACTIVE",
+            endedOn: null,
+            ...(chosenSection ? { classSectionId: chosenSection } : {}),
+          },
+        });
+      }
+    }
   });
+  void reopened;
 
   await db.auditLog.create({
     data: {
@@ -708,7 +803,9 @@ export async function setStudentLifecycleAction(
     ok: true,
     message: transition.endsEnrolment
       ? "Recorded. They are off the roll, the registers and the billing run."
-      : "Recorded.",
+      : status === "ENROLLED"
+        ? "Back on the roll, the register and the billing run."
+        : "Recorded. They keep their place, and are out of billing and the headcount until they return.",
   };
 }
 
@@ -737,6 +834,9 @@ export async function transferStudentClassAction(
   const id = text(formData, "id");
   const classSectionId = text(formData, "classSectionId");
   if (!id || !classSectionId) return { error: "Choose the class they are moving into." };
+
+  const refusal = await studentOutOfScope(user, id);
+  if (refusal) return { error: refusal };
 
   const [student, section] = await Promise.all([
     db.student.findUnique({
@@ -835,11 +935,35 @@ export async function updateStudentMedicalAction(
   const studentId = text(formData, "studentId");
   if (!studentId) return { error: "No student given." };
 
+  const refusal = await studentOutOfScope(user, studentId);
+  if (refusal) return { error: refusal };
+
   const student = await db.student.findUnique({
     where: { id: studentId },
     select: { firstName: true, lastName: true },
   });
   if (!student) return { error: "Student not found." };
+
+  // The form shows three of the keys each entry can carry. The rest — an
+  // allergy's treatment, a condition's diagnosis date, a medication's
+  // frequency — are carried over from the stored entry with the same name,
+  // because a form that cannot show a field must not be able to delete it.
+  const before = await db.studentMedical.findUnique({
+    where: { studentId },
+    select: { allergies: true, conditions: true, medications: true },
+  });
+  const priorOf = (value: unknown, key: string) => {
+    const rows = Array.isArray(value) ? (value as Array<Record<string, unknown>>) : [];
+    return (name: string) =>
+      rows.find(
+        (row) =>
+          typeof row?.[key] === "string" &&
+          (row[key] as string).trim().toLowerCase() === name.trim().toLowerCase(),
+      ) ?? {};
+  };
+  const priorAllergy = priorOf(before?.allergies, "name");
+  const priorCondition = priorOf(before?.conditions, "condition");
+  const priorMedication = priorOf(before?.medications, "name");
 
   const names = formData.getAll("allergyName").map(String);
   const severities = formData.getAll("allergySeverity").map(String);
@@ -853,6 +977,7 @@ export async function updateStudentMedicalAction(
       return { error: `"${name}" needs a severity the emergency banner understands.` };
     }
     allergies.push({
+      ...priorAllergy(name),
       name,
       severity,
       ...(reactions[index]?.trim() ? { reaction: reactions[index].trim() } : {}),
@@ -866,6 +991,7 @@ export async function updateStudentMedicalAction(
     const name = medicationNames[index]?.trim();
     if (!name) continue;
     medications.push({
+      ...priorMedication(name),
       name,
       ...(medicationDosages[index]?.trim() ? { dosage: medicationDosages[index].trim() } : {}),
       // The nurse needs to know whether a dose is kept and given at school;
@@ -881,6 +1007,7 @@ export async function updateStudentMedicalAction(
     const condition = conditionNames[index]?.trim();
     if (!condition) continue;
     conditions.push({
+      ...priorCondition(condition),
       condition,
       ...(conditionNotes[index]?.trim() ? { notes: conditionNotes[index].trim() } : {}),
     });
