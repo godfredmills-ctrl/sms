@@ -350,7 +350,8 @@ export const ROLE_PRESETS: RolePreset[] = [
       "election.vote",
       "ai.insight.view",
       "ai.insight.generate",
-      "report.read",
+      // Deliberately NOT report.read: it gates whole-school analytics and
+      // the custom report builder, whose datasets are school-wide.
     ],
   },
   {
@@ -384,8 +385,11 @@ export const ROLE_PRESETS: RolePreset[] = [
       "election.vote",
       "ai.insight.view",
       "ai.insight.generate",
-      "report.read",
-      "finance.read",
+      // Deliberately NOT finance.read: that opens the whole finance module —
+      // every invoice and payment in the school — and a form teacher who
+      // needs to know a family is in arrears asks the bursar.
+      // Deliberately NOT report.read: it is the gate on school-wide
+      // analytics and the custom report builder.
     ],
   },
   {

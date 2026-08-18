@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { generateReportCardRemark } from "@/lib/ai/insights";
 import { authorize } from "@/lib/auth";
+import { reportCardOutOfScope, sectionOutOfScope } from "@/lib/scope";
 import { db } from "@/lib/db";
 import { generateClassReportCards } from "@/lib/grading";
 import { notifyUsers } from "@/lib/messaging";
@@ -27,13 +28,19 @@ export async function generateReportCardsAction(
   _previous: GenerateState,
   formData: FormData,
 ): Promise<GenerateState> {
+  let user;
   try {
-    await authorize("assessment.report.generate");
+    user = await authorize("assessment.report.generate");
   } catch (error) {
     return { error: (error as Error).message };
   }
 
   const classSectionId = String(formData.get("classSectionId") ?? "");
+  // The picker narrows to the teacher's own classes, but a picker is client
+  // input: generating rebuilds every card in the class, resets them to
+  // draft, and recomputes positions — for whichever class was posted.
+  const outOfScope = await sectionOutOfScope(user, classSectionId);
+  if (outOfScope) return { error: outOfScope };
   const termId = String(formData.get("termId") ?? "");
   const gradeScaleId = String(formData.get("gradeScaleId") ?? "") || null;
   const overwrite = formData.get("overwrite") === "on";
@@ -81,6 +88,10 @@ export async function saveReportCardAction(
   }
 
   const id = String(formData.get("reportCardId") ?? "");
+  // Remarks and conduct are written about a child by the person who teaches
+  // them, not by anyone holding the permission to write remarks somewhere.
+  const cardOutOfScope = await reportCardOutOfScope(user, id);
+  if (cardOutOfScope) return { error: cardOutOfScope };
   if (!id) return { error: "Missing report card." };
 
   const existing = await db.reportCard.findUnique({
@@ -114,7 +125,11 @@ export async function saveReportCardAction(
 
 /** Drafts a remark with Claude for the teacher to edit. Never auto-applied. */
 export async function draftRemarkAction(reportCardId: string) {
-  await authorize("ai.insight.generate");
+  const user = await authorize("ai.insight.generate");
+
+  // Drafting a remark reads the child's marks, attendance and conduct.
+  const outOfScope = await reportCardOutOfScope(user, reportCardId);
+  if (outOfScope) return { error: outOfScope };
   await generateReportCardRemark(reportCardId);
   revalidatePath(`/reports/cards/${reportCardId}`);
 }
@@ -186,6 +201,11 @@ export async function emailReportCardsAction(
   }
 
   const classSectionId = String(formData.get("classSectionId") ?? "");
+  // The picker narrows to the teacher's own classes, but a picker is client
+  // input: generating rebuilds every card in the class, resets them to
+  // draft, and recomputes positions — for whichever class was posted.
+  const outOfScope = await sectionOutOfScope(user, classSectionId);
+  if (outOfScope) return { error: outOfScope };
   const termId = String(formData.get("termId") ?? "");
   if (!classSectionId || !termId) return { error: "Choose a class and a term." };
 
@@ -290,6 +310,11 @@ export async function publishReportCardsAction(formData: FormData) {
   const user = await authorize("assessment.report.approve");
 
   const classSectionId = String(formData.get("classSectionId") ?? "");
+  // The picker narrows to the teacher's own classes, but a picker is client
+  // input: generating rebuilds every card in the class, resets them to
+  // draft, and recomputes positions — for whichever class was posted.
+  const outOfScope = await sectionOutOfScope(user, classSectionId);
+  if (outOfScope) return { error: outOfScope };
   const termId = String(formData.get("termId") ?? "");
   if (!classSectionId || !termId) return { ok: false as const, error: "Missing class or term." };
 

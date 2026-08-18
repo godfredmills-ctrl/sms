@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { authorize } from "@/lib/auth";
+import { courseOutOfScope, quizOutOfScope } from "@/lib/scope";
 import { parseQuestionInput } from "../question-input";
 import { db } from "@/lib/db";
 import { markAttempt, type SubmittedAnswer } from "@/lib/quizzes";
@@ -22,8 +23,9 @@ export async function createQuizAction(
   _previous: QuizState,
   formData: FormData,
 ): Promise<QuizState> {
+  let user;
   try {
-    await authorize("lms.quiz.manage");
+    user = await authorize("lms.quiz.manage");
   } catch (error) {
     return { error: (error as Error).message };
   }
@@ -31,6 +33,10 @@ export async function createQuizAction(
   const courseId = text(formData, "courseId");
   const title = text(formData, "title");
   if (!courseId || !title) return { error: "Give the quiz a title." };
+
+  // A quiz is created inside somebody's course.
+  const outOfScope = await courseOutOfScope(user, courseId);
+  if (outOfScope) return { error: outOfScope };
 
   const opensAt = text(formData, "opensAt");
   const closesAt = text(formData, "closesAt");
@@ -72,6 +78,7 @@ export async function addQuestionAction(formData: FormData) {
 
   const quizId = text(formData, "quizId");
   if (!quizId) return;
+  if (await quizOutOfScope(user, quizId)) return;
 
   // Shared with the question bank, so the two cannot disagree about what an
   // asterisk means.
@@ -112,10 +119,12 @@ export async function addQuestionAction(formData: FormData) {
 }
 
 export async function deleteQuestionAction(formData: FormData) {
-  await authorize("lms.quiz.manage");
+  const user = await authorize("lms.quiz.manage");
 
   const id = text(formData, "id");
   const quizId = text(formData, "quizId");
+  // Deleting a question takes every answer already marked against it.
+  if (await quizOutOfScope(user, quizId)) return;
   if (!id) return;
 
   await db.quizQuestion.delete({ where: { id } });
@@ -123,9 +132,11 @@ export async function deleteQuestionAction(formData: FormData) {
 }
 
 export async function toggleQuizPublishedAction(formData: FormData) {
-  await authorize("lms.quiz.manage");
+  const user = await authorize("lms.quiz.manage");
 
   const id = text(formData, "id");
+  // Unpublishing a live quiz ends it for everyone sitting it.
+  if (await quizOutOfScope(user, id)) return;
   if (!id) return;
 
   const quiz = await db.quiz.findUnique({

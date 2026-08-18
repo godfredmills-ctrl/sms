@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { authorize } from "@/lib/auth";
+import { courseOutOfScope, offeringOutOfScope } from "@/lib/scope";
 import { db } from "@/lib/db";
 import { generateCode } from "@/lib/crypto";
 import { slugify } from "@/lib/utils";
@@ -72,6 +73,9 @@ export async function toggleCoursePublishedAction(formData: FormData) {
   const user = await authorize("lms.course.manage");
 
   const id = text(formData, "id");
+  // Publishing a course puts it in front of a class; withdrawing one takes
+  // the material away mid-term. Both belong to whoever teaches it.
+  if (await courseOutOfScope(user, id)) return;
   if (!id) return;
 
   const course = await db.course.findUnique({
@@ -105,9 +109,10 @@ export async function toggleCoursePublishedAction(formData: FormData) {
 }
 
 export async function createModuleAction(formData: FormData) {
-  await authorize("lms.course.manage");
+  const user = await authorize("lms.course.manage");
 
   const courseId = text(formData, "courseId");
+  if (await courseOutOfScope(user, courseId)) return;
   const title = text(formData, "title");
   if (!courseId || !title) return;
 
@@ -131,7 +136,7 @@ export async function createModuleAction(formData: FormData) {
 }
 
 export async function createLessonAction(formData: FormData) {
-  await authorize("lms.course.manage");
+  const user = await authorize("lms.course.manage");
 
   const moduleId = text(formData, "moduleId");
   const courseId = text(formData, "courseId");
@@ -164,10 +169,11 @@ export async function createLessonAction(formData: FormData) {
 }
 
 export async function toggleLessonPublishedAction(formData: FormData) {
-  await authorize("lms.course.manage");
+  const user = await authorize("lms.course.manage");
 
   const id = text(formData, "id");
   const courseId = text(formData, "courseId");
+  if (await courseOutOfScope(user, courseId)) return;
   if (!id) return;
 
   const lesson = await db.lesson.findUnique({
@@ -188,6 +194,8 @@ export async function createAssignmentAction(formData: FormData) {
   const user = await authorize("lms.assignment.manage");
 
   const courseId = text(formData, "courseId");
+  // Homework is set for a class by the person who teaches it.
+  if (await courseOutOfScope(user, courseId)) return;
   const title = text(formData, "title");
   if (!courseId || !title) return;
 
@@ -217,6 +225,8 @@ export async function gradeSubmissionAction(formData: FormData) {
 
   const id = text(formData, "id");
   const courseId = text(formData, "courseId");
+  // A mark on a child's work, written by the teacher whose course it is.
+  if (await courseOutOfScope(user, courseId)) return;
   if (!id) return;
 
   const score = Number(text(formData, "score"));

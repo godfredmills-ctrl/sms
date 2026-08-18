@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { notFound } from "next/navigation";
 import { AlertTriangle, HeartPulse, Home, Stethoscope, Thermometer } from "lucide-react";
 
 import {
@@ -14,6 +15,7 @@ import { Pager, pageOf } from "@/components/pager";
 import { RefreshButton } from "@/components/refresh-button";
 import { requirePermission, userCan } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { seesWholeSchool } from "@/lib/scope";
 import { formatDateTime, humanise, listName, relativeTime, toNumber } from "@/lib/utils";
 
 import { VisitForm } from "./visit-form";
@@ -38,6 +40,12 @@ export default async function ClinicPage({
 }) {
   const user = await requirePermission("student.medical.read");
   const canLog = userCan(user, "student.medical.update");
+
+  // The day-book is the clinic's record of the whole school. A teacher holds
+  // student.medical.read so that an allergy shows on their own class list —
+  // not so that they can read every child's complaints. The nurse, the head
+  // and the office (student.read) see the book; a teacher does not.
+  if (!seesWholeSchool(user) && !canLog) notFound();
 
   const params = await searchParams;
   const { page, skip, take } = pageOf(params, PER_PAGE);

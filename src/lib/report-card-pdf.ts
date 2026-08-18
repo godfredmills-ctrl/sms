@@ -2,6 +2,7 @@ import "server-only";
 
 import { userCan, type AuthUser } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { studentOutOfScope } from "@/lib/scope";
 import { loadDocumentImage } from "@/lib/document-images";
 import { renderReportCardPdf } from "@/lib/pdf";
 import { env } from "@/lib/env";
@@ -26,8 +27,14 @@ export async function canAccessReportCard(
   user: AuthUser,
   card: { studentId: string; status: string },
 ): Promise<ReportCardAccess> {
+  // "Staff" is not one thing. The office reads any card; a teacher reads the
+  // cards of children they teach. Asking only for assessment.read — which
+  // every teacher holds — made every child's report card, drafts included,
+  // readable by every member of teaching staff who could guess an id.
   if (userCan(user, "assessment.read") || userCan(user, "assessment.report.generate")) {
-    return { allowed: true, via: "staff" };
+    const outOfScope = await studentOutOfScope(user, card.studentId);
+    if (!outOfScope) return { allowed: true, via: "staff" };
+    return { allowed: false, reason: outOfScope };
   }
 
   // A family never sees a draft. A report card in progress carries marks that

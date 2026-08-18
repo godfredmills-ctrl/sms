@@ -5,6 +5,7 @@ import type { AssessmentCategory } from "@prisma/client";
 
 import { generateTeachingInsight } from "@/lib/ai/insights";
 import { authorize } from "@/lib/auth";
+import { assessmentOutOfScope, offeringOutOfScope } from "@/lib/scope";
 import { db } from "@/lib/db";
 import { notifyUsers } from "@/lib/messaging";
 
@@ -145,6 +146,10 @@ export async function createAssessment(
   }
 
   const offeringId = String(formData.get("offeringId") ?? "");
+  // The offering id comes off the form. Without this, a teacher sets a test
+  // for a class they have nothing to do with.
+  const outOfScope = await offeringOutOfScope(user, offeringId);
+  if (outOfScope) return { error: outOfScope };
   const title = String(formData.get("title") ?? "").trim();
   const category = String(formData.get("category") ?? "TEST") as AssessmentCategory;
   const maxScore = Number(formData.get("maxScore") ?? 100);
@@ -202,8 +207,26 @@ export async function createAssessment(
 }
 
 /** Publishing makes the marks visible in the student and guardian portals. */
+/**
+ * Publishes marks to the student and guardian portals.
+ *
+ * Two separate things had to be true and neither was checked. The gate was
+ * an any-of pair, so `assessment.grade` — which every teacher holds —
+ * satisfied it and the `assessment.publish` half never bit. And the action
+ * updated by id without ever asking whose assessment it was, so any teacher
+ * could push another class's marks live and notify every family.
+ */
 export async function publishAssessment(assessmentId: string) {
-  const user = await authorize(["assessment.publish", "assessment.grade"]);
+  const user = await authorize("assessment.grade");
+
+  const outOfScope = await assessmentOutOfScope(user, assessmentId);
+  if (outOfScope) return { error: outOfScope };
+
+  // Publishing is the moment marks reach families, and it is not undoable
+  // through this app: it belongs to whoever holds the publish permission.
+  if (!user.permissions.has("assessment.publish")) {
+    return { error: "Publishing results needs the exams officer or the head." };
+  }
 
   const assessment = await db.assessment.update({
     where: { id: assessmentId },
@@ -272,6 +295,10 @@ export async function publishAssessment(assessmentId: string) {
 
 export async function deleteAssessment(assessmentId: string) {
   const user = await authorize("assessment.create");
+
+  // Deleting an assessment takes its marks with it.
+  const outOfScope = await assessmentOutOfScope(user, assessmentId);
+  if (outOfScope) return { error: outOfScope };
 
   const assessment = await db.assessment.findUnique({
     where: { id: assessmentId },

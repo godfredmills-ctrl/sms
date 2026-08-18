@@ -39,7 +39,10 @@ export const dynamic = "force-dynamic";
 const PRESENT_STATES = ["PRESENT", "LATE", "EXCUSED", "HALF_DAY"];
 
 export default async function AnalyticsPage() {
-  const user = await requirePermission(["dashboard.management", "report.read"]);
+  // Whole-school analytics: attendance, results and money across every
+  // class. requirePermission takes any-of, so pairing this with report.read
+  // — which the teaching presets hold — let every teacher in.
+  const user = await requirePermission("dashboard.management");
   const canSeeFinance = userCan(user, "finance.read");
 
   const year = await db.academicYear.findFirst({

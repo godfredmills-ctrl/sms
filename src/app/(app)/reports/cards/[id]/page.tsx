@@ -7,6 +7,7 @@ import { Badge, Button, Card, CardHeader, StatusBadge } from "@/components/ui";
 import { PrintButton } from "@/components/print-button";
 import { isAiEnabled } from "@/lib/ai/client";
 import { requirePermission, userCan } from "@/lib/auth";
+import { studentOutOfScope } from "@/lib/scope";
 import { db } from "@/lib/db";
 import { percentOf } from "@/lib/money";
 import { calculateAge, formatDate, humanise, toNumber } from "@/lib/utils";
@@ -93,7 +94,10 @@ export default async function ReportCardPage({
   const isOwnRecord =
     card.student.userId === user.id ||
     card.student.guardians.some((link) => link.guardian.userId === user.id);
-  const isStaff = user.portal === "STAFF";
+  // "Staff" is not a scope. A teacher may open the cards of children they
+  // teach; the office may open any. Anyone else needs it to be their own.
+  const isStaff =
+    user.portal === "STAFF" && !(await studentOutOfScope(user, card.studentId));
   if (!isStaff && !isOwnRecord) notFound();
 
   // Families never see a card before it is published.

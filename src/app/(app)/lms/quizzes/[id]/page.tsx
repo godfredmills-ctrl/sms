@@ -29,6 +29,7 @@ import {
 } from "@/components/ui";
 import { requirePermission, userCan } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { quizOutOfScope } from "@/lib/scope";
 import { percentOf } from "@/lib/money";
 import { formatDateTime, fullName, humanise, toNumber } from "@/lib/utils";
 
@@ -72,6 +73,10 @@ export default async function QuizPage({
   // queue — none of which survive a student opening the URL by hand.
   if (user.portal !== "STAFF") notFound();
   const { id } = await params;
+
+  // The answer key, every attempt and every student name on it.
+  if (await quizOutOfScope(user, id)) notFound();
+
   const canManage = userCan(user, "lms.quiz.manage");
 
   const quiz = await db.quiz.findUnique({

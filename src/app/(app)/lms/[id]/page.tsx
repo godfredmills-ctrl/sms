@@ -31,6 +31,7 @@ import {
 } from "@/components/ui";
 import { requirePermission, userCan } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { courseOutOfScope } from "@/lib/scope";
 import { percentOf } from "@/lib/money";
 import { formatDateTime, fullName, humanise, relativeTime, toNumber } from "@/lib/utils";
 
@@ -69,6 +70,11 @@ export default async function CoursePage({
   // queue — none of which survive a student opening the URL by hand.
   if (user.portal !== "STAFF") notFound();
   const { id } = await params;
+
+  // The course list narrows to a teacher's own courses; this page is reached
+  // by id, and carried another teacher's material, results and marking queue.
+  if (await courseOutOfScope(user, id)) notFound();
+
   const canManage = userCan(user, "lms.course.manage");
   const canGrade = userCan(user, "lms.assignment.manage");
 

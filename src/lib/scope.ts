@@ -134,6 +134,82 @@ export async function offeringOutOfScope(
 }
 
 /**
+ * Everything in the academic and learning modules hangs off a subject
+ * offering: a course belongs to one, a quiz to a course, an assessment to an
+ * offering, a report card to a class. So each of these resolves its entity
+ * back to that offering and asks the one question.
+ *
+ * They exist because the alternative — an ownership check written afresh in
+ * each of thirty server actions — is how twenty-five of them ended up with
+ * no check at all.
+ */
+
+export async function courseOutOfScope(
+  user: { staffId?: string | null; permissions: Set<string> | string[] },
+  courseId: string,
+): Promise<string | null> {
+  if (seesWholeSchool(user)) return null;
+
+  const course = await db.course.findUnique({
+    where: { id: courseId },
+    select: { offeringId: true },
+  });
+  if (!course) return "That course does not exist.";
+  // A course with no offering belongs to nobody in particular; only the
+  // office may touch it.
+  if (!course.offeringId) return "That course is not attached to a class of yours.";
+
+  return offeringOutOfScope(user, course.offeringId);
+}
+
+export async function quizOutOfScope(
+  user: { staffId?: string | null; permissions: Set<string> | string[] },
+  quizId: string,
+): Promise<string | null> {
+  if (seesWholeSchool(user)) return null;
+
+  const quiz = await db.quiz.findUnique({
+    where: { id: quizId },
+    select: { courseId: true },
+  });
+  if (!quiz) return "That quiz does not exist.";
+  return courseOutOfScope(user, quiz.courseId);
+}
+
+export async function assessmentOutOfScope(
+  user: { staffId?: string | null; permissions: Set<string> | string[] },
+  assessmentId: string,
+): Promise<string | null> {
+  if (seesWholeSchool(user)) return null;
+
+  const assessment = await db.assessment.findUnique({
+    where: { id: assessmentId },
+    select: { offeringId: true },
+  });
+  if (!assessment) return "That assessment does not exist.";
+  return offeringOutOfScope(user, assessment.offeringId);
+}
+
+/**
+ * A report card belongs to a class, and to the form teacher who writes its
+ * remarks — not to every teacher who happens to hold the permission to
+ * generate one.
+ */
+export async function reportCardOutOfScope(
+  user: { staffId?: string | null; permissions: Set<string> | string[] },
+  reportCardId: string,
+): Promise<string | null> {
+  if (seesWholeSchool(user)) return null;
+
+  const card = await db.reportCard.findUnique({
+    where: { id: reportCardId },
+    select: { studentId: true },
+  });
+  if (!card) return "That report card does not exist.";
+  return studentOutOfScope(user, card.studentId);
+}
+
+/**
  * The Prisma filter for "classes this person may see".
  *
  * A where-fragment rather than a post-filter, so a listing narrows in the

@@ -66,6 +66,20 @@ export default async function LessonPage({
     notFound();
   }
 
+  // The lesson belongs to the course, but does the course belong to this
+  // student? Without this, any published lesson in the school was readable
+  // by any student who changed the id in the address bar — including a
+  // year group above them.
+  const enrolled = await db.enrollment.findFirst({
+    where: {
+      studentId: user.studentId,
+      status: "ACTIVE",
+      classSection: { offerings: { some: { course: { id: courseId } } } },
+    },
+    select: { id: true },
+  });
+  if (!enrolled) notFound();
+
   // Neighbours across the whole course, so "next" crosses a module boundary
   // instead of dead-ending at the last lesson of a module.
   const siblings = await db.lesson.findMany({

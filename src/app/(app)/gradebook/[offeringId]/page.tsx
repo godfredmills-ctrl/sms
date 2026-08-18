@@ -14,6 +14,7 @@ import {
 } from "@/components/ui";
 import { requirePermission, userCan } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { offeringOutOfScope } from "@/lib/scope";
 import { toNumber } from "@/lib/utils";
 
 import { publishAssessment } from "../actions";
@@ -50,6 +51,12 @@ export default async function MarkSheetPage({
 }) {
   const user = await requirePermission(["assessment.read", "assessment.grade"]);
   const { offeringId } = await params;
+
+  // The index lists only the teacher's own offerings, but a mark sheet is
+  // reachable by URL. Without this, every child's marks in every subject
+  // were one guessed id away — and the page already computed `isOwner`,
+  // using it to disable the inputs rather than to refuse the read.
+  if (await offeringOutOfScope(user, offeringId)) notFound();
 
   const offering = await db.subjectOffering.findUnique({
     where: { id: offeringId },

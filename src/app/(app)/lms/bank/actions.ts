@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { authorize } from "@/lib/auth";
+import { quizOutOfScope } from "@/lib/scope";
 import { db } from "@/lib/db";
 
 import { parseQuestionInput } from "../question-input";
@@ -89,9 +90,11 @@ export async function deleteBankQuestionAction(formData: FormData) {
  * direction to be wrong in.
  */
 export async function addFromBankAction(formData: FormData) {
-  await authorize("lms.quiz.manage");
+  const user = await authorize("lms.quiz.manage");
 
   const quizId = text(formData, "quizId");
+  // The bank is shared by design; the quiz it is copied into is not.
+  if (await quizOutOfScope(user, quizId)) return;
   const bankQuestionId = text(formData, "bankQuestionId");
   if (!quizId || !bankQuestionId) return;
 

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { authorize } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { seesWholeSchool } from "@/lib/scope";
 import { buildWorkbook } from "@/lib/excel";
 import { DATASETS, datasetFor, formatCell, type DatasetKey } from "@/lib/reporting";
 import { loadDataset } from "@/lib/reporting-data";
@@ -34,6 +35,18 @@ export async function GET(request: Request) {
     user = await authorize(dataset.permission);
   } catch (error) {
     return NextResponse.json({ error: (error as Error).message }, { status: 403 });
+  }
+
+  // Every dataset here is school-wide by construction — the students sheet
+  // is every student, the finance sheet every invoice. A teacher holds two
+  // of the dataset permissions (attendance.read, assessment.read) for their
+  // own classes; a spreadsheet of the whole school is a different thing, and
+  // this route has no way to narrow one. So it belongs to the office.
+  if (!seesWholeSchool(user)) {
+    return NextResponse.json(
+      { error: "Exports cover the whole school, so they are limited to office staff." },
+      { status: 403 },
+    );
   }
 
   const rows = await loadDataset(dataset.key);
