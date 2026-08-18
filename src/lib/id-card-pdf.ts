@@ -5,6 +5,7 @@ import QRCode from "qrcode";
 import sharp from "sharp";
 
 import type { EmbeddedImage } from "@/lib/document-images";
+import { sanitisePdfText } from "@/lib/pdf-text";
 
 /**
  * Identity cards — landscape, four people to an A4 sheet.
@@ -82,42 +83,6 @@ function truncate(text: string, font: PDFFont, size: number, maxWidth: number): 
     value = value.slice(0, -1);
   }
   return value === text ? value : `${value.slice(0, -1)}…`;
-}
-
-/**
- * Ghanaian orthography letters that standard Helvetica cannot encode, mapped
- * to their closest Latin letters. Kwabɛna prints as Kwabena rather than
- * crashing the whole batch — pdf-lib throws on the first character outside
- * WinAnsi, and one name in one class is all it would take.
- */
-const TRANSLITERATE: Record<string, string> = {
-  "ɛ": "e", "Ɛ": "E",
-  "ɔ": "o", "Ɔ": "O",
-  "ŋ": "n", "Ŋ": "N",
-  "ƒ": "f", "Ƒ": "F",
-  "ʋ": "v", "Ʋ": "V",
-  "ɖ": "d", "Ɖ": "D",
-};
-
-function sanitise(text: string, font: PDFFont): string {
-  const mapped = text.replace(/[ɛƐɔƆŋŊƒƑʋƲɖƉ]/g, (char) => TRANSLITERATE[char]);
-  try {
-    font.widthOfTextAtSize(mapped, 8);
-    return mapped;
-  } catch {
-    // Anything else the font cannot take is dropped character by character —
-    // a missing diacritic beats a missing card.
-    return [...mapped]
-      .filter((char) => {
-        try {
-          font.widthOfTextAtSize(char, 8);
-          return true;
-        } catch {
-          return false;
-        }
-      })
-      .join("");
-  }
 }
 
 /**
@@ -233,7 +198,7 @@ export async function renderIdCardsPdf(input: IdCardBatch): Promise<Buffer> {
   // Every string that reaches a drawText goes through the encoder check once,
   // here, so the drawing code below can measure and wrap freely.
   const clean = (value: string | null | undefined) =>
-    value ? sanitise(value, regular) : value ?? null;
+    value ? sanitisePdfText(value, regular) : value ?? null;
   const school = {
     name: clean(input.school.name) ?? "",
     motto: clean(input.school.motto),

@@ -1,8 +1,17 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { AlertTriangle, CalendarClock, Clock } from "lucide-react";
+import { AlertTriangle, CalendarClock, Clock, Printer } from "lucide-react";
 
-import { Alert, Badge, Card, CardBody, EmptyState, PageHeader, StatCard } from "@/components/ui";
+import {
+  Alert,
+  Badge,
+  Card,
+  CardBody,
+  EmptyState,
+  LinkButton,
+  PageHeader,
+  StatCard,
+} from "@/components/ui";
 import { requirePermission, userCan } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { fullName } from "@/lib/utils";
@@ -143,6 +152,17 @@ export default async function TimetablePage({
       <PageHeader
         title="Timetable"
         description={`${section.classLevel.name} ${section.name}`}
+        action={
+          <LinkButton
+            href={`/api/timetable-pdf?kind=class&sectionId=${sectionId}`}
+            target="_blank"
+            variant="outline"
+            size="sm"
+          >
+            <Printer className="size-4" />
+            Print
+          </LinkButton>
+        }
       />
 
       <div className="mb-4 flex flex-wrap gap-1.5">

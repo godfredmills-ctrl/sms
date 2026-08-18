@@ -19,6 +19,7 @@ import QRCode from "qrcode";
 import sharp from "sharp";
 
 import { renderIdCardsPdf } from "../src/lib/id-card-pdf";
+import { renderTimetablePdf } from "../src/lib/timetable-pdf";
 import { renderReportCardPdf, renderTablePdf, renderTemplatePdf } from "../src/lib/pdf";
 import { starterLayout } from "../src/lib/templates";
 
@@ -237,7 +238,26 @@ async function main() {
     }),
   );
 
-  console.log(`Wrote five PDFs to ${out}`);
+  writeFileSync(
+    `${out}/timetable.pdf`,
+    await renderTimetablePdf({
+      school: { name: "Golden Crest International School" },
+      crest,
+      brandHex: "#2C66CE",
+      title: "JHS 2 Amber",
+      subtitle: "Timetable · 2026/2027, Term 1",
+      days: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
+      rows: [{ label: "Period 1", sublabel: "08:10–08:50", cells: [{ title: "English Language", line2: "Yaw Darko", line3: "Room 1", colour: "#db2777" }, { title: "Integrated Science", line2: "Efua Mensimah", line3: "Room 2", colour: "#16a34a" }, { title: "Social Studies", line2: "Kofi Owusu-Ansah", line3: "Room 3", colour: "#d97706" }, { title: "Ghanaian Language (Twi)", line2: "Abena Serwaa", line3: "Room 4", colour: "#7c3aed" }, { title: "Mathematics", line2: "Akosua Mensah", line3: "Room 5", colour: "#2563eb" }] },
+        { label: "Period 2", sublabel: "08:50–09:30", cells: [{ title: "Integrated Science", line2: "Efua Mensimah", line3: "Room 1", colour: "#16a34a" }, { title: "Social Studies", line2: "Kofi Owusu-Ansah", line3: "Room 2", colour: "#d97706" }, { title: "Ghanaian Language (Twi)", line2: "Abena Serwaa", line3: "Room 3", colour: "#7c3aed" }, { title: "Mathematics", line2: "Akosua Mensah", line3: "Room 4", colour: "#2563eb" }, { title: "English Language", line2: "Yaw Darko", line3: "Room 5", colour: "#db2777" }] },
+        { label: "Period 3", sublabel: "09:30–10:10", cells: [{ title: "Social Studies", line2: "Kofi Owusu-Ansah", line3: "Room 1", colour: "#d97706" }, { title: "Ghanaian Language (Twi)", line2: "Abena Serwaa", line3: "Room 2", colour: "#7c3aed" }, { title: "Mathematics", line2: "Akosua Mensah", line3: "Room 3", colour: "#2563eb" }, { title: "English Language", line2: "Yaw Darko", line3: "Room 4", colour: "#db2777" }, { title: "Integrated Science", line2: "Efua Mensimah", line3: "Room 5", colour: "#16a34a" }] },
+        { label: "10:10–10:30", breakLabel: "Break", cells: [null, null, null, null, null] },
+        { label: "Period 5", sublabel: "10:30–11:10", cells: [{ title: "Mathematics", line2: "Akosua Mensah", line3: "Room 1", colour: "#2563eb" }, { title: "English Language", line2: "Yaw Darko", line3: "Room 2", colour: "#db2777" }, { title: "Integrated Science", line2: "Efua Mensimah", line3: "Room 3", colour: "#16a34a" }, { title: "Social Studies", line2: "Kofi Owusu-Ansah", line3: "Room 4", colour: "#d97706" }, { title: "Ghanaian Language (Twi)", line2: "Abena Serwaa", line3: "Room 5", colour: "#7c3aed" }] },
+        { label: "Period 6", sublabel: "11:10–11:50", cells: [{ title: "English Language", line2: "Yaw Darko", line3: "Room 1", colour: "#db2777" }, { title: "Integrated Science", line2: "Efua Mensimah", line3: "Room 2", colour: "#16a34a" }, { title: "Social Studies", line2: "Kofi Owusu-Ansah", line3: "Room 3", colour: "#d97706" }, { title: "Ghanaian Language (Twi)", line2: "Abena Serwaa", line3: "Room 4", colour: "#7c3aed" }, { title: "Mathematics", line2: "Akosua Mensah", line3: "Room 5", colour: "#2563eb" }] },
+        { label: "Period 7", sublabel: "11:50–12:30", cells: [{ title: "Integrated Science", line2: "Efua Mensimah", line3: "Room 1", colour: "#16a34a" }, { title: "Social Studies", line2: "Kofi Owusu-Ansah", line3: "Room 2", colour: "#d97706" }, { title: "Ghanaian Language (Twi)", line2: "Abena Serwaa", line3: "Room 3", colour: "#7c3aed" }, { title: "Mathematics", line2: "Akosua Mensah", line3: "Room 4", colour: "#2563eb" }, { title: "English Language", line2: "Yaw Darko", line3: "Room 5", colour: "#db2777" }] }],
+    }),
+  );
+
+  console.log(`Wrote six PDFs to ${out}`);
   await checkMastheadClearance();
   await checkBackgroundIsDrawn(layout, backdrop);
   await checkVerificationCode();

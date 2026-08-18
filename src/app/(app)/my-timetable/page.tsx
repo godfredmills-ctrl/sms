@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
-import { AlertTriangle, BookOpen, CalendarClock, School } from "lucide-react";
+import { AlertTriangle, BookOpen, CalendarClock, Printer, School } from "lucide-react";
 
 import {
   Alert,
   Card,
   CardBody,
   EmptyState,
+  LinkButton,
   PageHeader,
   StatCard,
 } from "@/components/ui";
@@ -127,6 +128,19 @@ export default async function MyTimetablePage() {
       <PageHeader
         title="My timetable"
         description="Your own week, across every class you teach."
+        action={
+          slots.length ? (
+            <LinkButton
+              href="/api/timetable-pdf?kind=mine"
+              target="_blank"
+              variant="outline"
+              size="sm"
+            >
+              <Printer className="size-4" />
+              Print
+            </LinkButton>
+          ) : undefined
+        }
       />
 
       {slots.length === 0 ? (
