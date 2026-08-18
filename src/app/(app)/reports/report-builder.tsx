@@ -2,7 +2,7 @@
 
 import { useActionState, useMemo, useState } from "react";
 import { useFormStatus } from "react-dom";
-import { Check, Download, Play, Sparkles } from "lucide-react";
+import { Check, Download, FileText, Play, Sparkles } from "lucide-react";
 
 import { BarSeriesChart, TrendChart } from "@/components/charts";
 import { SearchableSelect } from "@/components/select-search";
@@ -241,6 +241,7 @@ export function ReportBuilder({
               columns={state.columns ?? []}
               labels={labels}
               types={fieldTypes}
+              runId={state.runId}
             />
           </>
         ) : (
@@ -377,9 +378,12 @@ function ResultTable({
   columns,
   labels,
   types,
+  runId,
 }: {
   name: string;
   message?: string;
+  /** The stored run, which the letterhead PDF is rendered from. */
+  runId?: string;
   rows: Array<Record<string, string | number | null>>;
   columns: string[];
   labels: Map<string, string>;
@@ -420,6 +424,18 @@ function ResultTable({
         action={
           <>
             <Badge tone="info">{rows.length.toLocaleString()} rows</Badge>
+            {runId ? (
+              <a
+                href={`/api/reports/pdf?runId=${runId}`}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-[var(--border-strong)] px-3 text-sm font-medium hover:bg-[var(--bg-subtle)]"
+                title="The report on the school's letterhead"
+              >
+                <FileText className="size-3.5" />
+                PDF
+              </a>
+            ) : null}
             <Button variant="outline" size="sm" onClick={exportCsv}>
               <Download className="size-3.5" />
               CSV

@@ -36,6 +36,7 @@ export type SchoolValues = {
   registrationNo: string;
   logoUrl: string;
   crestUrl: string;
+  letterheadUrl: string;
   curricula: string[];
   brandPrimary: string;
   brandAccent: string;
@@ -193,6 +194,17 @@ export function SchoolForm({ values }: { values: SchoolValues }) {
           </Field>
           <Field label="Crest" htmlFor="crestUrl" hint="Used on certificates and transcripts.">
             <ImageField id="crestUrl" name="crestUrl" defaultValue={values.crestUrl} />
+          </Field>
+          <Field
+            label="Letterhead (optional)"
+            htmlFor="letterheadUrl"
+            hint="Your printer's artwork, used whole across the top of letters and reports. Leave it empty and one is drawn from the crest, the school name and the contact details below."
+          >
+            <ImageField
+              id="letterheadUrl"
+              name="letterheadUrl"
+              defaultValue={values.letterheadUrl}
+            />
           </Field>
           <Field label="Primary colour" htmlFor="brandPrimary">
             <div className="flex gap-2">

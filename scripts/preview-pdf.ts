@@ -20,6 +20,7 @@ import sharp from "sharp";
 
 import { renderIdCardsPdf } from "../src/lib/id-card-pdf";
 import { renderPayslipsPdf } from "../src/lib/payslip-pdf";
+import { renderReportPdf } from "../src/lib/report-pdf";
 import { renderTimetablePdf } from "../src/lib/timetable-pdf";
 import { renderReportCardPdf, renderTablePdf, renderTemplatePdf } from "../src/lib/pdf";
 import { starterLayout } from "../src/lib/templates";
@@ -319,7 +320,60 @@ async function main() {
     }),
   );
 
-  console.log(`Wrote seven PDFs to ${out}`);
+  writeFileSync(
+    `${out}/report.pdf`,
+    await renderReportPdf({
+      letterhead: {
+        image: null,
+        crest,
+        brandHex: "#2C66CE",
+        school: {
+          name: "Golden Crest International School",
+          motto: "Knowledge, Character, Service",
+          address: "P.O. Box 4821, 12 Independence Avenue, Accra, Greater Accra",
+          phone: "+233 30 212 3456",
+          email: "info@goldencrest.edu.gh",
+          website: "goldencrest.edu.gh",
+          registrationNo: "GES/PS/2011/0473",
+        },
+      },
+      report: {
+        title: "Outstanding fees by class",
+        subtitle: "Students  ·  412 rows  ·  Class = JHS 2 Amber  ·  showing the first 40",
+        meta: "Run by Grace Asante on 19 August 2026, 09:14",
+        columns: [
+          { key: "admissionNo", label: "Admission no." },
+          { key: "name", label: "Name" },
+          { key: "className", label: "Class" },
+          { key: "guardianName", label: "Primary guardian" },
+          { key: "guardianPhone", label: "Phone" },
+          { key: "outstanding", label: "Outstanding", numeric: true },
+          { key: "attendanceRate", label: "Attendance", numeric: true },
+        ],
+        rows: Array.from({ length: 40 }, (_, index) => ({
+          admissionNo: `GCS/2024/${String(300 + index).padStart(4, "0")}`,
+          name: ["Priscilla Naa Quartey", "Kwabena Asante-Oboo", "Efua Mensimah", "Nana Yaw Owusu-Ansah"][index % 4],
+          className: "JHS 2 Amber",
+          guardianName: ["Comfort Quartey", "Akosua Boateng", "Yaw Darko", "Abena Serwaa"][index % 4],
+          guardianPhone: "+233 24 555 0" + String(100 + index),
+          outstanding: "GH₵" + (1250 + index * 37).toLocaleString() + ".00",
+          attendanceRate: (88 + (index % 11)) + "%",
+        })),
+        narrative: {
+          heading: "Analysis",
+          body: "Arrears in JHS 2 Amber are concentrated in a small group: eleven families account for just over sixty per cent of the outstanding balance, and nine of those eleven have made no payment since the second week of term. Attendance among that group is four points below the class average, which is the pattern the at-risk scan usually picks up a term later.",
+          findings: [
+            "Eleven families hold 61% of the arrears; the remaining twenty-nine are within one instalment.",
+            "Nine of the eleven have not paid since week two, which suggests a payment plan rather than a reminder.",
+            "Attendance in the arrears group averages 88%, against 92% for the class.",
+          ],
+        },
+        footerNote: "Outstanding fees by class · printed 19 August 2026",
+      },
+    }),
+  );
+
+  console.log(`Wrote eight PDFs to ${out}`);
   await checkMastheadClearance();
   await checkBackgroundIsDrawn(layout, backdrop);
   await checkVerificationCode();

@@ -332,23 +332,26 @@ enum AccessLevel {
 // =============================================================================
 
 model School {
-  id           String  @id @default(cuid())
-  name         String
-  shortName    String?
-  motto        String?
-  logoUrl      String?
-  crestUrl     String?
-  email        String?
-  phone        String?
-  altPhone     String?
-  website      String?
-  addressLine1 String?
-  addressLine2 String?
-  city         String? @default("Accra")
-  region       String? @default("Greater Accra")
-  digitalAddr  String? // Ghana Post GPS, e.g. GA-183-4567
-  postalBox    String?
-  country      String  @default("Ghana")
+  id            String  @id @default(cuid())
+  name          String
+  shortName     String?
+  motto         String?
+  logoUrl       String?
+  crestUrl      String?
+  /// Optional artwork printed across the top of letters and reports. When
+  /// absent the documents draw a letterhead from the crest and these fields.
+  letterheadUrl String?
+  email         String?
+  phone         String?
+  altPhone      String?
+  website       String?
+  addressLine1  String?
+  addressLine2  String?
+  city          String? @default("Accra")
+  region        String? @default("Greater Accra")
+  digitalAddr   String? // Ghana Post GPS, e.g. GA-183-4567
+  postalBox     String?
+  country       String  @default("Ghana")
 
   currency      String   @default("GHS")
   locale        String   @default("en-GH")

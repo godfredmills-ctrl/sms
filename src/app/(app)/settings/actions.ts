@@ -69,6 +69,7 @@ export async function updateSchoolAction(
       registrationNo: optional(formData, "registrationNo"),
       logoUrl: optional(formData, "logoUrl"),
       crestUrl: optional(formData, "crestUrl"),
+      letterheadUrl: optional(formData, "letterheadUrl"),
       curricula: formData.getAll("curricula").map(String).filter(Boolean),
       branding: {
         primary: text(formData, "brandPrimary") || "#2C66CE",

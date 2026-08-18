@@ -25,6 +25,8 @@ export type ReportState = {
   rowCount?: number;
   insightId?: string;
   chartType?: string;
+  /** The stored run, so the result can be printed on the letterhead. */
+  runId?: string;
 };
 
 function text(formData: FormData, key: string): string {
@@ -151,6 +153,7 @@ export async function runReportAction(
     rowCount: rows.length,
     insightId,
     chartType,
+    runId: run.id,
     message: `${rows.length.toLocaleString()} row${rows.length === 1 ? "" : "s"} · run ${run.id.slice(-6)}`,
   };
 }

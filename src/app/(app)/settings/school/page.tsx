@@ -53,6 +53,7 @@ export default async function SchoolSettingsPage() {
     registrationNo: school.registrationNo ?? "",
     logoUrl: school.logoUrl ?? "",
     crestUrl: school.crestUrl ?? "",
+    letterheadUrl: school.letterheadUrl ?? "",
     curricula: school.curricula,
     brandPrimary: branding.primary ?? "#2C66CE",
     brandAccent: branding.accent ?? "#0E9F6E",
