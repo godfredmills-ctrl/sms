@@ -38,6 +38,7 @@ import {
 import { requirePermission, userCan } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { getStudentStatement } from "@/lib/finance";
+import { studentOutOfScope } from "@/lib/scope";
 import { CONDUCT_STATUS_TONES } from "../discipline/fields";
 import { formatMoney, percentOf } from "@/lib/money";
 import {
@@ -150,6 +151,12 @@ export default async function StudentProfilePage({
   });
 
   if (!student) notFound();
+
+  // The list already narrows a form teacher to their own classes, but the
+  // list is not the way in — /students/<id> is. Without this, a teacher who
+  // learned an id from a register or a clinic entry could read any child's
+  // full profile: family, fees, conduct, attendance.
+  if (await studentOutOfScope(user, id)) notFound();
 
   // Class options for the pipeline card, only fetched while there is a
   // pipeline to move through.

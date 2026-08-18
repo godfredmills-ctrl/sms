@@ -24,6 +24,7 @@ import {
 } from "@/components/ui";
 import { requirePermission, userCan } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { seesWholeSchool } from "@/lib/scope";
 import { percentOf } from "@/lib/money";
 import { fullName, relativeTime } from "@/lib/utils";
 
@@ -91,9 +92,12 @@ export default async function LmsPage() {
       : Promise.resolve([]),
   ]);
 
-  // A teacher without the school-wide read permission only sees the courses
-  // attached to classes they actually teach.
-  const visible = userCan(user, "lms.course.read")
+  // A teacher sees the courses attached to classes they actually teach.
+  //
+  // This used to ask `lms.course.read`, which every teacher preset holds via
+  // expand("lms") — so the filter never applied to the one group it was
+  // written for, and every teacher saw every course in the school.
+  const visible = seesWholeSchool(user)
     ? courses
     : courses.filter((course) => course.offering?.teacherId === user.staffId);
 

@@ -6,6 +6,7 @@ import type { AttendanceStatus } from "@prisma/client";
 import { Alert, Card, CardHeader, EmptyState, PageHeader, StatCard } from "@/components/ui";
 import { requirePermission, userCan } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { classSectionScopeFilter } from "@/lib/scope";
 import { percentOf } from "@/lib/money";
 import { formatDate, formatPercent, toDateOnly } from "@/lib/utils";
 
@@ -29,19 +30,16 @@ export default async function AttendancePage({
     select: { id: true, name: true, isLocked: true },
   });
 
-  // A teacher sees their own classes; an administrator sees all of them.
-  const canSeeAll = userCan(user, "attendance.report");
+  // A teacher sees their own classes; the office sees all of them.
+  //
+  // This used to ask `attendance.report`, which every teacher holds — so the
+  // comment above was true of the intention and false of the behaviour, and
+  // any teacher could open, and mark, any register in the school. The
+  // question now has one answer, shared with every other surface.
   const sections = await db.classSection.findMany({
     where: {
       isActive: true,
-      ...(canSeeAll
-        ? {}
-        : {
-            OR: [
-              { formTeacherId: user.staffId ?? "" },
-              { offerings: { some: { teacherId: user.staffId ?? "" } } },
-            ],
-          }),
+      ...(await classSectionScopeFilter(user)),
     },
     orderBy: [{ classLevel: { sequence: "asc" } }, { name: "asc" }],
     select: {

@@ -66,3 +66,85 @@ export async function studentOutOfScope(
     ? null
     : "This student is outside your classes — the office keeps their record.";
 }
+
+/**
+ * Whether this person's remit is the whole school rather than their own
+ * classes.
+ *
+ * This exists because the codebase kept asking that question with whatever
+ * permission was nearest, and got it wrong the same way twice: the
+ * attendance page asked `attendance.report` and the course list asked
+ * `lms.course.read`, both of which every teacher holds — so "a teacher sees
+ * their own classes" was a comment rather than a behaviour.
+ *
+ * `student.read` is the honest signal. It is the office's permission: the
+ * head, the registrar, the bursar and the secretary hold it, and a teacher
+ * is given `student.read.own` precisely so that they do not. One question,
+ * one answer, everywhere.
+ */
+export function seesWholeSchool(user: {
+  permissions: Set<string> | string[];
+}): boolean {
+  const held = user.permissions instanceof Set ? user.permissions : new Set(user.permissions);
+  return held.has("student.read");
+}
+
+/**
+ * Refuses a class the teacher has nothing to do with.
+ *
+ * "Their own" means the same here as everywhere else: a class whose register
+ * they own, or one they teach a subject in.
+ */
+export async function sectionOutOfScope(
+  user: { staffId?: string | null; permissions: Set<string> | string[] },
+  classSectionId: string,
+): Promise<string | null> {
+  if (seesWholeSchool(user)) return null;
+
+  const own = await ownSectionIdsFor(user.staffId);
+  return own.includes(classSectionId) ? null : "That class is not one of yours.";
+}
+
+/**
+ * Refuses a subject offering taught by somebody else.
+ *
+ * Narrower than the class check on purpose: a teacher who takes JHS 2 for
+ * English owns the English register and the English marks for that class,
+ * not its Mathematics. The form teacher of the class is the exception —
+ * the whole register is theirs.
+ */
+export async function offeringOutOfScope(
+  user: { staffId?: string | null; permissions: Set<string> | string[] },
+  offeringId: string,
+): Promise<string | null> {
+  if (seesWholeSchool(user)) return null;
+  if (!user.staffId) return "You have no staff record, so you teach nothing here.";
+
+  const offering = await db.subjectOffering.findUnique({
+    where: { id: offeringId },
+    select: { teacherId: true, classSection: { select: { formTeacherId: true } } },
+  });
+  if (!offering) return "That subject does not exist.";
+
+  const mine =
+    offering.teacherId === user.staffId ||
+    offering.classSection.formTeacherId === user.staffId;
+
+  return mine ? null : "That subject is taught by someone else.";
+}
+
+/**
+ * The Prisma filter for "classes this person may see".
+ *
+ * A where-fragment rather than a post-filter, so a listing narrows in the
+ * query — the difference between a teacher's page and a teacher's page that
+ * still loaded every child in the school before hiding them.
+ */
+export async function classSectionScopeFilter(user: {
+  staffId?: string | null;
+  permissions: Set<string> | string[];
+}): Promise<{ id?: { in: string[] } }> {
+  if (seesWholeSchool(user)) return {};
+  const own = await ownSectionIdsFor(user.staffId);
+  return { id: { in: own } };
+}

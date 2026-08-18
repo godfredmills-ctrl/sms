@@ -6,6 +6,7 @@ import type { AttendanceStatus } from "@prisma/client";
 import { authorize } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { notifyUsers } from "@/lib/messaging";
+import { sectionOutOfScope } from "@/lib/scope";
 import { toDateOnly } from "@/lib/utils";
 
 export type SaveAttendanceInput = {
@@ -38,6 +39,34 @@ export async function saveAttendance(
 
   if (!input.entries.length) {
     return { ok: false, error: "No students to record." };
+  }
+
+  // The register belongs to whoever teaches the class. The permission only
+  // says this person marks attendance somewhere; the class id arrives from
+  // the client, and before this check a teacher could mark — or silently
+  // overwrite — the register of any class in the school, including one
+  // another teacher had already taken that morning.
+  const refusal = await sectionOutOfScope(user, input.classSectionId);
+  if (refusal) return { ok: false, error: refusal };
+
+  // Only students actually enrolled in that class can be marked in it.
+  // Otherwise a crafted entry writes an attendance record against a child
+  // who has never been in the room.
+  const enrolled = await db.enrollment.findMany({
+    where: {
+      classSectionId: input.classSectionId,
+      status: "ACTIVE",
+      studentId: { in: input.entries.map((entry) => entry.studentId) },
+    },
+    select: { studentId: true },
+  });
+  const onRoll = new Set(enrolled.map((entry) => entry.studentId));
+  const strays = input.entries.filter((entry) => !onRoll.has(entry.studentId));
+  if (strays.length) {
+    return {
+      ok: false,
+      error: `${strays.length} of those students are not on this class's register.`,
+    };
   }
 
   const date = toDateOnly(input.date);
