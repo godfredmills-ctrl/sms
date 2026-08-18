@@ -11,12 +11,20 @@ export type NavItem = {
   /** Any one of these grants visibility. Empty means "everyone signed in". */
   permissions?: string[];
   badge?: "unreadNotifications";
+  /**
+   * Set by the shell, not by this file: the viewer lacks the permission, so
+   * the row is shown greyed and padlocked rather than hidden. Seeing that a
+   * module exists and is not yours is more honest than a menu that quietly
+   * differs for everyone — and it tells a person what to ask for.
+   */
+  locked?: boolean;
   children?: Array<{
     label: string;
     href: string;
     /** Lucide icon name; submenu rows carry their own icon like the parents. */
     icon?: string;
     permissions?: string[];
+    locked?: boolean;
   }>;
 };
 

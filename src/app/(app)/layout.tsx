@@ -42,26 +42,37 @@ export default async function AppLayout({
 }
 
 /**
- * Strips out anything the signed-in user cannot reach, including empty
- * groups, so nobody is shown a link that leads to a permission wall.
+ * Marks anything the signed-in user cannot reach as locked, rather than
+ * removing it.
+ *
+ * Hiding was the older behaviour and it had a cost: two people looking at
+ * the same product saw different applications, and someone who needed the
+ * fee ledger had no way to discover it existed, let alone what to ask their
+ * administrator for. A padlocked row answers both — and it is not a
+ * security question, because the page, the action and the query each
+ * enforce the permission on their own.
  */
 function filterNavigation(
   groups: NavGroup[],
   user: Parameters<typeof userCanAny>[0] & { roleKeys: string[] },
 ): NavGroup[] {
   const allowAll = isSuperAdmin(user);
+  const permitted = (permissions?: string[]) =>
+    allowAll || !permissions || userCanAny(user, permissions);
 
   return groups
     .map((group) => ({
       ...group,
-      items: group.items
-        .filter((item) => allowAll || !item.permissions || userCanAny(user, item.permissions))
-        .map((item) => ({
-          ...item,
-          children: item.children?.filter(
-            (child) => allowAll || !child.permissions || userCanAny(user, child.permissions),
-          ),
+      items: group.items.map((item) => ({
+        ...item,
+        locked: !permitted(item.permissions),
+        children: item.children?.map((child) => ({
+          ...child,
+          // A child inside a locked parent is locked too, whatever it
+          // declares — the parent's permission gates the segment.
+          locked: !permitted(item.permissions) || !permitted(child.permissions),
         })),
+      })),
     }))
     .filter((group) => group.items.length > 0);
 }

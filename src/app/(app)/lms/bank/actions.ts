@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { authorize } from "@/lib/auth";
-import { quizOutOfScope } from "@/lib/scope";
+import { quizOutOfScope, seesWholeSchool } from "@/lib/scope";
 import { db } from "@/lib/db";
 
 import { parseQuestionInput } from "../question-input";
@@ -71,12 +71,20 @@ export async function saveBankQuestionAction(
 
 /** Deletes a bank question. Only bank questions — the where clause is the guard. */
 export async function deleteBankQuestionAction(formData: FormData) {
-  await authorize("lms.quiz.manage");
+  const user = await authorize("lms.quiz.manage");
 
   const id = text(formData, "id");
   if (!id) return;
 
-  await db.quizQuestion.deleteMany({ where: { id, quizId: null } });
+  // The where clause is the authorisation: a bank question is deletable by
+  // whoever wrote it, and by the office.
+  await db.quizQuestion.deleteMany({
+    where: {
+      id,
+      quizId: null,
+      ...(seesWholeSchool(user) ? {} : { createdById: user.id }),
+    },
+  });
   revalidatePath("/lms/bank");
 }
 
@@ -93,13 +101,17 @@ export async function addFromBankAction(formData: FormData) {
   const user = await authorize("lms.quiz.manage");
 
   const quizId = text(formData, "quizId");
-  // The bank is shared by design; the quiz it is copied into is not.
   if (await quizOutOfScope(user, quizId)) return;
   const bankQuestionId = text(formData, "bankQuestionId");
   if (!quizId || !bankQuestionId) return;
 
+  // Copied from the teacher's own shelf only — the bank is per teacher.
   const source = await db.quizQuestion.findFirst({
-    where: { id: bankQuestionId, quizId: null },
+    where: {
+      id: bankQuestionId,
+      quizId: null,
+      ...(seesWholeSchool(user) ? {} : { createdById: user.id }),
+    },
     include: { options: { orderBy: { sortKey: "asc" } } },
   });
   if (!source) return;

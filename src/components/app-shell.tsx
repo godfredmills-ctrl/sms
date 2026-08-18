@@ -7,6 +7,7 @@ import * as Icons from "lucide-react";
 import {
   Bell,
   ChevronDown,
+  Lock,
   ChevronLeft,
   ChevronRight,
   LifeBuoy,
@@ -394,14 +395,24 @@ function NavEntry({
   if (collapsed) {
     return (
       <li className="rail-item relative hidden lg:block">
-        <Link
-          href={item.href}
-          data-active={isActive}
-          aria-label={item.label}
-          className="sidebar-link justify-center px-0 py-2.5"
-        >
-          <Icon className="size-5 shrink-0" />
-        </Link>
+        {item.locked ? (
+          <span
+            aria-label={`${item.label} — you do not have access`}
+            aria-disabled
+            className="sidebar-link sidebar-link-locked justify-center px-0 py-2.5"
+          >
+            <Icon className="size-5 shrink-0" />
+          </span>
+        ) : (
+          <Link
+            href={item.href}
+            data-active={isActive}
+            aria-label={item.label}
+            className="sidebar-link justify-center px-0 py-2.5"
+          >
+            <Icon className="size-5 shrink-0" />
+          </Link>
+        )}
 
         <div className="rail-pop">
           {hasChildren ? (
@@ -414,21 +425,35 @@ function NavEntry({
                   const ChildIcon = iconFor(child.icon);
                   return (
                     <li key={child.href}>
-                      <Link
-                        href={child.href}
-                        data-active={pathname === child.href}
-                        className="sidebar-link py-1.5 text-[13px]"
-                      >
-                        <ChildIcon className="size-3.5 shrink-0" />
-                        <span className="truncate">{child.label}</span>
-                      </Link>
+                      {child.locked ? (
+                        <span
+                          aria-disabled
+                          className="sidebar-link sidebar-link-locked py-1.5 text-[13px]"
+                        >
+                          <ChildIcon className="size-3.5 shrink-0" />
+                          <span className="truncate">{child.label}</span>
+                          <Lock className="ml-auto size-3 shrink-0 opacity-70" />
+                        </span>
+                      ) : (
+                        <Link
+                          href={child.href}
+                          data-active={pathname === child.href}
+                          className="sidebar-link py-1.5 text-[13px]"
+                        >
+                          <ChildIcon className="size-3.5 shrink-0" />
+                          <span className="truncate">{child.label}</span>
+                        </Link>
+                      )}
                     </li>
                   );
                 })}
               </ul>
             </div>
           ) : (
-            <div className="rail-tooltip mt-1.5">{item.label}</div>
+            <div className="rail-tooltip mt-1.5">
+              {item.label}
+              {item.locked ? " — no access" : ""}
+            </div>
           )}
         </div>
       </li>
@@ -439,14 +464,26 @@ function NavEntry({
   return (
     <li>
       <div className="flex items-center">
-        <Link
-          href={item.href}
-          data-active={isActive}
-          className="sidebar-link min-w-0 flex-1"
-        >
-          <Icon className="size-4 shrink-0" />
-          <span className="truncate">{item.label}</span>
-        </Link>
+        {item.locked ? (
+          <span
+            aria-disabled
+            title="You do not have access to this. Ask your administrator."
+            className="sidebar-link sidebar-link-locked min-w-0 flex-1"
+          >
+            <Icon className="size-4 shrink-0" />
+            <span className="truncate">{item.label}</span>
+            <Lock className="ml-auto size-3 shrink-0 opacity-70" />
+          </span>
+        ) : (
+          <Link
+            href={item.href}
+            data-active={isActive}
+            className="sidebar-link min-w-0 flex-1"
+          >
+            <Icon className="size-4 shrink-0" />
+            <span className="truncate">{item.label}</span>
+          </Link>
+        )}
 
         {hasChildren ? (
           <button
@@ -469,14 +506,26 @@ function NavEntry({
             const ChildIcon = iconFor(child.icon);
             return (
               <li key={child.href}>
-                <Link
-                  href={child.href}
-                  data-active={pathname === child.href}
-                  className="sidebar-link py-1.5 text-[13px]"
-                >
-                  <ChildIcon className="size-3.5 shrink-0" />
-                  <span className="truncate">{child.label}</span>
-                </Link>
+                {child.locked ? (
+                  <span
+                    aria-disabled
+                    title="You do not have access to this. Ask your administrator."
+                    className="sidebar-link sidebar-link-locked py-1.5 text-[13px]"
+                  >
+                    <ChildIcon className="size-3.5 shrink-0" />
+                    <span className="truncate">{child.label}</span>
+                    <Lock className="ml-auto size-3 shrink-0 opacity-70" />
+                  </span>
+                ) : (
+                  <Link
+                    href={child.href}
+                    data-active={pathname === child.href}
+                    className="sidebar-link py-1.5 text-[13px]"
+                  >
+                    <ChildIcon className="size-3.5 shrink-0" />
+                    <span className="truncate">{child.label}</span>
+                  </Link>
+                )}
               </li>
             );
           })}

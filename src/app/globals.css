@@ -494,6 +494,17 @@ body {
   }
 
   /* The icon sits in the label row, not in a tile of its own. */
+  /* A module the viewer cannot open: visible, greyed, and not a link. */
+  .sidebar-link-locked {
+    color: var(--sidebar-faint);
+    cursor: not-allowed;
+    opacity: 0.55;
+  }
+
+  .sidebar-link-locked:hover {
+    background: transparent;
+  }
+
   .kpi-icon {
     color: rgb(255 255 255 / 0.9);
   }

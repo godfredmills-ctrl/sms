@@ -14,6 +14,7 @@ import {
 import { Pager, pageOf } from "@/components/pager";
 import { RefreshButton } from "@/components/refresh-button";
 import { requirePermission } from "@/lib/auth";
+import { seesWholeSchool } from "@/lib/scope";
 import { db } from "@/lib/db";
 import { humanise, toNumber } from "@/lib/utils";
 
@@ -37,7 +38,13 @@ export default async function QuestionBankPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  await requirePermission("lms.quiz.manage");
+  const user = await requirePermission("lms.quiz.manage");
+
+  // A question bank is a teacher's own working notes — the questions they
+  // have written and will reuse. Shared school-wide it becomes a place where
+  // one teacher can read, copy and delete another's exam questions, which is
+  // not a library, it is a leak. The office still sees the whole shelf.
+  const mine = seesWholeSchool(user) ? {} : { createdById: user.id };
 
   const params = await searchParams;
   const { page, skip, take } = pageOf(params, PER_PAGE);
@@ -48,7 +55,7 @@ export default async function QuestionBankPage({
     select: {
       id: true,
       name: true,
-      _count: { select: { bankQuestions: { where: { quizId: null } } } },
+      _count: { select: { bankQuestions: { where: { quizId: null, ...mine } } } },
     },
   });
 
@@ -56,6 +63,7 @@ export default async function QuestionBankPage({
 
   const where = {
     quizId: null,
+    ...mine,
     ...(subjectFilter ? { subjectId: subjectFilter.id } : {}),
   };
 
@@ -71,7 +79,7 @@ export default async function QuestionBankPage({
       },
     }),
     db.quizQuestion.count({ where }),
-    db.quizQuestion.count({ where: { quizId: null, subjectId: null } }),
+    db.quizQuestion.count({ where: { quizId: null, subjectId: null, ...mine } }),
   ]);
 
   const bankTotal =
