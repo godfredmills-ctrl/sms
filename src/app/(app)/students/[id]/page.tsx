@@ -19,6 +19,8 @@ import { FamilyTree, type FamilyNode } from "@/components/family-tree";
 import { PersonDocuments } from "@/components/person-documents";
 
 import { AdmissionStageCard } from "../stage-card";
+import { LifecycleCard } from "./lifecycle-card";
+import { MedicalForm } from "./medical-form";
 import { DOCUMENT_CATEGORIES, documentsFor } from "@/lib/person-documents";
 import {
   Alert,
@@ -151,9 +153,11 @@ export default async function StudentProfilePage({
 
   // Class options for the pipeline card, only fetched while there is a
   // pipeline to move through.
+  const canMoveClass = userCan(user, "academic.enrollment.manage");
   const stageSections =
-    ["APPLICANT", "OFFERED"].includes(student.status) &&
-    userCan(user, "student.update")
+    (["APPLICANT", "OFFERED"].includes(student.status) &&
+      userCan(user, "student.update")) ||
+    (student.status === "ENROLLED" && canMoveClass)
       ? (
           await db.classSection.findMany({
             where: { isActive: true },
@@ -321,6 +325,33 @@ export default async function StudentProfilePage({
             sections={stageSections}
           />
         </div>
+      ) : null}
+
+      {/* What happens to a record after admission: a change of class, and
+          the ways it pauses or ends. Only for someone who can decide. */}
+      {active === "overview" &&
+      !["APPLICANT", "OFFERED"].includes(student.status) &&
+      userCan(user, "student.update") ? (
+        <div className="mb-4 grid gap-4 lg:grid-cols-2">
+          <LifecycleCard
+            studentId={student.id}
+            status={student.status}
+            currentClass={currentEnrolment ? className : null}
+            sections={stageSections}
+            canTransfer={canMoveClass}
+          />
+        </div>
+      ) : null}
+
+      {student.exitDate || student.exitReason ? (
+        <Alert tone="warning" className="mb-4">
+          <span>
+            <strong>{humanise(student.status)}</strong>
+            {student.exitDate ? " on " + formatDate(student.exitDate, "long") : ""}
+            {student.exitReason ? " — " + student.exitReason : ""}
+            {student.transferredTo ? " Moved to " + student.transferredTo + "." : ""}
+          </span>
+        </Alert>
       ) : null}
 
       {active === "overview" ? (
@@ -563,6 +594,51 @@ export default async function StudentProfilePage({
       ) : null}
 
       {active === "medical" ? (
+        <div className="space-y-4">
+        {userCan(user, "student.medical.update") ? (
+          <Card>
+            <CardHeader
+              title="Record the medical details"
+              description="Allergies, conditions and the medication kept at school — what the nurse needs before a visit, not after it."
+            />
+            <MedicalForm
+              studentId={student.id}
+              values={{
+                bloodGroup: student.medical?.bloodGroup ?? "",
+                genotype: student.medical?.genotype ?? "",
+                nhisNumber: student.medical?.nhisNumber ?? "",
+                dietaryRestrictions: student.medical?.dietaryRestrictions ?? "",
+                emergencyInstructions: student.medical?.emergencyInstructions ?? "",
+                doctorName: student.medical?.doctorName ?? "",
+                doctorPhone: student.medical?.doctorPhone ?? "",
+                consentToTreat: student.medical?.consentToTreat ?? false,
+                allergies: allergies.map((entry) => ({
+                  name: entry.name,
+                  severity: entry.severity ?? "MILD",
+                  reaction: entry.reaction ?? "",
+                })),
+                conditions: (
+                  (student.medical?.conditions as Array<{
+                    condition?: string;
+                    notes?: string;
+                  }> | null) ?? []
+                ).map((entry) => ({
+                  condition: entry.condition ?? "",
+                  notes: entry.notes ?? "",
+                })),
+                medications: (
+                  (student.medical?.medications as Array<{
+                    name?: string;
+                    dosage?: string;
+                  }> | null) ?? []
+                ).map((entry) => ({
+                  name: entry.name ?? "",
+                  dosage: entry.dosage ?? "",
+                })),
+              }}
+            />
+          </Card>
+        ) : null}
         <div className="grid gap-4 lg:grid-cols-3">
           <Card className="lg:col-span-2">
             <CardHeader
@@ -697,6 +773,7 @@ export default async function StudentProfilePage({
               )}
             </Card>
           </div>
+        </div>
         </div>
       ) : null}
 

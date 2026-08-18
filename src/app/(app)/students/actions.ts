@@ -444,3 +444,482 @@ export async function setStudentStageAction(
         : `A place has been offered to ${student.firstName}.`,
   };
 }
+
+
+// ---------------------------------------------------------------------------
+// The record after admission
+// ---------------------------------------------------------------------------
+
+export type StudentState = { ok?: boolean; error?: string; message?: string };
+
+/**
+ * Edits a student's record.
+ *
+ * Everything a school corrects in the ordinary course of a year: a misspelt
+ * surname, a date of birth that has to match a birth certificate before WAEC
+ * registration, a new phone number, a house reassignment, an index number
+ * issued months after admission. Until this existed the record was frozen at
+ * the moment of admission and a typo could only be fixed in the database.
+ *
+ * Status is deliberately NOT editable here — moving a child out of the school
+ * is its own decision with its own reasons and dates, and it belongs to
+ * setStudentLifecycleAction below rather than to a field on a long form.
+ */
+export async function updateStudentAction(
+  _previous: StudentState,
+  formData: FormData,
+): Promise<StudentState> {
+  let user;
+  try {
+    user = await authorize("student.update");
+  } catch (error) {
+    return { error: (error as Error).message };
+  }
+
+  const id = text(formData, "id");
+  if (!id) return { error: "No student given." };
+
+  const firstName = text(formData, "firstName");
+  const lastName = text(formData, "lastName");
+  if (!firstName || !lastName) return { error: "First and last name are required." };
+
+  const dateOfBirth = text(formData, "dateOfBirth");
+  if (dateOfBirth) {
+    // Date-only inputs parse as UTC midnight; anchoring to local midnight keeps
+    // the stored day the day that was typed, wherever the server sits.
+    const parsed = new Date(dateOfBirth + "T00:00:00");
+    if (Number.isNaN(parsed.getTime())) return { error: "That date of birth is not valid." };
+    if (parsed.getTime() > Date.now()) return { error: "That date of birth is in the future." };
+  }
+
+  const admissionNo = text(formData, "admissionNo");
+  if (!admissionNo) return { error: "A student needs an admission number." };
+
+  // The admission number is on every document the school has ever issued for
+  // this child, so a clash is refused with the name of whoever holds it.
+  const clash = await db.student.findFirst({
+    where: { admissionNo, id: { not: id } },
+    select: { firstName: true, lastName: true },
+  });
+  if (clash) {
+    return {
+      error: `${clash.firstName} ${clash.lastName} already has admission number ${admissionNo}.`,
+    };
+  }
+
+  try {
+    await db.student.update({
+      where: { id },
+      data: {
+        admissionNo,
+        indexNumber: optional(formData, "indexNumber"),
+        firstName,
+        lastName,
+        otherNames: optional(formData, "otherNames"),
+        preferredName: optional(formData, "preferredName"),
+        gender: (text(formData, "gender") || "UNDISCLOSED") as never,
+        dateOfBirth: dateOfBirth ? new Date(dateOfBirth + "T00:00:00") : null,
+        placeOfBirth: optional(formData, "placeOfBirth"),
+        photoUrl: optional(formData, "photoUrl"),
+
+        nationality: text(formData, "nationality") || "Ghanaian",
+        nationalId: optional(formData, "nationalId"),
+        birthCertNo: optional(formData, "birthCertNo"),
+        nhisNumber: optional(formData, "nhisNumber"),
+        religion: optional(formData, "religion"),
+        hometown: optional(formData, "hometown"),
+        homeRegion: optional(formData, "homeRegion"),
+        firstLanguage: text(formData, "firstLanguage") || "English",
+
+        email: optional(formData, "email"),
+        phone: normalisePhone(text(formData, "phone")),
+        residentialAddress: optional(formData, "residentialAddress"),
+        digitalAddr: optional(formData, "digitalAddr"),
+        city: optional(formData, "city"),
+        region: optional(formData, "region"),
+
+        livingWith: optional(formData, "livingWith"),
+        transportMode: optional(formData, "transportMode"),
+        busRoute: optional(formData, "busRoute"),
+
+        isBoarder: formData.get("isBoarder") === "on",
+        house: optional(formData, "house"),
+        dormitory: optional(formData, "dormitory"),
+        roomNumber: optional(formData, "roomNumber"),
+
+        hasSpecialNeeds: formData.get("hasSpecialNeeds") === "on",
+        specialNeedsNotes: optional(formData, "specialNeedsNotes"),
+        // One per line in a textarea: a school types a list, and a list of
+        // needs is not worth a row-management widget.
+        learningSupport: text(formData, "learningSupport")
+          .split(/\r?\n/)
+          .map((value) => value.trim())
+          .filter(Boolean),
+
+        onScholarship: formData.get("onScholarship") === "on",
+        scholarshipDetails: optional(formData, "scholarshipDetails"),
+        notes: optional(formData, "notes"),
+      },
+    });
+  } catch (error) {
+    return { error: (error as Error).message };
+  }
+
+  await db.auditLog.create({
+    data: {
+      userId: user.id,
+      actorLabel: user.fullName,
+      action: "student.update",
+      entity: "Student",
+      entityId: id,
+      summary: `Updated ${firstName} ${lastName} (${admissionNo})`,
+    },
+  });
+
+  revalidatePath("/students");
+  revalidatePath(`/students/${id}`);
+  return { ok: true, message: "Saved." };
+}
+
+/** What a student's record can become, and what each transition means. */
+export const LIFECYCLE_TRANSITIONS = [
+  {
+    value: "ON_LEAVE",
+    label: "On leave",
+    description: "Away for a while and expected back. Stays on the class register.",
+    endsEnrolment: false,
+  },
+  {
+    value: "SUSPENDED",
+    label: "Suspended",
+    description: "Excluded temporarily. Stays enrolled and keeps their place.",
+    endsEnrolment: false,
+  },
+  {
+    value: "WITHDRAWN",
+    label: "Withdrawn",
+    description: "Taken out of the school by the family. Leaves the roll and billing.",
+    endsEnrolment: true,
+  },
+  {
+    value: "TRANSFERRED_OUT",
+    label: "Transferred out",
+    description: "Moved to another school. Leaves the roll and billing.",
+    endsEnrolment: true,
+  },
+  {
+    value: "ENROLLED",
+    label: "Reinstate as enrolled",
+    description: "Back on the roll, on the register, and billed again.",
+    endsEnrolment: false,
+  },
+] as const;
+
+/**
+ * Moves a student through the rest of their life at the school.
+ *
+ * Nine statuses were declared and only three reachable, so a child who
+ * relocated in November stayed ENROLLED forever: on every register, in the
+ * headcount, and invoiced again next term. This is the way out — and the way
+ * back, because a suspension ends and a family that leaves sometimes returns.
+ *
+ * Leaving closes the active enrolment too. That single write is what takes
+ * them off the register and out of the billing run, both of which already
+ * filter on an ACTIVE enrolment.
+ */
+export async function setStudentLifecycleAction(
+  _previous: StudentState,
+  formData: FormData,
+): Promise<StudentState> {
+  let user;
+  try {
+    user = await authorize("student.update");
+  } catch (error) {
+    return { error: (error as Error).message };
+  }
+
+  const id = text(formData, "id");
+  const status = text(formData, "status");
+  const transition = LIFECYCLE_TRANSITIONS.find((entry) => entry.value === status);
+  if (!id || !transition) return { error: "Choose what is happening to this student." };
+
+  const reason = text(formData, "reason");
+  if (transition.endsEnrolment && !reason) {
+    return { error: "Say why they are leaving — this is the record of it." };
+  }
+
+  const student = await db.student.findUnique({
+    where: { id },
+    select: { firstName: true, lastName: true, status: true, admissionNo: true },
+  });
+  if (!student) return { error: "Student not found." };
+  if (student.status === status) {
+    return { error: `They are already ${transition.label.toLowerCase()}.` };
+  }
+  if (["GRADUATED", "ALUMNI"].includes(student.status)) {
+    return { error: "A graduate's record is closed. Admit them again to bring them back." };
+  }
+  if (status === "ENROLLED" && student.status === "APPLICANT") {
+    return { error: "Use the admission stages to enrol an applicant." };
+  }
+
+  const effectiveRaw = text(formData, "effectiveOn");
+  const effectiveOn = effectiveRaw ? new Date(effectiveRaw + "T00:00:00") : new Date();
+  if (Number.isNaN(effectiveOn.getTime())) return { error: "That date is not valid." };
+
+  await db.$transaction(async (tx) => {
+    await tx.student.update({
+      where: { id },
+      data: {
+        status: status as never,
+        exitDate: transition.endsEnrolment ? effectiveOn : null,
+        exitReason: transition.endsEnrolment ? reason : null,
+        transferredTo:
+          status === "TRANSFERRED_OUT" ? optional(formData, "transferredTo") : null,
+      },
+    });
+
+    if (transition.endsEnrolment) {
+      // The enrolment is what registers and billing actually read.
+      await tx.enrollment.updateMany({
+        where: { studentId: id, status: "ACTIVE" },
+        data: {
+          status: status === "TRANSFERRED_OUT" ? "TRANSFERRED" : "WITHDRAWN",
+          endedOn: effectiveOn,
+        },
+      });
+    }
+  });
+
+  await db.auditLog.create({
+    data: {
+      userId: user.id,
+      actorLabel: user.fullName,
+      action: "student.lifecycle",
+      entity: "Student",
+      entityId: id,
+      summary: `${student.firstName} ${student.lastName} (${student.admissionNo}): ${student.status} → ${status}${reason ? ` — ${reason}` : ""}`,
+    },
+  });
+
+  revalidatePath("/students");
+  revalidatePath(`/students/${id}`);
+  return {
+    ok: true,
+    message: transition.endsEnrolment
+      ? "Recorded. They are off the roll, the registers and the billing run."
+      : "Recorded.",
+  };
+}
+
+/**
+ * Moves a student to a different class in the current year.
+ *
+ * Streaming after a placement test, balancing two arms, or settling a
+ * mid-term arrival. academic.enrollment.manage has existed since the
+ * permission catalogue was written and this is its first consumer.
+ *
+ * The enrolment row is updated rather than replaced: one enrolment per
+ * student per year is a database constraint, and it is also the truth — a
+ * child moving from 5A to 5B has not enrolled twice.
+ */
+export async function transferStudentClassAction(
+  _previous: StudentState,
+  formData: FormData,
+): Promise<StudentState> {
+  let user;
+  try {
+    user = await authorize("academic.enrollment.manage");
+  } catch (error) {
+    return { error: (error as Error).message };
+  }
+
+  const id = text(formData, "id");
+  const classSectionId = text(formData, "classSectionId");
+  if (!id || !classSectionId) return { error: "Choose the class they are moving into." };
+
+  const [student, section] = await Promise.all([
+    db.student.findUnique({
+      where: { id },
+      select: {
+        firstName: true,
+        lastName: true,
+        status: true,
+        enrollments: {
+          where: { status: "ACTIVE" },
+          take: 1,
+          select: {
+            id: true,
+            classSectionId: true,
+            classSection: {
+              select: { name: true, classLevel: { select: { name: true } } },
+            },
+          },
+        },
+      },
+    }),
+    db.classSection.findUnique({
+      where: { id: classSectionId },
+      select: {
+        name: true,
+        isActive: true,
+        capacity: true,
+        classLevel: { select: { name: true } },
+        _count: { select: { enrollments: { where: { status: "ACTIVE" } } } },
+      },
+    }),
+  ]);
+
+  if (!student) return { error: "Student not found." };
+  if (!section) return { error: "That class does not exist." };
+  if (!section.isActive) return { error: "That class is not active." };
+  if (student.status !== "ENROLLED") {
+    return { error: "Only an enrolled student can be moved between classes." };
+  }
+
+  const current = student.enrollments[0];
+  if (!current) return { error: "They have no active enrolment to move." };
+  if (current.classSectionId === classSectionId) {
+    return { error: "They are already in that class." };
+  }
+  if (section._count.enrollments >= section.capacity) {
+    return {
+      error: `${section.classLevel.name} ${section.name} is full (${section._count.enrollments} of ${section.capacity}).`,
+    };
+  }
+
+  await db.enrollment.update({
+    where: { id: current.id },
+    data: { classSectionId },
+  });
+
+  await db.auditLog.create({
+    data: {
+      userId: user.id,
+      actorLabel: user.fullName,
+      action: "student.transfer.class",
+      entity: "Student",
+      entityId: id,
+      summary: `Moved ${student.firstName} ${student.lastName} from ${current.classSection.classLevel.name} ${current.classSection.name} to ${section.classLevel.name} ${section.name}`,
+    },
+  });
+
+  revalidatePath("/students");
+  revalidatePath(`/students/${id}`);
+  revalidatePath("/attendance");
+  return {
+    ok: true,
+    message: `Moved to ${section.classLevel.name} ${section.name}.`,
+  };
+}
+
+/**
+ * Records or corrects a student's medical details.
+ *
+ * The clinic could log a visit but never write down the allergy that made it
+ * urgent. Allergies and conditions are lists rather than free text because
+ * the profile's emergency banner, the clinic list and the ID card all read
+ * the severity to decide what to show.
+ */
+export async function updateStudentMedicalAction(
+  _previous: StudentState,
+  formData: FormData,
+): Promise<StudentState> {
+  let user;
+  try {
+    user = await authorize("student.medical.update");
+  } catch (error) {
+    return { error: (error as Error).message };
+  }
+
+  const studentId = text(formData, "studentId");
+  if (!studentId) return { error: "No student given." };
+
+  const student = await db.student.findUnique({
+    where: { id: studentId },
+    select: { firstName: true, lastName: true },
+  });
+  if (!student) return { error: "Student not found." };
+
+  const names = formData.getAll("allergyName").map(String);
+  const severities = formData.getAll("allergySeverity").map(String);
+  const reactions = formData.getAll("allergyReaction").map(String);
+  const allergies: Array<{ name: string; severity: string; reaction?: string }> = [];
+  for (let index = 0; index < names.length; index += 1) {
+    const name = names[index]?.trim();
+    if (!name) continue;
+    const severity = (severities[index] ?? "MILD").trim() || "MILD";
+    if (!["MILD", "MODERATE", "SEVERE", "ANAPHYLAXIS"].includes(severity)) {
+      return { error: `"${name}" needs a severity the emergency banner understands.` };
+    }
+    allergies.push({
+      name,
+      severity,
+      ...(reactions[index]?.trim() ? { reaction: reactions[index].trim() } : {}),
+    });
+  }
+
+  const medicationNames = formData.getAll("medicationName").map(String);
+  const medicationDosages = formData.getAll("medicationDosage").map(String);
+  const medications: Array<{ name: string; dosage?: string; administerAtSchool: boolean }> = [];
+  for (let index = 0; index < medicationNames.length; index += 1) {
+    const name = medicationNames[index]?.trim();
+    if (!name) continue;
+    medications.push({
+      name,
+      ...(medicationDosages[index]?.trim() ? { dosage: medicationDosages[index].trim() } : {}),
+      // The nurse needs to know whether a dose is kept and given at school;
+      // an inhaler in a locked office is the reason this list exists.
+      administerAtSchool: true,
+    });
+  }
+
+  const conditionNames = formData.getAll("conditionName").map(String);
+  const conditionNotes = formData.getAll("conditionNote").map(String);
+  const conditions: Array<{ condition: string; notes?: string }> = [];
+  for (let index = 0; index < conditionNames.length; index += 1) {
+    const condition = conditionNames[index]?.trim();
+    if (!condition) continue;
+    conditions.push({
+      condition,
+      ...(conditionNotes[index]?.trim() ? { notes: conditionNotes[index].trim() } : {}),
+    });
+  }
+
+  const data = {
+    bloodGroup: optional(formData, "bloodGroup"),
+    genotype: optional(formData, "genotype"),
+    nhisNumber: optional(formData, "medicalNhisNumber"),
+    allergies,
+    conditions,
+    medications,
+    emergencyInstructions: optional(formData, "emergencyInstructions"),
+    doctorName: optional(formData, "doctorName"),
+    doctorPhone: normalisePhone(text(formData, "doctorPhone")),
+    dietaryRestrictions: optional(formData, "dietaryRestrictions"),
+    consentToTreat: formData.get("consentToTreat") === "on",
+  };
+
+  await db.studentMedical.upsert({
+    where: { studentId },
+    create: { studentId, ...data },
+    update: data,
+  });
+
+  await db.auditLog.create({
+    data: {
+      userId: user.id,
+      actorLabel: user.fullName,
+      action: "student.medical.update",
+      entity: "Student",
+      entityId: studentId,
+      summary: `Updated the medical record for ${student.firstName} ${student.lastName}${
+        allergies.length ? `: ${allergies.length} allergy(ies) on file` : ""
+      }`,
+    },
+  });
+
+  revalidatePath(`/students/${studentId}`);
+  revalidatePath("/clinic");
+  return { ok: true, message: "Medical record saved." };
+}

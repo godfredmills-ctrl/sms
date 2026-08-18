@@ -829,6 +829,92 @@ async function checkPayroll() {
   }
 }
 
+/**
+ * The student roll and the enrolments underneath it must agree.
+ *
+ * Registers, headcount, analytics and the billing run all read "ENROLLED
+ * student with an ACTIVE enrolment". A record where those two disagree is a
+ * child who is invoiced but not on any register, or on a register while
+ * counted as gone — and it is invisible on every screen because each screen
+ * only reads one half of the pair.
+ */
+async function checkStudentLifecycle() {
+  const g = "Student lifecycle";
+
+  const enrolledWithoutEnrolment = await db.student.count({
+    where: { status: "ENROLLED", enrollments: { none: { status: "ACTIVE" } } },
+  });
+  if (enrolledWithoutEnrolment) {
+    fail(
+      g,
+      "Enrolled students have an active enrolment",
+      `${enrolledWithoutEnrolment} are on the roll with no class — invoiced, never on a register.`,
+    );
+  } else {
+    pass(g, "Enrolled students have an active enrolment");
+  }
+
+  const leftButStillEnrolled = await db.student.count({
+    where: {
+      status: { in: ["WITHDRAWN", "TRANSFERRED_OUT", "GRADUATED"] },
+      enrollments: { some: { status: "ACTIVE" } },
+    },
+  });
+  if (leftButStillEnrolled) {
+    fail(
+      g,
+      "Leavers are off the register",
+      `${leftButStillEnrolled} have left but keep an active enrolment — still billed, still counted.`,
+    );
+  } else {
+    pass(g, "Leavers are off the register");
+  }
+
+  const leftWithoutReason = await db.student.count({
+    where: {
+      status: { in: ["WITHDRAWN", "TRANSFERRED_OUT"] },
+      OR: [{ exitReason: null }, { exitDate: null }],
+    },
+  });
+  if (leftWithoutReason) {
+    warn(
+      g,
+      "Departures record a reason and a date",
+      `${leftWithoutReason} left with no reason or no date on file.`,
+    );
+  } else {
+    pass(g, "Departures record a reason and a date");
+  }
+
+  // A class over its capacity is usually a transfer that skipped the check.
+  const sections = await db.classSection.findMany({
+    where: { isActive: true },
+    select: {
+      name: true,
+      capacity: true,
+      classLevel: { select: { name: true } },
+      _count: { select: { enrollments: { where: { status: "ACTIVE" } } } },
+    },
+  });
+  const overfull = sections.filter(
+    (section) => section._count.enrollments > section.capacity,
+  );
+  if (overfull.length) {
+    warn(
+      g,
+      "No class is over capacity",
+      overfull
+        .map(
+          (section) =>
+            `${section.classLevel.name} ${section.name} ${section._count.enrollments}/${section.capacity}`,
+        )
+        .join(", "),
+    );
+  } else {
+    pass(g, "No class is over capacity");
+  }
+}
+
 const MARK: Record<Level, string> = { pass: "  ok  ", warn: " warn ", fail: " FAIL " };
 
 // Wrapped rather than top-level await: the project compiles to CommonJS, where
@@ -844,6 +930,7 @@ async function main() {
   await checkOutputs();
   await checkStructure();
   await checkPayroll();
+  await checkStudentLifecycle();
 
   let group: string | null = null;
   for (const result of results) {
