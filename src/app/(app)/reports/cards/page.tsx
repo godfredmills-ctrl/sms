@@ -5,6 +5,7 @@ import { Alert, Card, CardHeader, PageHeader, StatCard } from "@/components/ui";
 import { SearchableSelect } from "@/components/select-search";
 import { requirePermission, userCan } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { ownSectionIdsFor, seesWholeSchool } from "@/lib/scope";
 import { percentOf } from "@/lib/money";
 import { toNumber } from "@/lib/utils";
 
@@ -25,16 +26,15 @@ export default async function ReportCardsPage() {
   const canGenerate = userCan(user, "assessment.report.generate");
   const canApprove = userCan(user, "assessment.report.approve");
 
-  // A subject teacher sees the classes they teach; leadership sees all.
-  const ownSectionIds = canApprove
-    ? null
-    : (
-        await db.subjectOffering.findMany({
-          where: { teacherId: user.staffId ?? "" },
-          select: { classSectionId: true },
-          distinct: ["classSectionId"],
-        })
-      ).map((offering) => offering.classSectionId);
+  // A teacher sees the classes they teach; the office sees all.
+  //
+  // This asked only for subject offerings, so a form teacher who does not
+  // also teach a subject to their own class — the ordinary arrangement in a
+  // primary school — could not see the report cards they are meant to write.
+  const ownSectionIds =
+    canApprove || seesWholeSchool(user)
+      ? null
+      : await ownSectionIdsFor(user.staffId);
 
   const [sections, terms, scales, cards] = await Promise.all([
     db.classSection.findMany({

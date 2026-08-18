@@ -14,6 +14,7 @@ import {
 } from "@/components/ui";
 import { requirePermission, userCan } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { classSectionScopeFilter } from "@/lib/scope";
 import { fullName } from "@/lib/utils";
 
 import { TimetableGrid, type Slot } from "./timetable-grid";
@@ -30,8 +31,10 @@ export default async function TimetablePage({
   const canEdit = userCan(user, "academic.timetable.manage");
   const { section: requested } = await searchParams;
 
+  // A teacher sees their own classes' timetables. Their own week is a
+  // different page (/my-timetable) and is not affected by this.
   const sections = await db.classSection.findMany({
-    where: { isActive: true },
+    where: { isActive: true, ...(await classSectionScopeFilter(user)) },
     orderBy: [{ classLevel: { sequence: "asc" } }, { name: "asc" }],
     select: {
       id: true,

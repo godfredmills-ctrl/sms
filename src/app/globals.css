@@ -444,41 +444,58 @@ body {
      legibility for no gain.
      ---------------------------------------------------------------------- */
 
+  /*
+   * A KPI is a solid block of its own colour with white type on it — the
+   * figure is meant to be read from across a room, and a faint wash behind
+   * dark text reads as decoration rather than as a number that matters.
+   *
+   * Because the fill is saturated, everything inside is white: the label and
+   * the hint at reduced opacity rather than in a grey, since a grey on a
+   * coloured ground goes muddy.
+   */
   .kpi {
     position: relative;
     overflow: hidden;
-    background: var(--bg-elevated);
-    border: 1px solid var(--border);
+    background: var(--kpi-accent, var(--primary));
+    border: 1px solid transparent;
     border-radius: var(--radius-card);
+    color: #fff;
     transition: box-shadow 150ms ease, transform 150ms ease;
   }
 
-  .kpi::before {
-    content: "";
-    position: absolute;
-    inset: 0 0 auto 0;
-    height: 3px;
-    background: var(--kpi-accent, var(--primary));
-  }
-
-  /* A wash of the tone, kept faint so text contrast is unaffected. */
+  /* A gentle lift across the fill so it reads as a surface, not a swatch. */
   .kpi::after {
     content: "";
     position: absolute;
     inset: 0;
-    background: var(--kpi-accent, var(--primary));
-    opacity: 0.045;
+    background: linear-gradient(
+      160deg,
+      rgb(255 255 255 / 0.14),
+      rgb(255 255 255 / 0) 60%
+    );
     pointer-events: none;
   }
 
   a.kpi:hover {
-    box-shadow: 0 6px 20px -8px var(--kpi-accent, var(--primary));
+    box-shadow: 0 10px 24px -10px var(--kpi-accent, var(--primary));
     transform: translateY(-1px);
   }
 
-  .kpi-icon {
-    background: var(--kpi-accent, var(--primary));
+  .kpi-label {
+    color: rgb(255 255 255 / 0.88);
+  }
+
+  .kpi-value {
     color: #fff;
+  }
+
+  .kpi-hint {
+    color: rgb(255 255 255 / 0.75);
+  }
+
+  /* The icon sits in the label row, not in a tile of its own. */
+  .kpi-icon {
+    color: rgb(255 255 255 / 0.9);
   }
 }
 

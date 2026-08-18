@@ -12,6 +12,7 @@ import {
 } from "@/components/ui";
 import { requirePermission, userCan } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { seesWholeSchool } from "@/lib/scope";
 
 import { toggleSubjectAction } from "../actions";
 import { LevelPicker, SubjectForm } from "./subject-form";
@@ -23,8 +24,16 @@ export default async function SubjectsPage() {
   const user = await requirePermission("academic.structure.read");
   const canManage = userCan(user, "academic.structure.manage");
 
+  // A teacher sees the subjects they actually teach. The office sees the
+  // whole curriculum, which is what the curriculum map is for.
+  const wholeSchool = seesWholeSchool(user);
+  const subjectScope = wholeSchool
+    ? {}
+    : { offerings: { some: { teacherId: user.staffId ?? "" } } };
+
   const [subjects, levels] = await Promise.all([
     db.subject.findMany({
+      ...(wholeSchool ? {} : { where: { isActive: true, ...subjectScope } }),
       orderBy: [{ sortKey: "asc" }, { name: "asc" }],
       include: {
         levels: { select: { classLevelId: true } },

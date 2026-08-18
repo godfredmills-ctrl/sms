@@ -305,15 +305,21 @@ const TONE_STYLES: Record<Tone, string> = {
 };
 
 /** The solid colour a tone contributes to accents and icon tiles. */
+/**
+ * The fill behind a KPI. These are deliberately their own values rather than
+ * the semantic tokens: --warning and --success are tuned to be readable AS
+ * text on a pale card, which makes them too light to carry white type. A
+ * filled card needs a mid-weight colour, so each tone names one.
+ */
 const TONE_ACCENT: Record<Tone, string> = {
-  neutral: "var(--text-subtle)",
+  neutral: "#64748b",
   primary: "var(--primary)",
-  success: "var(--success)",
-  warning: "var(--warning)",
-  danger: "var(--danger)",
-  info: "var(--info)",
-  violet: "var(--violet)",
-  teal: "var(--teal)",
+  success: "#3aa06f",
+  warning: "#e08c33",
+  danger: "#d9534f",
+  info: "#3f95d8",
+  violet: "#6d3fd8",
+  teal: "#2f9e8f",
 };
 
 export function Badge({
@@ -573,31 +579,20 @@ export function StatCard({
 }) {
   const content = (
     <div className="relative z-10">
-      <div className="flex items-start justify-between gap-3">
-        <p className="text-xs font-medium tracking-wide text-[var(--text-muted)] uppercase">
-          {label}
-        </p>
-        {icon ? (
-          <span className="kpi-icon flex size-9 shrink-0 items-center justify-center rounded-lg shadow-sm">
-            {icon}
-          </span>
-        ) : null}
+      <div className="flex items-center gap-2">
+        {icon ? <span className="kpi-icon flex shrink-0">{icon}</span> : null}
+        <p className="kpi-label text-xs font-medium">{label}</p>
       </div>
-      <p className="numeric mt-2 text-2xl font-semibold tracking-tight text-[var(--text)]">
+      <p className="numeric kpi-value mt-2 text-3xl font-semibold tracking-tight">
         {value}
       </p>
       <div className="mt-1 flex items-center gap-2 text-xs">
         {trend ? (
-          <span
-            className={cn(
-              "numeric font-medium",
-              trend.value >= 0 ? "text-[var(--success)]" : "text-[var(--danger)]",
-            )}
-          >
+          <span className="numeric kpi-hint font-semibold">
             {trend.value >= 0 ? "▲" : "▼"} {Math.abs(trend.value).toFixed(1)}%
           </span>
         ) : null}
-        {hint ? <span className="text-[var(--text-subtle)]">{hint}</span> : null}
+        {hint ? <span className="kpi-hint">{hint}</span> : null}
       </div>
     </div>
   );

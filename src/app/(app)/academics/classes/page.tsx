@@ -15,6 +15,7 @@ import {
 } from "@/components/ui";
 import { requirePermission, userCan } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { ownSectionIdsFor, seesWholeSchool } from "@/lib/scope";
 import { percentOf } from "@/lib/money";
 import { fullName } from "@/lib/utils";
 
@@ -27,8 +28,17 @@ export default async function ClassesPage() {
   const user = await requirePermission("academic.structure.read");
   const canManage = userCan(user, "academic.structure.manage");
 
+  // A teacher sees the classes they teach. academic.structure.read is what
+  // lets them read the curriculum at all; it is not a licence to browse
+  // every class, its roll and its form teacher.
+  const wholeSchool = seesWholeSchool(user);
+  const ownSectionIds = wholeSchool ? null : await ownSectionIdsFor(user.staffId);
+  const sectionScope = ownSectionIds ? { id: { in: ownSectionIds } } : {};
+
   const [levels, teachers, subjects, currentYear] = await Promise.all([
     db.classLevel.findMany({
+      // A level with none of this teacher's classes drops out entirely.
+      ...(ownSectionIds ? { where: { sections: { some: sectionScope } } } : {}),
       orderBy: { sequence: "asc" },
       include: {
         sections: {
