@@ -52,7 +52,7 @@ export default async function PayrollPage({
   const params = await searchParams;
   const { page, skip, take } = pageOf(params, PER_PAGE);
 
-  const [runs, total, onPayroll, monthlyBill] = await Promise.all([
+  const [runs, total, onPayroll, monthlyBill, lastPaidRun] = await Promise.all([
     db.payrollRun.findMany({
       orderBy: [{ year: "desc" }, { month: "desc" }],
       skip,
@@ -75,9 +75,21 @@ export default async function PayrollPage({
       where: { status: "ACTIVE", basicSalaryMinor: { not: null } },
       _sum: { basicSalaryMinor: true },
     }),
+    // The whole history, not the page on screen: the other three figures on
+    // this row are table-wide, and a KPI that quietly means "of the twelve
+    // runs you happen to be looking at" disagrees with the ones beside it.
+    db.payrollRun.findFirst({
+      where: { status: "PAID" },
+      orderBy: [{ year: "desc" }, { month: "desc" }],
+      select: {
+        year: true,
+        month: true,
+        payslips: { select: { netMinor: true } },
+      },
+    }),
   ]);
 
-  const lastPaid = runs.find((run) => run.status === "PAID");
+  const lastPaid = lastPaidRun;
   const lastPaidTotal = lastPaid
     ? lastPaid.payslips.reduce((sum, slip) => sum + slip.netMinor, 0)
     : 0;

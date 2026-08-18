@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import type { StaffStatus } from "@prisma/client";
 
 import { authorize } from "@/lib/auth";
 import { db } from "@/lib/db";
@@ -14,6 +15,13 @@ import {
 } from "@/lib/payroll";
 
 export type PayrollState = { ok?: boolean; error?: string; message?: string };
+
+/**
+ * Who a payroll run covers. Probation and paid leave are still employment —
+ * the salary is owed — so the only people a run passes over are those who
+ * are suspended or have left, and the action says how many that was.
+ */
+const PAYABLE_STATUSES: StaffStatus[] = ["ACTIVE", "PROBATION", "ON_LEAVE"];
 
 function text(formData: FormData, key: string): string {
   return String(formData.get(key) ?? "").trim();
@@ -41,6 +49,12 @@ export async function setCompensationAction(
   const staffId = text(formData, "staffId");
   if (!staffId) return { error: "Choose the staff member." };
 
+  const staffBefore = await db.staff.findUnique({
+    where: { id: staffId },
+    select: { firstName: true, lastName: true },
+  });
+  if (!staffBefore) return { error: "Staff member not found." };
+
   const basicRaw = text(formData, "basicSalary");
   if (!basicRaw) {
     // An empty salary takes someone off the payroll rather than paying zero.
@@ -48,6 +62,20 @@ export async function setCompensationAction(
       where: { id: staffId },
       data: { basicSalaryMinor: null, salaryAllowances: [] },
     });
+
+    // Audited like every other change to what someone is paid: taking a
+    // person off the payroll is the change most worth being able to trace.
+    await db.auditLog.create({
+      data: {
+        userId: user.id,
+        actorLabel: user.fullName,
+        action: "payroll.compensation.clear",
+        entity: "Staff",
+        entityId: staffId,
+        summary: `Removed ${staffBefore.firstName} ${staffBefore.lastName} from the payroll`,
+      },
+    });
+
     revalidatePath("/payroll/salaries");
     return { ok: true, message: "Removed from the payroll." };
   }
@@ -67,19 +95,21 @@ export async function setCompensationAction(
   for (let index = 0; index < names.length; index += 1) {
     const name = names[index]?.trim();
     const raw = amounts[index]?.trim();
-    if (!name || !raw) continue;
+    // A wholly blank row is just an unused row. A half-filled one is a typo,
+    // and silently dropping it means someone's transport allowance quietly
+    // never existed.
+    if (!name && !raw) continue;
+    if (!name) return { error: "An allowance needs a name as well as an amount." };
+    if (!raw) return { error: `“${name}” needs an amount.` };
     const amountMinor = toMinor(raw);
     if (!Number.isFinite(amountMinor) || amountMinor <= 0) {
       return { error: `“${name}” needs a positive amount.` };
     }
+    if (amountMinor > 100_000_00) {
+      return { error: `“${name}” is over GH₵100,000 a month. Check the figure.` };
+    }
     allowances.push({ name, amountMinor });
   }
-
-  const staff = await db.staff.findUnique({
-    where: { id: staffId },
-    select: { firstName: true, lastName: true },
-  });
-  if (!staff) return { error: "Staff member not found." };
 
   await db.staff.update({
     where: { id: staffId },
@@ -93,7 +123,7 @@ export async function setCompensationAction(
       action: "payroll.compensation.set",
       entity: "Staff",
       entityId: staffId,
-      summary: `Set salary for ${staff.firstName} ${staff.lastName}: ${formatMoney(basicMinor, "GHS")} basic${
+      summary: `Set salary for ${staffBefore.firstName} ${staffBefore.lastName}: ${formatMoney(basicMinor, "GHS")} basic${
         allowances.length ? ` + ${allowances.length} allowance(s)` : ""
       }`,
     },
@@ -140,7 +170,7 @@ export async function createPayrollRunAction(
   }
 
   const staff = await db.staff.findMany({
-    where: { status: "ACTIVE", basicSalaryMinor: { not: null } },
+    where: { status: { in: PAYABLE_STATUSES }, basicSalaryMinor: { not: null } },
     orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
     select: {
       id: true,
@@ -159,6 +189,16 @@ export async function createPayrollRunAction(
       error: "Nobody is on the payroll yet — set salaries under Payroll → Salaries first.",
     };
   }
+
+  // Anyone with a salary who is NOT being paid this month is named in the
+  // result rather than left out quietly: a suspended member of staff may well
+  // be the intended omission, but it must be a decision, not a surprise.
+  const withheld = await db.staff.count({
+    where: {
+      basicSalaryMinor: { not: null },
+      status: { notIn: PAYABLE_STATUSES },
+    },
+  });
 
   // One row per person, computed once and stored, in the SAME transaction as
   // the run — a payroll that exists with no payslips would look like a month
@@ -215,7 +255,11 @@ export async function createPayrollRunAction(
   revalidatePath("/payroll");
   return {
     ok: true,
-    message: `${payrollPeriodLabel(year, month)} opened with ${staff.length} payslip(s).`,
+    message:
+      `${payrollPeriodLabel(year, month)} opened with ${staff.length} payslip(s).` +
+      (withheld
+        ? ` ${withheld} member(s) of staff with a salary were left out because they are suspended or have left.`
+        : ""),
   };
 }
 

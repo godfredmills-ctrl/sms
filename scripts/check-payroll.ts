@@ -10,7 +10,12 @@
  *
  * Exits 1 on any mismatch, so it can gate a deploy.
  */
-import { computePaye, computePayslip } from "../src/lib/payroll";
+import {
+  computePaye,
+  computePayslip,
+  PAYE_BANDS,
+  TOP_BAND_STARTS_AT_MINOR,
+} from "../src/lib/payroll";
 
 let failures = 0;
 
@@ -23,6 +28,18 @@ function check(label: string, actual: number, expected: number) {
   );
 }
 
+console.log("\nThe shape of the table");
+// The assertion that matters most, because it does not depend on my
+// arithmetic: the graduated bands must sum to exactly GH₵50,000 a month —
+// GH₵600,000 a year — which is where the 35% rate starts by statute. The
+// first version of this file tested a taxable amount where a wrong table and
+// a right one happen to agree, and passed green over two bad widths.
+check("graduated bands sum to GH₵50,000", TOP_BAND_STARTS_AT_MINOR, 5_000_000);
+check("band count", PAYE_BANDS.length * 100, 700);
+check("free band", (PAYE_BANDS[0].widthMinor ?? 0), 49000);
+check("25% band width", (PAYE_BANDS[4].widthMinor ?? 0), 1639500);
+check("30% band width", (PAYE_BANDS[5].widthMinor ?? 0), 2987500);
+
 console.log("\nPAYE bands (monthly, GHS)");
 // First GH₵490 is free.
 check("taxable 490 → nil", computePaye(49000), 0);
@@ -32,8 +49,12 @@ check("taxable 600 → 5.50", computePaye(60000), 550);
 check("taxable 730 → 18.50", computePaye(73000), 1850);
 // + next 3,000 at 17.5% = 525 → 543.50
 check("taxable 3,730 → 543.50", computePaye(373000), 54350);
-// + next 16,029 at 25% = 4,007.25 → 4,550.75
-check("taxable 19,759 → 4,550.75", computePaye(1975900), 455075);
+// + next 16,395 at 25% = 4,098.75 → 4,642.25 at the top of the 25% band
+check("taxable 20,125 → 4,642.25", computePaye(2012500), 464225);
+// Every bounded band exhausted: 543.50 + 4,098.75 + 8,962.50 = 13,604.75
+check("taxable 50,000 → 13,604.75", computePaye(5000000), 1360475);
+// One cedi into the top band: + 0.35
+check("taxable 50,001 → 13,605.10", computePaye(5000100), 1360510);
 check("taxable 0 → nil", computePaye(0), 0);
 check("negative taxable → nil", computePaye(-5000), 0);
 

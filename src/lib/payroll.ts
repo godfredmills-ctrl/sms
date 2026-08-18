@@ -29,16 +29,33 @@ export const SSNIT_EMPLOYER_RATE = 0.13;
 /**
  * Monthly PAYE bands (2024 rates, GHS). Each band taxes only the income
  * that falls inside it; the last band has no upper bound.
+ *
+ * The widths come from the First Schedule to Act 896 as amended, divided by
+ * twelve — every annual figure divides exactly. The check that keeps them
+ * honest is that the graduated bands sum to exactly GH₵50,000 a month
+ * (GH₵600,000 a year), the statutory point where 35% begins:
+ *
+ *   490 + 110 + 130 + 3,000 + 16,395 + 29,875 = 50,000
+ *
+ * scripts/check-payroll.ts asserts that sum. It is the assertion that would
+ * have caught the first version of this table, where two widths were off and
+ * put the top band at GH₵49,759 — a number that appears in no Act.
  */
 export const PAYE_BANDS: Array<{ widthMinor: number | null; rate: number }> = [
   { widthMinor: 49000, rate: 0 }, // first GH₵490 — free
   { widthMinor: 11000, rate: 0.05 }, // next GH₵110
   { widthMinor: 13000, rate: 0.1 }, // next GH₵130
   { widthMinor: 300000, rate: 0.175 }, // next GH₵3,000
-  { widthMinor: 1602900, rate: 0.25 }, // next GH₵16,029
-  { widthMinor: 3000000, rate: 0.3 }, // next GH₵30,000
-  { widthMinor: null, rate: 0.35 }, // the rest
+  { widthMinor: 1639500, rate: 0.25 }, // next GH₵16,395
+  { widthMinor: 2987500, rate: 0.3 }, // next GH₵29,875
+  { widthMinor: null, rate: 0.35 }, // above GH₵50,000
 ];
+
+/** Where the top rate starts: the sum of every bounded band, in pesewas. */
+export const TOP_BAND_STARTS_AT_MINOR = PAYE_BANDS.reduce(
+  (total, band) => total + (band.widthMinor ?? 0),
+  0,
+);
 
 export type Allowance = { name: string; amountMinor: number };
 

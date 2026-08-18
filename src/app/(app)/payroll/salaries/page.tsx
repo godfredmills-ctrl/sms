@@ -33,6 +33,7 @@ export const dynamic = "force-dynamic";
 export default async function SalariesPage() {
   const user = await requirePermission("payroll.read");
   const canManage = userCan(user, "payroll.manage");
+  const canOpenStaff = userCan(user, "staff.read");
 
   const staff = await db.staff.findMany({
     where: { status: "ACTIVE" },
@@ -151,12 +152,16 @@ export default async function SalariesPage() {
                     return (
                       <tr key={member.id}>
                         <td className="px-5 py-2.5">
-                          <Link
-                            href={`/staff/${member.id}`}
-                            className="font-medium hover:text-[var(--primary)]"
-                          >
-                            {listName(member)}
-                          </Link>
+                          {canOpenStaff ? (
+                            <Link
+                              href={`/staff/${member.id}`}
+                              className="font-medium hover:text-[var(--primary)]"
+                            >
+                              {listName(member)}
+                            </Link>
+                          ) : (
+                            <span className="font-medium">{listName(member)}</span>
+                          )}
                           <span className="ml-2 text-xs text-[var(--text-subtle)]">
                             {member.jobTitle ?? member.staffNo}
                           </span>
@@ -214,8 +219,28 @@ export default async function SalariesPage() {
                 staff={staff.map((member) => ({
                   value: member.id,
                   label: listName(member),
-                  description: member.jobTitle ?? member.staffNo,
+                  // The search box offers "name or staff number", and the
+                  // select filters on label + description — so the number has
+                  // to be in the description, not swapped out for a job title.
+                  description: [member.staffNo, member.jobTitle]
+                    .filter(Boolean)
+                    .join(" · "),
                 }))}
+                current={Object.fromEntries(
+                  staff.map((member) => [
+                    member.id,
+                    {
+                      basic:
+                        member.basicSalaryMinor !== null
+                          ? (member.basicSalaryMinor / 100).toFixed(2)
+                          : "",
+                      allowances: parseAllowances(member.salaryAllowances).map((entry) => ({
+                        name: entry.name,
+                        amount: (entry.amountMinor / 100).toFixed(2),
+                      })),
+                    },
+                  ]),
+                )}
               />
             </Card>
           </div>

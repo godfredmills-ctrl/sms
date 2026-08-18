@@ -358,6 +358,9 @@ export async function deleteStaffAction(formData: FormData): Promise<StaffState>
           formClasses: true,
           takenAttendance: true,
           gradedScores: true,
+          // Payslips cascade on delete, and a paid payslip is a financial
+          // record the school must be able to produce years later.
+          payslips: true,
         },
       },
     },
@@ -370,6 +373,7 @@ export async function deleteStaffAction(formData: FormData): Promise<StaffState>
   }
 
   const history = [
+    [staff._count.payslips, "payslip"],
     [staff._count.takenAttendance, "attendance session"],
     [staff._count.gradedScores, "graded score"],
     [staff._count.offerings, "class assignment"],

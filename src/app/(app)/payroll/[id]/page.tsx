@@ -57,6 +57,9 @@ export default async function PayrollRunPage({
   const user = await requirePermission("payroll.read");
   const canApprove = userCan(user, "payroll.approve");
   const canManage = userCan(user, "payroll.manage");
+  // The bursar holds payroll but not staff.read, so a name that links to a
+  // staff record would send them to the Forbidden page from their own ledger.
+  const canOpenStaff = userCan(user, "staff.read");
   const { id } = await params;
 
   const run = await db.payrollRun.findUnique({
@@ -236,12 +239,16 @@ export default async function PayrollRunPage({
                 return (
                   <tr key={slip.id}>
                     <td className="px-5 py-2.5">
-                      <Link
-                        href={`/staff/${slip.staffId}`}
-                        className="font-medium hover:text-[var(--primary)]"
-                      >
-                        {slip.staffName}
-                      </Link>
+                      {canOpenStaff ? (
+                        <Link
+                          href={`/staff/${slip.staffId}`}
+                          className="font-medium hover:text-[var(--primary)]"
+                        >
+                          {slip.staffName}
+                        </Link>
+                      ) : (
+                        <span className="font-medium">{slip.staffName}</span>
+                      )}
                       <span className="ml-2 text-xs text-[var(--text-subtle)]">
                         {slip.staffNo}
                       </span>
