@@ -41,6 +41,7 @@ function hexToRgb(hex: string) {
 }
 
 function truncate(text: string, font: PDFFont, size: number, maxWidth: number): string {
+  if (maxWidth <= 4) return "";
   let value = text;
   while (font.widthOfTextAtSize(value, size) > maxWidth && value.length > 1) {
     value = value.slice(0, -1);
@@ -166,7 +167,9 @@ export async function renderTimetablePdf(input: TimetableSheet): Promise<Buffer>
       color: MUTED,
     });
   }
-  y -= 12;
+  // 18, not 12: a 36pt crest bottom-anchors 30pt below the masthead top,
+  // and the day-header band must start below it, not shave its edge off.
+  y -= 18;
 
   // --- Grid geometry --------------------------------------------------------
   const labelW = 64;
@@ -234,7 +237,7 @@ export async function renderTimetablePdf(input: TimetableSheet): Promise<Buffer>
         font: bold,
         color: INK,
       });
-      if (row.sublabel) {
+      if (row.sublabel && rowH >= 24) {
         page.drawText(row.sublabel, {
           x: MARGIN + 6,
           y: rowTop - 21,

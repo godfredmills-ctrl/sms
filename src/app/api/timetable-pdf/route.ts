@@ -1,6 +1,7 @@
+import { redirect } from "next/navigation";
 import { NextResponse } from "next/server";
 
-import { authorize, requireUser } from "@/lib/auth";
+import { AuthError, authorize, requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { loadDocumentImage } from "@/lib/document-images";
 import {
@@ -49,6 +50,11 @@ export async function GET(request: Request) {
     try {
       user = await authorize("academic.timetable.read");
     } catch (error) {
+      // An expired session goes to the login page like everywhere else in
+      // the app; the bare refusal page is only for real permission gaps.
+      if (error instanceof AuthError && error.code === "UNAUTHENTICATED") {
+        redirect("/login");
+      }
       return message(403, "Not allowed", (error as Error).message);
     }
   }
@@ -108,20 +114,33 @@ export async function GET(request: Request) {
       return message(404, "No timetable", "This class has no timetable to print yet.");
     }
 
-    // A class's rows are its period numbers. A period whose slots are all
-    // breaks collapses to a shaded band; times come from the first slot.
+    // A class's rows are its period numbers. The row is labelled with the
+    // MAJORITY times for that period, and any day running different times —
+    // a shortened Friday is the ordinary case — prints its own times in the
+    // cell: a wall timetable showing the wrong bell time is worse than none.
+    // A break collapses to the full-width band only when every day actually
+    // has it; a Monday-only assembly stays in Monday's column.
     const periods = [...new Set(slots.map((slot) => slot.periodIndex))].sort(
       (a, b) => a - b,
     );
     rows = periods.map((periodIndex) => {
       const periodSlots = slots.filter((slot) => slot.periodIndex === periodIndex);
-      const first = periodSlots[0];
-      const allBreaks = periodSlots.every((slot) => slot.isBreak);
+
+      const timeCounts = new Map<string, number>();
+      for (const slot of periodSlots) {
+        const key = `${slot.startTime}–${slot.endTime}`;
+        timeCounts.set(key, (timeCounts.get(key) ?? 0) + 1);
+      }
+      const rowTime = [...timeCounts.entries()].sort((a, b) => b[1] - a[1])[0][0];
+
+      const allBreaks =
+        periodSlots.length === DAY_NAMES.length &&
+        periodSlots.every((slot) => slot.isBreak);
 
       if (allBreaks) {
         return {
-          label: `${first.startTime}–${first.endTime}`,
-          breakLabel: first.label ?? "Break",
+          label: rowTime,
+          breakLabel: periodSlots[0].label ?? "Break",
           cells: DAY_NAMES.map(() => null),
         };
       }
@@ -129,20 +148,23 @@ export async function GET(request: Request) {
       const cells: Array<TimetableCell | null> = DAY_NAMES.map((_, index) => {
         const slot = periodSlots.find((entry) => entry.dayOfWeek === index + 1);
         if (!slot) return null;
+        const ownTime = `${slot.startTime}–${slot.endTime}`;
+        const timeNote = ownTime !== rowTime ? ownTime : null;
         if (slot.isBreak) {
-          return { title: slot.label ?? "Break" };
+          return { title: slot.label ?? "Break", line2: timeNote };
         }
+        const room = slot.room ?? slot.offering?.room ?? null;
         return {
           title: slot.label ?? slot.offering?.subject.name ?? "—",
           line2: slot.offering?.teacher ? fullName(slot.offering.teacher) : null,
-          line3: slot.room ?? slot.offering?.room ?? null,
+          line3: [timeNote, room].filter(Boolean).join(" · ") || null,
           colour: slot.offering?.subject.colour ?? null,
         };
       });
 
       return {
         label: `Period ${periodIndex}`,
-        sublabel: `${first.startTime}–${first.endTime}`,
+        sublabel: rowTime,
         cells,
       };
     });
@@ -191,8 +213,31 @@ export async function GET(request: Request) {
     }
 
     // A teacher's rows are keyed by the clock: their day spans classes whose
-    // period numbers mean different things. Two lessons in the same time row
-    // on the same day — a clash — share the cell.
+    // period numbers mean different things. Clashes are found by MINUTE
+    // overlap, not by identical range strings — the realistic double booking
+    // is 08:10–08:50 against 08:30–09:10, which never share a key.
+    const minutes = (time: string): number | null => {
+      const match = /^(\d{1,2}):(\d{2})$/.exec(time);
+      return match ? Number(match[1]) * 60 + Number(match[2]) : null;
+    };
+    const clashing = new Set<(typeof slots)[number]>();
+    for (let a = 0; a < slots.length; a += 1) {
+      for (let b = a + 1; b < slots.length; b += 1) {
+        const one = slots[a];
+        const two = slots[b];
+        if (one.dayOfWeek !== two.dayOfWeek) continue;
+        const oneStart = minutes(one.startTime);
+        const oneEnd = minutes(one.endTime);
+        const twoStart = minutes(two.startTime);
+        const twoEnd = minutes(two.endTime);
+        if (oneStart === null || oneEnd === null || twoStart === null || twoEnd === null)
+          continue;
+        if (oneStart < twoEnd && twoStart < oneEnd) {
+          clashing.add(one);
+          clashing.add(two);
+        }
+      }
+    }
     const times = [...new Set(slots.map((slot) => `${slot.startTime}–${slot.endTime}`))].sort();
     rows = times.map((time) => {
       const [startTime] = time.split("–");
@@ -209,7 +254,9 @@ export async function GET(request: Request) {
             .join(" / "),
           line2: first.offering?.subject.name ?? null,
           line3: first.room ?? first.offering?.room ?? null,
-          colour: matches.length > 1 ? "#dc2626" : (first.offering?.subject.colour ?? null),
+          colour: matches.some((slot) => clashing.has(slot))
+            ? "#dc2626"
+            : (first.offering?.subject.colour ?? null),
         };
       });
       return { label: startTime, sublabel: time, cells };
