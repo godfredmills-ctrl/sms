@@ -2385,8 +2385,22 @@ model ConversationMember {
   isMuted        Boolean      @default(false)
   joinedAt       DateTime     @default(now())
 
+  /// TO | CC | BCC. A blind copy is hidden from everyone but the sender and
+  /// the recipient themselves — the point of a blind copy.
+  role String @default("TO")
+
+  /// The mailbox is per person: archiving a thread must not archive it for
+  /// everybody else in it, which is what a conversation-level flag would do.
+  archivedAt DateTime?
+  trashedAt  DateTime?
+
+  /// An unsent reply, kept so navigating away does not lose it.
+  draftBody      String?
+  draftUpdatedAt DateTime?
+
   @@id([conversationId, userId])
   @@index([userId])
+  @@index([userId, archivedAt, trashedAt])
 }
 
 model DirectMessage {

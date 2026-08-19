@@ -1,6 +1,17 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { BellOff, MessageSquare, Users } from "lucide-react";
+import {
+  Archive,
+  ArchiveRestore,
+  BellOff,
+  FileText,
+  Inbox,
+  MessageSquare,
+  Paperclip,
+  PenLine,
+  Trash2,
+  Users,
+} from "lucide-react";
 
 import {
   Avatar,
@@ -13,63 +24,122 @@ import {
 } from "@/components/ui";
 import { requirePermission } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { cn, formatDateTime, fullName, relativeTime } from "@/lib/utils";
+import { cn, formatBytes, formatDateTime, fullName, relativeTime } from "@/lib/utils";
 
-import { markConversationReadAction, toggleMuteAction } from "./actions";
+import {
+  markConversationReadAction,
+  setMailboxAction,
+  toggleMuteAction,
+} from "./actions";
 import { NewConversation, ReplyBox } from "./composer";
 
 export const metadata: Metadata = { title: "Messages" };
 export const dynamic = "force-dynamic";
 
+/**
+ * The four folders an email client has.
+ *
+ * Drafts is derived rather than stored: a thread is in Drafts because it
+ * holds an unsent reply, and it leaves the moment that reply is sent. That
+ * is one fewer state to keep honest.
+ */
+const FOLDERS = [
+  { key: "inbox", label: "Inbox", icon: Inbox },
+  { key: "drafts", label: "Drafts", icon: PenLine },
+  { key: "archive", label: "Archive", icon: Archive },
+  { key: "trash", label: "Trash", icon: Trash2 },
+] as const;
+
+type FolderKey = (typeof FOLDERS)[number]["key"];
+
 export default async function MessagesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ c?: string }>;
+  searchParams: Promise<{ c?: string; folder?: string }>;
 }) {
   const user = await requirePermission("communication.message");
-  const { c: requested } = await searchParams;
+  const { c: requested, folder: requestedFolder } = await searchParams;
 
-  const memberships = await db.conversationMember.findMany({
-    where: { userId: user.id },
-    orderBy: { conversation: { lastMessageAt: "desc" } },
-    take: 100,
-    select: {
-      lastReadAt: true,
-      isMuted: true,
-      conversation: {
+  const folder: FolderKey = FOLDERS.some((entry) => entry.key === requestedFolder)
+    ? (requestedFolder as FolderKey)
+    : "inbox";
+
+  const folderWhere =
+    folder === "archive"
+      ? { archivedAt: { not: null }, trashedAt: null }
+      : folder === "trash"
+        ? { trashedAt: { not: null } }
+        : folder === "drafts"
+          ? { trashedAt: null, draftBody: { not: null } }
+          : { archivedAt: null, trashedAt: null };
+
+  const [inboxCount, draftCount, archiveCount, trashCount, memberships] =
+    await Promise.all([
+      db.conversationMember.count({
+        where: { userId: user.id, archivedAt: null, trashedAt: null },
+      }),
+      db.conversationMember.count({
+        where: { userId: user.id, trashedAt: null, draftBody: { not: null } },
+      }),
+      db.conversationMember.count({
+        where: { userId: user.id, archivedAt: { not: null }, trashedAt: null },
+      }),
+      db.conversationMember.count({
+        where: { userId: user.id, trashedAt: { not: null } },
+      }),
+      db.conversationMember.findMany({
+        where: { userId: user.id, ...folderWhere },
+        orderBy: { conversation: { lastMessageAt: "desc" } },
+        take: 100,
         select: {
-          id: true,
-          subject: true,
-          kind: true,
-          lastMessageAt: true,
-          members: {
+          lastReadAt: true,
+          isMuted: true,
+          draftBody: true,
+          conversation: {
             select: {
-              user: {
+              id: true,
+              subject: true,
+              kind: true,
+              lastMessageAt: true,
+              members: {
                 select: {
-                  id: true,
-                  firstName: true,
-                  lastName: true,
-                  otherNames: true,
-                  avatarUrl: true,
-                  portal: true,
+                  role: true,
+                  user: {
+                    select: {
+                      id: true,
+                      firstName: true,
+                      lastName: true,
+                      otherNames: true,
+                      avatarUrl: true,
+                      portal: true,
+                    },
+                  },
                 },
+              },
+              messages: {
+                orderBy: { createdAt: "desc" },
+                take: 1,
+                select: { body: true, createdAt: true, senderId: true },
               },
             },
           },
-          messages: {
-            orderBy: { createdAt: "desc" },
-            take: 1,
-            select: { body: true, createdAt: true, senderId: true },
-          },
         },
-      },
-    },
-  });
+      }),
+    ]);
+
+  const counts: Record<FolderKey, number> = {
+    inbox: inboxCount,
+    drafts: draftCount,
+    archive: archiveCount,
+    trash: trashCount,
+  };
 
   const threads = memberships.map((membership) => {
+    // A blind copy is blind: everyone sees themselves and the people on the
+    // To and CC lines, and nobody but the sender sees who was BCC'd.
     const others = membership.conversation.members
-      .map((member) => member.user)
-      .filter((member) => member.id !== user.id);
+      .filter((member) => member.user.id !== user.id && member.role !== "BCC")
+      .map((member) => member.user);
     const latest = membership.conversation.messages[0];
 
     return {
@@ -77,6 +147,7 @@ export default async function MessagesPage({
       subject: membership.conversation.subject,
       kind: membership.conversation.kind,
       isMuted: membership.isMuted,
+      draft: membership.draftBody,
       lastMessageAt: membership.conversation.lastMessageAt,
       others,
       preview: latest?.body ?? "",
@@ -100,13 +171,14 @@ export default async function MessagesPage({
           select: {
             id: true,
             subject: true,
-            members: { select: { userId: true } },
+            members: { select: { userId: true, role: true } },
             messages: {
               orderBy: { createdAt: "asc" },
               take: 200,
               select: {
                 id: true,
                 body: true,
+                attachmentIds: true,
                 createdAt: true,
                 senderId: true,
                 sender: {
@@ -144,7 +216,23 @@ export default async function MessagesPage({
       ? active
       : null;
 
-  const unreadCount = threads.filter((thread) => thread.unread).length;
+  // Attachments are file ids on the message; the files themselves are read
+  // through /api/files, which checks access per request.
+  const attachmentIds = [
+    ...new Set((authorised?.messages ?? []).flatMap((message) => message.attachmentIds)),
+  ];
+  const files = attachmentIds.length
+    ? await db.fileAsset.findMany({
+        where: { id: { in: attachmentIds }, deletedAt: null },
+        select: { id: true, originalName: true, sizeBytes: true, mimeType: true },
+      })
+    : [];
+  const fileById = new Map(files.map((file) => [file.id, file]));
+
+  const activeMembership = memberships.find(
+    (membership) => membership.conversation.id === activeId,
+  );
+  const activeThread = threads.find((thread) => thread.id === activeId);
 
   return (
     <>
@@ -168,11 +256,31 @@ export default async function MessagesPage({
         }
       />
 
-      {unreadCount ? (
-        <p className="mb-3 text-sm text-[var(--text-muted)]">
-          {unreadCount} unread conversation{unreadCount === 1 ? "" : "s"}.
-        </p>
-      ) : null}
+      {/* --- Folders ---------------------------------------------------- */}
+      <div className="mb-3 flex flex-wrap gap-1.5">
+        {FOLDERS.map((entry) => {
+          const Icon = entry.icon;
+          const active = entry.key === folder;
+          return (
+            <Link
+              key={entry.key}
+              href={`/messages?folder=${entry.key}`}
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+                active
+                  ? "border-[var(--primary)] bg-[var(--primary-soft)] text-[var(--primary)]"
+                  : "border-[var(--border)] text-[var(--text-muted)] hover:bg-[var(--bg-subtle)]",
+              )}
+            >
+              <Icon className="size-3.5" />
+              {entry.label}
+              {counts[entry.key] ? (
+                <span className="numeric opacity-70">{counts[entry.key]}</span>
+              ) : null}
+            </Link>
+          );
+        })}
+      </div>
 
       <div className="grid gap-4 lg:grid-cols-[320px_1fr]">
         <Card className="overflow-hidden">
@@ -181,7 +289,7 @@ export default async function MessagesPage({
               {threads.map((thread) => (
                 <li key={thread.id}>
                   <Link
-                    href={`/messages?c=${thread.id}`}
+                    href={`/messages?folder=${folder}&c=${thread.id}`}
                     className={cn(
                       "flex gap-2.5 px-4 py-3 transition-colors hover:bg-[var(--bg-subtle)]",
                       thread.id === activeId && "bg-[var(--primary-soft)]",
@@ -214,9 +322,15 @@ export default async function MessagesPage({
                           {thread.subject}
                         </p>
                       ) : null}
-                      <p className="truncate text-xs text-[var(--text-subtle)]">
-                        {thread.preview || "No messages yet"}
-                      </p>
+                      {thread.draft ? (
+                        <p className="truncate text-xs text-[var(--warning)]">
+                          Draft: {thread.draft}
+                        </p>
+                      ) : (
+                        <p className="truncate text-xs text-[var(--text-subtle)]">
+                          {thread.preview || "No messages yet"}
+                        </p>
+                      )}
                     </div>
                     <div className="flex shrink-0 flex-col items-end gap-1">
                       {thread.unread ? (
@@ -236,8 +350,20 @@ export default async function MessagesPage({
           ) : (
             <EmptyState
               icon={<MessageSquare className="size-5" />}
-              title="No conversations"
-              description="Start one with the button above."
+              title={
+                folder === "inbox"
+                  ? "No conversations"
+                  : folder === "drafts"
+                    ? "No drafts"
+                    : folder === "archive"
+                      ? "Nothing archived"
+                      : "Trash is empty"
+              }
+              description={
+                folder === "inbox"
+                  ? "Start one with the button above."
+                  : "Threads you move here will appear in this folder."
+              }
             />
           )}
         </Card>
@@ -249,14 +375,16 @@ export default async function MessagesPage({
                 <div className="min-w-0">
                   <p className="truncate text-sm font-semibold">
                     {authorised.subject ??
-                      threads.find((thread) => thread.id === authorised.id)?.others
+                      activeThread?.others
                         .map((person) => fullName(person))
                         .join(", ") ??
                       "Conversation"}
                   </p>
                   <p className="text-xs text-[var(--text-subtle)]">
                     <Users className="mr-1 inline size-3" />
-                    {authorised.members.length} participants
+                    {/* Counted over what this viewer can see, so the number
+                        does not quietly disclose a blind copy. */}
+                    {activeThread ? activeThread.others.length + 1 : 1} participants
                   </p>
                 </div>
                 <div className="flex items-center gap-1">
@@ -270,17 +398,50 @@ export default async function MessagesPage({
                     <input type="hidden" name="conversationId" value={authorised.id} />
                     <Button type="submit" variant="ghost" size="sm">
                       <BellOff className="size-3.5" />
-                      {threads.find((thread) => thread.id === authorised.id)?.isMuted
-                        ? "Unmute"
-                        : "Mute"}
+                      {activeThread?.isMuted ? "Unmute" : "Mute"}
                     </Button>
                   </form>
+                  <form action={setMailboxAction}>
+                    <input type="hidden" name="conversationId" value={authorised.id} />
+                    <input
+                      type="hidden"
+                      name="folder"
+                      value={folder === "inbox" || folder === "drafts" ? "archive" : "inbox"}
+                    />
+                    <Button type="submit" variant="ghost" size="sm">
+                      {folder === "inbox" || folder === "drafts" ? (
+                        <>
+                          <Archive className="size-3.5" />
+                          Archive
+                        </>
+                      ) : (
+                        <>
+                          <ArchiveRestore className="size-3.5" />
+                          Move to inbox
+                        </>
+                      )}
+                    </Button>
+                  </form>
+                  {folder !== "trash" ? (
+                    <form action={setMailboxAction}>
+                      <input type="hidden" name="conversationId" value={authorised.id} />
+                      <input type="hidden" name="folder" value="trash" />
+                      <Button type="submit" variant="ghost" size="sm">
+                        <Trash2 className="size-3.5" />
+                        Trash
+                      </Button>
+                    </form>
+                  ) : null}
                 </div>
               </div>
 
               <div className="max-h-[55vh] min-h-[280px] flex-1 space-y-3 overflow-y-auto p-5">
                 {authorised.messages.map((message) => {
                   const mine = message.senderId === user.id;
+                  const attachments = message.attachmentIds
+                    .map((id) => fileById.get(id))
+                    .filter(Boolean);
+
                   return (
                     <div
                       key={message.id}
@@ -304,7 +465,41 @@ export default async function MessagesPage({
                             {fullName(message.sender)}
                           </p>
                         ) : null}
-                        <p className="text-sm whitespace-pre-wrap">{message.body}</p>
+                        {message.body ? (
+                          <p className="text-sm whitespace-pre-wrap">{message.body}</p>
+                        ) : null}
+
+                        {attachments.length ? (
+                          <ul className="mt-1.5 space-y-1">
+                            {attachments.map((file) => (
+                              <li key={file!.id}>
+                                <a
+                                  href={`/api/files/${file!.id}`}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className={cn(
+                                    "inline-flex max-w-full items-center gap-1.5 rounded-lg border px-2 py-1 text-xs",
+                                    mine
+                                      ? "border-white/30 text-white hover:bg-white/10"
+                                      : "border-[var(--border-strong)] hover:bg-[var(--bg)]",
+                                  )}
+                                >
+                                  <FileText className="size-3 shrink-0" />
+                                  <span className="truncate">{file!.originalName}</span>
+                                  <span
+                                    className={cn(
+                                      "numeric shrink-0 text-[10px]",
+                                      mine ? "text-white/70" : "text-[var(--text-subtle)]",
+                                    )}
+                                  >
+                                    {formatBytes(file!.sizeBytes)}
+                                  </span>
+                                </a>
+                              </li>
+                            ))}
+                          </ul>
+                        ) : null}
+
                         <p
                           className={cn(
                             "mt-1 text-[10px]",
@@ -326,7 +521,18 @@ export default async function MessagesPage({
                 ) : null}
               </div>
 
-              <ReplyBox conversationId={authorised.id} />
+              {folder === "trash" ? (
+                <CardBody className="border-t border-[var(--border)] text-xs text-[var(--text-muted)]">
+                  This conversation is in your trash. Move it back to the inbox to
+                  reply — the messages themselves are kept either way, because a
+                  thread about a child is a record the school may need.
+                </CardBody>
+              ) : (
+                <ReplyBox
+                  conversationId={authorised.id}
+                  draft={activeMembership?.draftBody ?? ""}
+                />
+              )}
             </>
           ) : (
             <CardBody>
