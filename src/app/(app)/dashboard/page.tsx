@@ -32,6 +32,21 @@ import { formatMoney, percentOf } from "@/lib/money";
 import { formatDate, formatPercent, relativeTime, toNumber } from "@/lib/utils";
 
 import { generateManagementBriefAction } from "./actions";
+import { panelsFor } from "@/lib/dashboard";
+import {
+  ApprovalsPanel,
+  ClinicTodayPanel,
+  MyDayPanel,
+  MyMarkingPanel,
+  MyPayPanel,
+  MyRegistersPanel,
+} from "./panels/personal";
+import {
+  AdmissionsPipelinePanel,
+  ComingUpPanel,
+  MoneyTodayPanel,
+  PayrollStatusPanel,
+} from "./panels/office";
 
 export const metadata: Metadata = { title: "Dashboard" };
 export const dynamic = "force-dynamic";
@@ -41,33 +56,13 @@ export default async function DashboardPage() {
   const canSeeFinance = userCan(user, "dashboard.finance") || userCan(user, "finance.read");
   const canSeeManagement = userCan(user, "dashboard.management");
 
-  // Today's lessons for a teacher — the dashboard answers "where am I next"
-  // before anything else, because that is the question staff open it with.
-  // JS counts Sunday first; the timetable counts Monday first.
-  const jsDay = new Date().getDay();
-  const todaysLessons = user.staffId
-    ? await db.timetableSlot.findMany({
-        where: {
-          dayOfWeek: jsDay === 0 ? 7 : jsDay,
-          offering: { teacherId: user.staffId },
-        },
-        // "In order" means clock order: periodIndex is per-class, and a
-        // teacher's day spans classes whose bell schedules can differ.
-        orderBy: [{ startTime: "asc" }, { periodIndex: "asc" }],
-        select: {
-          id: true,
-          startTime: true,
-          endTime: true,
-          room: true,
-          classSection: {
-            select: { name: true, classLevel: { select: { name: true } } },
-          },
-          offering: {
-            select: { room: true, subject: { select: { name: true, colour: true } } },
-          },
-        },
-      })
-    : [];
+  // Which panels this person sees, and in what order.
+  const viewer = {
+    id: user.id,
+    staffId: user.staffId,
+    permissions: user.permissions,
+  };
+  const panels = panelsFor(viewer);
 
   const year = await db.academicYear.findFirst({
     where: { isCurrent: true },
@@ -152,6 +147,55 @@ export default async function DashboardPage() {
       />
 
       {/* ---------------------------------------------------------------- */}
+      {/* Yours first                                                       */}
+      {/* ---------------------------------------------------------------- */}
+      {/*
+        Panels are chosen and ordered by src/lib/dashboard.ts: what is
+        waiting on you, then what you are responsible for, then the school.
+        A panel with nothing to say renders nothing, so a quiet day is a
+        short page rather than a wall of zeroes.
+      */}
+      <div className="mb-6 space-y-4">
+        {panels.map((panel) => {
+          switch (panel) {
+            case "myDay":
+              return <MyDayPanel key={panel} viewer={viewer} />;
+            case "myRegisters":
+              return <MyRegistersPanel key={panel} viewer={viewer} />;
+            case "myMarking":
+              return <MyMarkingPanel key={panel} viewer={viewer} />;
+            case "approvals":
+              return <ApprovalsPanel key={panel} viewer={viewer} />;
+            case "clinicToday":
+              return <ClinicTodayPanel key={panel} viewer={viewer} />;
+            case "moneyToday":
+              return <MoneyTodayPanel key={panel} viewer={viewer} />;
+            case "payrollStatus":
+              return <PayrollStatusPanel key={panel} viewer={viewer} />;
+            case "admissionsPipeline":
+              return <AdmissionsPipelinePanel key={panel} viewer={viewer} />;
+            case "myPay":
+              return <MyPayPanel key={panel} viewer={viewer} />;
+            case "comingUp":
+              return <ComingUpPanel key={panel} />;
+            default:
+              return null;
+          }
+        })}
+      </div>
+
+      {/* ---------------------------------------------------------------- */}
+      {/* The school                                                        */}
+      {/* ---------------------------------------------------------------- */}
+      {/*
+        The wide view — headcount, attendance trend, fee collection, the
+        management brief. Shown to the people whose remit is the school;
+        a form teacher's dashboard used to open with a bar chart of
+        enrolment by class level, which answered nothing they had asked.
+      */}
+      {panels.includes("schoolPulse") ? (
+        <>
+      {/* ---------------------------------------------------------------- */}
       {/* Headline figures                                                  */}
       {/* ---------------------------------------------------------------- */}
       <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -226,54 +270,6 @@ export default async function DashboardPage() {
         )}
       </div>
 
-      {todaysLessons.length ? (
-        <Card className="mb-6">
-          <CardHeader
-            title="Today's lessons"
-            description="Your day, in order."
-            action={
-              <LinkButton href="/my-timetable" variant="outline" size="sm">
-                <CalendarClock className="size-4" />
-                Full week
-              </LinkButton>
-            }
-          />
-          <div className="flex gap-2 overflow-x-auto px-5 pb-4 pt-1">
-            {todaysLessons.map((slot) => (
-              <div
-                key={slot.id}
-                className="min-w-40 shrink-0 rounded-xl border border-[var(--border)] p-3"
-              >
-                <div className="flex items-center gap-1.5">
-                  {slot.offering?.subject.colour ? (
-                    <span
-                      aria-hidden
-                      className="size-2 shrink-0 rounded-full"
-                      style={{ background: slot.offering.subject.colour }}
-                    />
-                  ) : null}
-                  <p className="truncate text-sm font-semibold">
-                    {slot.classSection.classLevel.name} {slot.classSection.name}
-                  </p>
-                </div>
-                <p className="truncate text-xs text-[var(--text-muted)]">
-                  {slot.offering?.subject.name ?? "—"}
-                </p>
-                <p className="numeric mt-1 text-xs text-[var(--text-subtle)]">
-                  {slot.startTime}–{slot.endTime}
-                  {slot.room ?? slot.offering?.room
-                    ? ` · ${slot.room ?? slot.offering?.room}`
-                    : ""}
-                </p>
-              </div>
-            ))}
-            {/* Trailing spacer: some engines drop a scroller's inline-end
-                padding from the scrollable area, leaving the last chip flush
-                against the edge. */}
-            <div aria-hidden className="w-px shrink-0" />
-          </div>
-        </Card>
-      ) : null}
 
       {/* ---------------------------------------------------------------- */}
       {/* Charts                                                            */}
@@ -495,6 +491,8 @@ export default async function DashboardPage() {
           </Card>
         ) : null}
       </div>
+        </>
+      ) : null}
     </>
   );
 }
