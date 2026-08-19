@@ -4,7 +4,11 @@ import { authorize } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { loadLetterhead } from "@/lib/letterhead";
 import { renderReportPdf, type ReportColumn } from "@/lib/report-pdf";
-import { datasetFor, formatCell, type DatasetKey } from "@/lib/reporting";
+import {
+  datasetFor,
+  formatCell,
+  type ReportConfig,
+} from "@/lib/reporting";
 import { seesWholeSchool } from "@/lib/scope";
 import { formatDateTime } from "@/lib/utils";
 
@@ -64,10 +68,15 @@ export async function GET(request: Request) {
     return message(403, "Not your report", "You can only print reports you ran yourself.");
   }
 
-  const parameters = (run.parameters ?? {}) as {
+  // Read through the type the action writes with, rather than a second
+  // declaration of the same shape. The first version of this route guessed
+  // filters were a list of pairs; they are a map of field key to values, and
+  // calling .filter() on an object crashed every print with a filter set.
+  //
+  // Still parsed defensively: this is JSON off a row that may have been
+  // written by an older version of the builder.
+  const parameters = (run.parameters ?? {}) as Partial<ReportConfig> & {
     dataset?: string;
-    columns?: string[];
-    filters?: Array<{ field: string; value: string }>;
   };
 
   const dataset = datasetFor(parameters.dataset ?? "");
@@ -87,8 +96,9 @@ export async function GET(request: Request) {
     );
   }
 
-  const chosen = parameters.columns?.length
-    ? dataset.fields.filter((field) => parameters.columns!.includes(field.key))
+  const chosenKeys = Array.isArray(parameters.columns) ? parameters.columns : [];
+  const chosen = chosenKeys.length
+    ? dataset.fields.filter((field) => chosenKeys.includes(field.key))
     : dataset.fields;
 
   const columns: ReportColumn[] = chosen.map((field) => ({
@@ -117,12 +127,25 @@ export async function GET(request: Request) {
     return message(400, "No school profile", "Set up the school profile under Settings first.");
   }
 
-  const filters = (parameters.filters ?? [])
-    .filter((filter) => filter.value)
-    .map((filter) => {
-      const field = dataset.fields.find((entry) => entry.key === filter.field);
-      return `${field?.label ?? filter.field} = ${filter.value}`;
-    });
+  const rawFilters =
+    parameters.filters && typeof parameters.filters === "object"
+      ? (parameters.filters as Record<string, unknown>)
+      : {};
+
+  const filters = Object.entries(rawFilters)
+    .map(([key, value]) => {
+      const values = (Array.isArray(value) ? value : [value])
+        // Only values that are actually values. Anything else is a shape
+        // this route does not understand, and a filter line reading
+        // "0 = [object Object]" is worse than no filter line.
+        .filter((entry) => typeof entry === "string" || typeof entry === "number")
+        .map((entry) => String(entry).trim())
+        .filter(Boolean);
+      if (!values.length) return null;
+      const field = dataset.fields.find((entry) => entry.key === key);
+      return `${field?.label ?? key} = ${values.join(", ")}`;
+    })
+    .filter((entry): entry is string => Boolean(entry));
 
   const shown = rows.length;
   const total = run.rowCount;
