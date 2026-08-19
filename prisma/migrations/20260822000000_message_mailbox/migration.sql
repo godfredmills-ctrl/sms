@@ -11,3 +11,7 @@ ALTER TABLE "ConversationMember" ADD COLUMN "draftUpdatedAt" TIMESTAMP(3);
 
 CREATE INDEX "ConversationMember_userId_archivedAt_trashedAt_idx"
   ON "ConversationMember"("userId", "archivedAt", "trashedAt");
+
+-- Who added a member, so the sender can see their own blind copies without
+-- disclosing them to the other recipients.
+ALTER TABLE "ConversationMember" ADD COLUMN "addedById" TEXT;

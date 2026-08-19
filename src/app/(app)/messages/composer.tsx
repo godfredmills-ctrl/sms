@@ -29,7 +29,7 @@ function AttachmentField({
   setAttachments,
 }: {
   attachments: Attached[];
-  setAttachments: (next: Attached[]) => void;
+  setAttachments: React.Dispatch<React.SetStateAction<Attached[]>>;
 }) {
   const picker = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
@@ -39,6 +39,7 @@ function AttachmentField({
     setBusy(true);
     setError(null);
     const added: Attached[] = [];
+    const failures: string[] = [];
 
     // Sequential: a handful of photographs from a phone racing through one
     // connection helps nobody.
@@ -46,6 +47,9 @@ function AttachmentField({
       try {
         const body = new FormData();
         body.append("file", file);
+        // The narrow mode: no cabinet folder, no publishing, and a short list
+        // of formats. See src/app/api/upload/route.ts.
+        body.append("purpose", "message");
         const response = await fetch("/api/upload", { method: "POST", body });
         const result = await response.json();
         if (!response.ok) throw new Error(result?.error ?? "Upload failed.");
@@ -55,12 +59,17 @@ function AttachmentField({
           size: result.file.sizeBytes ?? file.size,
         });
       } catch (problem) {
-        setError(`${file.name}: ${(problem as Error).message}`);
+        // Every failure, not just the last: picking five files and being told
+        // about one of the three that failed is worse than being told none.
+        failures.push(`${file.name}: ${(problem as Error).message}`);
       }
     }
 
-    setAttachments([...attachments, ...added]);
+    // Functional update: a file removed while this upload was in flight must
+    // stay removed, and the closed-over array is from before it happened.
+    setAttachments((current) => [...current, ...added]);
     setBusy(false);
+    setError(failures.length ? failures.join("  ·  ") : null);
     if (picker.current) picker.current.value = "";
   }
 
@@ -76,7 +85,9 @@ function AttachmentField({
           </span>
           <button
             type="button"
-            onClick={() => setAttachments(attachments.filter((f) => f.id !== file.id))}
+            onClick={() =>
+              setAttachments((current) => current.filter((f) => f.id !== file.id))
+            }
             className="text-[var(--text-subtle)] hover:text-[var(--danger)]"
             aria-label={`Remove ${file.name}`}
           >
@@ -125,8 +136,14 @@ export function ReplyBox({
   const [body, setBody] = useState(draft);
   const formRef = useRef<HTMLFormElement>(null);
 
-  // A new thread means a different draft.
+  // A new thread means a different draft — and ONLY a new thread. Keyed on
+  // the draft prop as well, this re-ran whenever the server sent a fresh
+  // value, rewinding the textarea under the cursor and emptying the
+  // attachment list mid-compose.
+  const loadedFor = useRef(conversationId);
   useEffect(() => {
+    if (loadedFor.current === conversationId) return;
+    loadedFor.current = conversationId;
     setBody(draft);
     setAttachments([]);
   }, [conversationId, draft]);
@@ -134,26 +151,52 @@ export function ReplyBox({
   // The draft saves itself a moment after typing stops. A draft you have to
   // remember to save is not a draft, and saving on every keystroke would
   // write a row per character.
+  const pending = useRef<string | null>(null);
   useEffect(() => {
     if (body === draft) return;
+    pending.current = body;
     const timer = setTimeout(() => {
       const data = new FormData();
       data.append("conversationId", conversationId);
       data.append("body", body);
       void saveDraftAction(data);
+      pending.current = null;
     }, 1200);
     return () => clearTimeout(timer);
   }, [body, draft, conversationId]);
 
+  // Leaving the page or switching threads cancels the timer above, which
+  // used to throw the draft away — the one moment a draft exists to survive.
+  // This flushes whatever was still waiting.
+  useEffect(() => {
+    const id = conversationId;
+    return () => {
+      if (pending.current === null) return;
+      const data = new FormData();
+      data.append("conversationId", id);
+      data.append("body", pending.current);
+      void saveDraftAction(data);
+    };
+  }, [conversationId]);
+
+  // Cleared only once the server has actually accepted it. `action` is a
+  // dispatch and returns immediately, so awaiting it waits for nothing —
+  // clearing there threw away the reply and its attachments whenever a send
+  // was refused, which is exactly when the words matter most.
+  const sentAt = useRef<MessageState | null>(null);
+  useEffect(() => {
+    if (state.ok && state !== sentAt.current) {
+      sentAt.current = state;
+      pending.current = null;
+      setBody("");
+      setAttachments([]);
+    }
+  }, [state]);
+
   return (
     <form
       ref={formRef}
-      action={async (formData) => {
-        await action(formData);
-        setBody("");
-        setAttachments([]);
-        formRef.current?.reset();
-      }}
+      action={action}
       className="space-y-2 border-t border-[var(--border)] p-4"
     >
       <input type="hidden" name="conversationId" value={conversationId} />
@@ -185,6 +228,17 @@ export function NewConversation({ people }: { people: SelectOption[] }) {
     startConversationAction,
     {},
   );
+
+  // Sending closes the dialog and forgets what was in it. Left open, the
+  // attachments and recipients stayed selected and the next Send re-sent
+  // the same files to the same people.
+  useEffect(() => {
+    if (state.ok) {
+      setAttachments([]);
+      setShowCopies(false);
+      setOpen(false);
+    }
+  }, [state]);
 
   if (!open) {
     return (

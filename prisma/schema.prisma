@@ -2385,9 +2385,16 @@ model ConversationMember {
   isMuted        Boolean      @default(false)
   joinedAt       DateTime     @default(now())
 
-  /// TO | CC | BCC. A blind copy is hidden from everyone but the sender and
-  /// the recipient themselves — the point of a blind copy.
+  /// TO | CC | BCC. A blind copy is hidden from the other recipients — but
+  /// not from the person who sent it, who needs to see what they did, nor
+  /// from the copied person, who must know before they reply that answering
+  /// puts their name in front of everyone.
   role String @default("TO")
+
+  /// Who added this member. Set when a conversation is started, so the
+  /// sender can be shown their own blind copies without showing them to
+  /// anybody else.
+  addedById String?
 
   /// The mailbox is per person: archiving a thread must not archive it for
   /// everybody else in it, which is what a conversation-level flag would do.

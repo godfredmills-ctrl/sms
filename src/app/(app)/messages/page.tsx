@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 
 import {
+  Alert,
   Avatar,
   Badge,
   Button,
@@ -104,6 +105,7 @@ export default async function MessagesPage({
               members: {
                 select: {
                   role: true,
+                  addedById: true,
                   user: {
                     select: {
                       id: true,
@@ -135,11 +137,20 @@ export default async function MessagesPage({
   };
 
   const threads = memberships.map((membership) => {
-    // A blind copy is blind: everyone sees themselves and the people on the
-    // To and CC lines, and nobody but the sender sees who was BCC'd.
+    // A blind copy is blind to the other RECIPIENTS. Two exceptions keep it
+    // honest rather than merely secret: the person who sent it can see what
+    // they did, and everyone can always see themselves.
     const others = membership.conversation.members
-      .filter((member) => member.user.id !== user.id && member.role !== "BCC")
+      .filter(
+        (member) =>
+          member.user.id !== user.id &&
+          (member.role !== "BCC" || member.addedById === user.id),
+      )
       .map((member) => member.user);
+
+    const myRole =
+      membership.conversation.members.find((member) => member.user.id === user.id)
+        ?.role ?? "TO";
     const latest = membership.conversation.messages[0];
 
     return {
@@ -150,7 +161,10 @@ export default async function MessagesPage({
       draft: membership.draftBody,
       lastMessageAt: membership.conversation.lastMessageAt,
       others,
-      preview: latest?.body ?? "",
+      myRole,
+      // A message can be nothing but a file, which the list used to render as
+      // "No messages yet".
+      preview: latest?.body || (latest ? "Sent an attachment" : ""),
       // Unread means "someone else wrote since I last looked" — a thread is
       // never unread because of your own message.
       unread: Boolean(
@@ -161,8 +175,23 @@ export default async function MessagesPage({
     };
   });
 
+  // When ?c= names a thread that is not in this folder — an archived one
+  // linked from a notification, say — the thread wins and the folder follows
+  // it. Falling back to threads[0] silently opened a DIFFERENT conversation,
+  // and the reply box beneath it would have sent to the wrong people.
+  const requestedElsewhere =
+    requested && !threads.some((thread) => thread.id === requested)
+      ? await db.conversationMember.findUnique({
+          where: { conversationId_userId: { conversationId: requested, userId: user.id } },
+          select: { conversationId: true },
+        })
+      : null;
+
   const activeId =
-    threads.find((thread) => thread.id === requested)?.id ?? threads[0]?.id ?? null;
+    threads.find((thread) => thread.id === requested)?.id ??
+    requestedElsewhere?.conversationId ??
+    threads[0]?.id ??
+    null;
 
   const [active, people] = await Promise.all([
     activeId
@@ -520,6 +549,16 @@ export default async function MessagesPage({
                   </p>
                 ) : null}
               </div>
+
+              {activeThread?.myRole === "BCC" && folder !== "trash" ? (
+                <div className="border-t border-[var(--border)] px-5 py-3">
+                  <Alert tone="warning">
+                    You were blind-copied on this conversation. The other people in
+                    it cannot see that you are here — until you reply, which puts
+                    your name and your message in front of all of them.
+                  </Alert>
+                </div>
+              ) : null}
 
               {folder === "trash" ? (
                 <CardBody className="border-t border-[var(--border)] text-xs text-[var(--text-muted)]">

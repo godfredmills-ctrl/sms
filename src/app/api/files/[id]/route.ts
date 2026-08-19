@@ -30,7 +30,24 @@ export async function GET(
 
   if (!file || file.deletedAt) return new NextResponse("Not found", { status: 404 });
 
-  if (!canRead(file, user)) {
+  // A file attached to a message is readable by the people in that
+  // conversation, and by nobody else.
+  //
+  // Both halves of that mattered. Without it a parent could not open the fee
+  // statement the bursar had just sent them — a message attachment carries no
+  // cabinet document, and the rule below grants those to staff only. And
+  // "staff" was too generous in the other direction: it let any teacher in
+  // the school read an attachment from a conversation they were never part
+  // of, because nothing tied the file back to the thread.
+  const viaConversation = await db.directMessage.findFirst({
+    where: {
+      attachmentIds: { has: id },
+      conversation: { members: { some: { userId: user.id } } },
+    },
+    select: { id: true },
+  });
+
+  if (!viaConversation && !canRead(file, user)) {
     return new NextResponse("Forbidden", { status: 403 });
   }
 
@@ -42,7 +59,12 @@ export async function GET(
   }
 
   const url = new URL(request.url);
-  const asDownload = url.searchParams.has("download");
+  // SVG is a document that can run script, and this route serves from the
+  // app's own origin — inline it would be stored XSS against whoever opens
+  // it. It is always handed over as a download instead.
+  const neverInline = ["image/svg+xml", "text/html", "application/xhtml+xml"];
+  const asDownload =
+    url.searchParams.has("download") || neverInline.includes(file.mimeType);
 
   // Log downloads of cabinet documents so the school has a paper trail.
   if (asDownload && file.documents.length) {
@@ -89,8 +111,12 @@ function canRead(
   if (user.roleKeys.includes("super_admin")) return true;
   if (file.uploadedById === user.id) return true;
 
-  // A file with no cabinet document attached is an attachment of some other
-  // record (a student photo, a memo attachment); staff may read those.
+  // A file with no cabinet document is an attachment of some other record —
+  // a student photo, a memo attachment, a file on a message. Staff may read
+  // those; a parent or student may not, which is correct for a medical scan
+  // and wrong for the file that was just sent TO them. The message case is
+  // resolved by membership before this point (see canReadMessageAttachment),
+  // so what remains here is genuinely a staff-side record.
   if (!file.documents.length) return user.portal === "STAFF";
 
   return file.documents.some((document) => {

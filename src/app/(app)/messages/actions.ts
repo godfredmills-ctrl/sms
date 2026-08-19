@@ -71,6 +71,13 @@ export async function sendMessageAction(
       where: { conversationId_userId: { conversationId, userId: user.id } },
       data: { lastReadAt: new Date(), draftBody: null, draftUpdatedAt: null },
     }),
+    // A new message brings the thread back out of everyone else's archive
+    // and trash. Without this a reply lands in a folder the recipient does
+    // not look at, and the sender is left waiting on an answer that arrived.
+    db.conversationMember.updateMany({
+      where: { conversationId, userId: { not: user.id } },
+      data: { archivedAt: null, trashedAt: null },
+    }),
   ]);
 
   const recipients = conversation.members
@@ -152,6 +159,7 @@ export async function startConversationAction(
           create: members.map((userId) => ({
             userId,
             role: userId === user.id ? "TO" : (roleOf.get(userId) ?? "TO"),
+            addedById: user.id,
           })),
         },
       },
@@ -170,7 +178,14 @@ export async function startConversationAction(
     }),
     db.conversationMember.update({
       where: { conversationId_userId: { conversationId, userId: user.id } },
-      data: { lastReadAt: new Date(), draftBody: null, draftUpdatedAt: null },
+      // Only the read stamp. A two-party thread is reused here, and the draft
+      // sitting in it is a different half-written reply — clearing it would
+      // delete work the sender never saw this form touch.
+      data: { lastReadAt: new Date() },
+    }),
+    db.conversationMember.updateMany({
+      where: { conversationId, userId: { not: user.id } },
+      data: { archivedAt: null, trashedAt: null },
     }),
   ]);
 
@@ -222,7 +237,11 @@ export async function saveDraftAction(formData: FormData): Promise<MessageState>
     },
   });
 
-  revalidatePath("/messages");
+  // Deliberately NOT revalidated. This runs while someone is still typing:
+  // re-rendering the route would refetch the whole mailbox every couple of
+  // seconds AND hand the reply box a new draft prop, which then overwrote
+  // the words typed during the round trip. The draft is read on the next
+  // real navigation, which is the only time it is needed.
   return { ok: true };
 }
 

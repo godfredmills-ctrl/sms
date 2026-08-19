@@ -33,18 +33,39 @@ export async function POST(request: Request) {
   // records end up permanently paperless.
   const mayUpload =
     user.roleKeys.includes("super_admin") ||
-    ["document.upload", "student.document.manage", "student.create", "staff.update", "staff.create", "student.guardian.manage", "communication.memo.create", "communication.message"].some(
-      (permission) => user.permissions.has(permission),
-    );
-  if (!mayUpload) {
-    return NextResponse.json({ error: "You cannot upload documents." }, { status: 403 });
-  }
+    [
+      "document.upload",
+      "student.document.manage",
+      "student.create",
+      "staff.update",
+      "staff.create",
+      "student.guardian.manage",
+      "communication.memo.create",
+    ].some((permission) => user.permissions.has(permission));
 
   let form: FormData;
   try {
     form = await request.formData();
   } catch {
     return NextResponse.json({ error: "Malformed upload." }, { status: 400 });
+  }
+
+  // A message attachment is its own, much narrower thing.
+  //
+  // communication.message is held by students and guardians, so putting it in
+  // the list above would have handed both untrusted portals the cabinet
+  // uploader: any allowed MIME type, and a folderId that writes a document
+  // into the school's filing system at an access level of their choosing.
+  // Instead this mode refuses a folder outright and takes a short list of
+  // formats a parent actually sends.
+  const purpose = String(form.get("purpose") ?? "");
+  const isMessageAttachment = purpose === "message";
+
+  if (isMessageAttachment && !user.permissions.has("communication.message")) {
+    return NextResponse.json({ error: "You cannot send messages." }, { status: 403 });
+  }
+  if (!isMessageAttachment && !mayUpload) {
+    return NextResponse.json({ error: "You cannot upload documents." }, { status: 403 });
   }
 
   const file = form.get("file");
@@ -62,7 +83,37 @@ export async function POST(request: Request) {
     );
   }
 
-  const folderId = String(form.get("folderId") ?? "") || null;
+  const MESSAGE_ATTACHMENT_TYPES = [
+    "image/png",
+    "image/jpeg",
+    "image/webp",
+    "image/heic",
+    "application/pdf",
+    "text/plain",
+    "application/msword",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "application/vnd.ms-excel",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  ];
+
+  if (isMessageAttachment) {
+    const type = file.type || "application/octet-stream";
+    if (!MESSAGE_ATTACHMENT_TYPES.includes(type)) {
+      return NextResponse.json(
+        {
+          error:
+            "Attach a photograph, a PDF, or an Office document. Other formats are not accepted on messages.",
+        },
+        { status: 415 },
+      );
+    }
+  }
+
+  // Ignored entirely for a message attachment: these are the fields that
+  // would file something into the school's cabinet or publish it.
+  const folderId = isMessageAttachment
+    ? null
+    : String(form.get("folderId") ?? "") || null;
   const title = String(form.get("title") ?? "").trim() || file.name;
   const description = String(form.get("description") ?? "").trim() || null;
   const tags = String(form.get("tags") ?? "")
@@ -82,7 +133,7 @@ export async function POST(request: Request) {
       uploadedById: user.id,
     });
 
-    if (String(form.get("visibility") ?? "") === "public") {
+    if (!isMessageAttachment && String(form.get("visibility") ?? "") === "public") {
       if (!stored.mimeType.startsWith("image/")) {
         return NextResponse.json(
           { error: "Only images can be published." },
