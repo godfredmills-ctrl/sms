@@ -20,6 +20,7 @@ import sharp from "sharp";
 
 import { renderIdCardsPdf } from "../src/lib/id-card-pdf";
 import { renderPayslipsPdf } from "../src/lib/payslip-pdf";
+import { renderLettersPdf } from "../src/lib/letter-pdf";
 import { renderReportPdf } from "../src/lib/report-pdf";
 import { summariseReport } from "../src/lib/report-stats";
 import { datasetFor } from "../src/lib/reporting";
@@ -395,7 +396,51 @@ async function main() {
     }),
   );
 
-  console.log(`Wrote eight PDFs to ${out}`);
+  writeFileSync(
+    `${out}/letter.pdf`,
+    await renderLettersPdf({
+      school: {
+        name: "Golden Crest International School",
+        motto: "Knowledge, Character, Service",
+        address: "P.O. Box 4821, 12 Independence Avenue, Accra, Greater Accra",
+        phone: "+233 30 212 3456",
+        email: "info@goldencrest.edu.gh",
+        website: "goldencrest.edu.gh",
+        registrationNo: "GES/PS/2011/0473",
+      },
+      crest,
+      brandHex: "#2C66CE",
+      letters: [
+        {
+          reference: "ADM/2026/0A31F2",
+          date: "19 August 2026",
+          addressee: ["Mrs Comfort Quartey", "Parent/Guardian of Priscilla Naa Quartey"],
+          subject: "Offer of admission",
+          salutation: "Dear Mrs Quartey,",
+          paragraphs: [
+            "Following the assessment of your application, I am pleased to offer Priscilla Naa Quartey a place at Golden Crest International School.",
+            "The particulars of the offer are set out below.",
+          ],
+          particulars: [
+            { label: "Student", value: "Priscilla Naa Quartey" },
+            { label: "Admission number", value: "GCS/2024/0390" },
+            { label: "Class offered", value: "JHS 2 Amber" },
+            { label: "Academic year", value: "2026/2027" },
+          ],
+          closingParagraphs: [
+            "To accept this offer, please contact the school office to confirm the place and settle the admission requirements. A place is held for a reasonable period only, after which it may be offered to another applicant.",
+            "We look forward to welcoming your family to the school.",
+          ],
+          closing: "Yours sincerely,",
+          signatory: { name: "Mrs Abena Owusu", title: "Head Teacher" },
+          footnote:
+            "Please quote the reference above in any correspondence about this offer.",
+        },
+      ],
+    }),
+  );
+
+  console.log(`Wrote nine PDFs to ${out}`);
   await checkMastheadClearance();
   await checkBackgroundIsDrawn(layout, backdrop);
   await checkVerificationCode();

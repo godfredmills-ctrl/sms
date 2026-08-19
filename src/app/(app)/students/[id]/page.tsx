@@ -5,6 +5,7 @@ import {
   Activity,
   AlertTriangle,
   BookOpen,
+  FileSignature,
   CalendarCheck,
   FileText,
   FolderOpen,
@@ -261,6 +262,42 @@ export default async function StudentProfilePage({
             {userCan(user, "student.update") ? (
               <LinkButton href={`/students/${student.id}/edit`} variant="outline" size="sm">
                 Edit record
+              </LinkButton>
+            ) : null}
+
+            {/* One letter per stage: an offer to send, proof of enrolment
+                while they are here, a transfer certificate once they leave. */}
+            {student.status === "OFFERED" ? (
+              <LinkButton
+                href={`/api/letters?kind=offer&studentId=${student.id}`}
+                target="_blank"
+                variant="outline"
+                size="sm"
+              >
+                <FileSignature className="size-4" />
+                Offer letter
+              </LinkButton>
+            ) : null}
+            {student.status === "ENROLLED" ? (
+              <LinkButton
+                href={`/api/letters?kind=attestation&studentId=${student.id}`}
+                target="_blank"
+                variant="outline"
+                size="sm"
+              >
+                <FileSignature className="size-4" />
+                Proof of enrolment
+              </LinkButton>
+            ) : null}
+            {["TRANSFERRED_OUT", "WITHDRAWN", "GRADUATED"].includes(student.status) ? (
+              <LinkButton
+                href={`/api/letters?kind=transfer&studentId=${student.id}`}
+                target="_blank"
+                variant="outline"
+                size="sm"
+              >
+                <FileSignature className="size-4" />
+                Transfer certificate
               </LinkButton>
             ) : null}
             {userCan(user, "assessment.report.generate") ? (

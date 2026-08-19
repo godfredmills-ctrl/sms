@@ -188,6 +188,15 @@ export default async function StaffProfilePage({
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            {/* The letter a bank, a landlord or an embassy asks for. */}
+            <LinkButton
+              href={`/api/letters?kind=employment&staffId=${staff.id}`}
+              target="_blank"
+              variant="outline"
+              size="sm"
+            >
+              Employment letter
+            </LinkButton>
             {userCan(user, "staff.update") ? (
               <LinkButton href={`/staff/${staff.id}/edit`} variant="outline" size="sm">
                 <Pencil className="size-3.5" />
