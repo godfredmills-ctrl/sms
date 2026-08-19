@@ -417,13 +417,22 @@ export async function createOfferingAction(
 
   const existing = await db.subjectOffering.findFirst({
     where: { academicYearId: year.id, termId, subjectId, classSectionId },
-    select: { id: true },
+    select: { id: true, coTeacherIds: true },
   });
 
   if (existing) {
+    // The form is an assign box, not an edit form: it opens empty every time,
+    // so an untouched co-teacher field means "I did not say", not "remove
+    // them". Re-assigning a teacher to a class would otherwise silently drop
+    // the lab assistant already recorded on it. Clearing is done by picking
+    // the people who should remain.
     await db.subjectOffering.update({
       where: { id: existing.id },
-      data: { teacherId, coTeacherIds, isActive: true },
+      data: {
+        teacherId,
+        ...(coTeacherIds.length ? { coTeacherIds } : {}),
+        isActive: true,
+      },
     });
     revalidatePath("/academics/classes");
     return { ok: true, message: "Updated the existing assignment." };

@@ -24,7 +24,7 @@ import {
 } from "@/components/ui";
 import { requirePermission, userCan } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { seesWholeSchool } from "@/lib/scope";
+import { seesWholeSchool, teaches } from "@/lib/scope";
 import { percentOf } from "@/lib/money";
 import { fullName, relativeTime } from "@/lib/utils";
 
@@ -50,6 +50,7 @@ export default async function LmsPage() {
           select: {
             id: true,
             teacherId: true,
+            coTeacherIds: true,
             subject: { select: { name: true, colour: true } },
             classSection: {
               select: {
@@ -99,7 +100,7 @@ export default async function LmsPage() {
   // written for, and every teacher saw every course in the school.
   const visible = seesWholeSchool(user)
     ? courses
-    : courses.filter((course) => course.offering?.teacherId === user.staffId);
+    : courses.filter((course) => teaches(course.offering, user.staffId));
 
   const published = visible.filter((course) => course.status === "PUBLISHED");
   const totalLessons = visible.reduce(

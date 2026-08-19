@@ -1,6 +1,7 @@
 import type { AiInsightKind } from "@prisma/client";
 
 import { db } from "@/lib/db";
+import { taughtBy } from "@/lib/scope";
 import { formatMoney } from "@/lib/money";
 import { formatPercent, toNumber } from "@/lib/utils";
 
@@ -260,7 +261,7 @@ ${JSON.stringify(snapshot, null, 2)}`;
 
 export async function buildTeachingSnapshot(teacherId: string, termId: string) {
   const offerings = await db.subjectOffering.findMany({
-    where: { teacherId, termId },
+    where: { ...taughtBy(teacherId), termId },
     select: {
       id: true,
       subject: { select: { name: true, passMark: true } },

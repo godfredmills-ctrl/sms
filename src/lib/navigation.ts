@@ -350,7 +350,12 @@ export const STAFF_NAVIGATION: NavGroup[] = [
         label: "Website",
         href: "/website",
         icon: "Globe",
-        permissions: ["website.read"],
+        // Any-of. The enquiry inbox lives under Website but belongs to the
+        // front desk and the registrar, who run admissions rather than the
+        // site — and a child entry is locked whenever its parent is, so
+        // gating this on website.read alone hid the inbox from the two
+        // desks whose job it is.
+        permissions: ["website.read", "website.enquiry.manage"],
         children: [
           { label: "Pages", href: "/website", icon: "FileText" },
           {

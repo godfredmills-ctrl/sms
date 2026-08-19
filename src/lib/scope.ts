@@ -27,6 +27,21 @@ export function taughtBy(staffId: string) {
   };
 }
 
+/**
+ * The same question as `taughtBy`, asked of a row already in memory.
+ *
+ * Kept beside it so the two cannot drift: a list page that filters in
+ * JavaScript and an action that filters in SQL must agree about who teaches
+ * a class, or the list refuses what the action permits.
+ */
+export function teaches(
+  offering: { teacherId: string | null; coTeacherIds: string[] } | null | undefined,
+  staffId: string | null | undefined,
+): boolean {
+  if (!offering || !staffId) return false;
+  return offering.teacherId === staffId || offering.coTeacherIds.includes(staffId);
+}
+
 export async function ownSectionIdsFor(staffId: string | null | undefined): Promise<string[]> {
   if (!staffId) return [];
 

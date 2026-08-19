@@ -57,7 +57,12 @@ function wrap(text: string, font: PDFFont, size: number, maxWidth: number): stri
     }
   }
   if (line) lines.push(line);
-  return lines;
+
+  // Wrapping breaks on spaces, so a single unbroken token — a hyphenated
+  // Ghanaian surname, an email address typed into the name box — is wider
+  // than the column and printed straight across the QR code. Every line
+  // leaves here inside its width.
+  return lines.map((entry) => truncate(entry, font, size, maxWidth));
 }
 
 function truncate(text: string, font: PDFFont, size: number, maxWidth: number): string {
@@ -248,11 +253,21 @@ function drawPass(
 
   // --- School line ---------------------------------------------------------
   // Full width: the QR starts below this row, so nothing is beside it.
+  //
+  // The crest is fitted to a 14pt box rather than forced into one. Schools
+  // upload a wide wordmark as often as a round badge, and drawing either at
+  // 14x14 squashes the wide one into an unreadable smear of its own name.
+  let crestWidth = 0;
   if (crest) {
-    page.drawImage(crest, { x: x + 14, y: top - 46, width: 14, height: 14 });
+    const box = 14;
+    const scale = Math.min(box / crest.width, box / crest.height);
+    const w = crest.width * scale;
+    const h = crest.height * scale;
+    page.drawImage(crest, { x: x + 14, y: top - 39 - h, width: w, height: h });
+    crestWidth = w + 6;
   }
-  page.drawText(truncate(clean(school.name), fonts.bold, 7.5, inner - (crest ? 20 : 0)), {
-    x: x + 14 + (crest ? 20 : 0),
+  page.drawText(truncate(clean(school.name), fonts.bold, 7.5, inner - crestWidth), {
+    x: x + 14 + crestWidth,
     y: top - 42,
     size: 7.5,
     font: fonts.bold,

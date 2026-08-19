@@ -108,6 +108,59 @@ if (!process.env.DATABASE_URL) {
   }
 }
 
+// -----------------------------------------------------------------------------
+// 2. Permissions
+// -----------------------------------------------------------------------------
+
+/**
+ * The seed writes the permission catalogue once, on an empty database, and
+ * never revisits it. Without this step every permission added after a
+ * school's first deploy stays in the source only: the row is never inserted,
+ * no role holds it, and the page it guards is unreachable by everyone but
+ * the system administrator. Features shipped and did not appear.
+ *
+ * Additive only — see src/lib/permission-sync.ts for why reconciling a role
+ * against its preset would be worse than the gap it closes.
+ */
+if (migrationsOk) {
+  banner("Syncing the permission catalogue");
+
+  // import.meta.resolve throws rather than returning null, and tsx is a dev
+  // dependency: a runtime image built with --omit=dev would take the whole
+  // start script down here, before the port is bound — the one failure this
+  // file exists to prevent. An unsynced permission is a feature nobody can
+  // reach yet; a container that never listens is a school that cannot take
+  // a payment.
+  let tsxCli = null;
+  try {
+    tsxCli = fileURLToPath(import.meta.resolve("tsx/cli"));
+  } catch {
+    fail("tsx is not installed — skipping the permission sync", [
+      "This runtime image has no dev dependencies. The app will start, but a",
+      "permission added since this database was seeded cannot be granted yet.",
+      "",
+      "Run it by hand once against the database:",
+      "",
+      "    npm run db:sync-permissions",
+    ]);
+  }
+
+  if (tsxCli) {
+    const sync = spawnSync(process.execPath, [tsxCli, "scripts/sync-permissions.ts"], {
+      stdio: "inherit",
+      env: process.env,
+    });
+    if (sync.status !== 0) {
+      fail("Permission sync did not complete", [
+        "The server will still start. Any permission added since this database",
+        "was seeded may not be grantable yet — check /users/roles.",
+      ]);
+    }
+  }
+
+  console.log("");
+}
+
 /**
  * Optional first-run seeding.
  *
@@ -154,7 +207,7 @@ function seedInBackground() {
 }
 
 // -----------------------------------------------------------------------------
-// 2. Web server
+// 3. Web server
 // -----------------------------------------------------------------------------
 
 const port = process.env.PORT ?? "3000";

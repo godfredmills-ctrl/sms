@@ -6,7 +6,13 @@ import { authorize } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { normalisePhone } from "@/lib/utils";
 
-export type VisitorState = { ok?: boolean; error?: string; passNo?: string };
+export type VisitorState = {
+  ok?: boolean;
+  error?: string;
+  passNo?: string;
+  /** The row just written, so the pass can be printed by id. */
+  visitorId?: string;
+};
 
 function text(formData: FormData, key: string): string {
   return String(formData.get(key) ?? "").trim();
@@ -129,7 +135,7 @@ export async function signInVisitorAction(
   });
 
   revalidatePath("/visitors");
-  return { ok: true, passNo: visitor.badgeNo };
+  return { ok: true, passNo: visitor.badgeNo, visitorId: visitor.id };
 }
 
 /**

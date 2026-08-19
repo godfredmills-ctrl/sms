@@ -95,7 +95,10 @@ export default async function MarkSheetPage({
 
   if (!offering) notFound();
 
-  const isOwner = offering.teacherId === user.staffId;
+  // The same question the save asks, asked the same way — see
+  // gradebook/actions.ts. A read-only sheet for someone the action would
+  // accept is as wrong as an editable one for someone it would refuse.
+  const isOwner = !(await offeringOutOfScope(user, offering.id));
   const canGrade =
     userCan(user, "assessment.grade") &&
     (isOwner || userCan(user, "assessment.publish"));

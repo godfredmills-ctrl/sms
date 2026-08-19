@@ -223,6 +223,7 @@ async function reset() {
     "customFieldValue", "customFieldDef", "optionItem", "optionSet",
     "gradeBand", "gradeScale", "calendarEvent",
     "payslip", "payrollRun",
+    "visitor",
     "staffLeave", "student", "guardian", "staff",
     "classSection", "classLevel", "subject",
     "auditLog", "session", "verificationToken",

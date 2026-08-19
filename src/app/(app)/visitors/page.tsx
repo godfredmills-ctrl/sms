@@ -341,7 +341,7 @@ export default async function VisitorsPage({
                         </span>
                         <div className="mt-1 flex items-center gap-2">
                           <Link
-                            href={`/api/visitor-passes?pass=${encodeURIComponent(row.badgeNo)}`}
+                            href={`/api/visitor-passes?id=${row.id}`}
                             target="_blank"
                             className="text-[var(--text-subtle)] hover:text-[var(--primary)]"
                             aria-label={`Reprint the pass for ${row.fullName}`}

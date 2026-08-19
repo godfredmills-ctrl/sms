@@ -66,7 +66,15 @@ export function CloseOpenVisitsButton({ count }: { count: number }) {
       <Button
         size="sm"
         disabled={pending}
-        onClick={() => start(() => void closeOpenVisitsAction())}
+        onClick={() =>
+          // Awaited inside the scope, not fired and forgotten: a scope
+          // function that returns undefined ends the transition immediately,
+          // so `pending` flicked back to false while the server was still
+          // closing thirty rows, and the button invited a second click.
+          start(async () => {
+            await closeOpenVisitsAction();
+          })
+        }
       >
         {pending ? "Closing…" : "Yes, close"}
       </Button>

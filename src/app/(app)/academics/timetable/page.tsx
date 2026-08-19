@@ -88,11 +88,16 @@ export default async function TimetablePage({
     // Every other class's slots, so a teacher booked in two rooms at once is
     // caught here rather than on the first morning of term.
     db.timetableSlot.findMany({
-      where: { classSectionId: { not: sectionId }, offering: { teacherId: { not: null } } },
+      where: {
+        classSectionId: { not: sectionId },
+        offering: {
+          OR: [{ teacherId: { not: null } }, { coTeacherIds: { isEmpty: false } }],
+        },
+      },
       select: {
         dayOfWeek: true,
         periodIndex: true,
-        offering: { select: { teacherId: true } },
+        offering: { select: { teacherId: true, coTeacherIds: true } },
         classSection: {
           select: { name: true, classLevel: { select: { name: true } } },
         },
@@ -117,26 +122,36 @@ export default async function TimetablePage({
 
   const clashes: Record<string, string> = {};
 
-  // Resolve teacher ids once, then look for a same-day, same-period booking.
-  const teacherByOffering = new Map(
+  // Everyone standing in the room, not just the lead: a co-teacher booked
+  // in two places at once is the same person in the same bind, and checking
+  // only teacherId meant the clash banner stayed clear while they were.
+  const staffByOffering = new Map(
     (
       await db.subjectOffering.findMany({
         where: { id: { in: slots.map((slot) => slot.offeringId).filter(Boolean) as string[] } },
-        select: { id: true, teacherId: true },
+        select: { id: true, teacherId: true, coTeacherIds: true },
       })
-    ).map((offering) => [offering.id, offering.teacherId]),
+    ).map((offering) => [
+      offering.id,
+      [offering.teacherId, ...offering.coTeacherIds].filter(
+        (id): id is string => Boolean(id),
+      ),
+    ]),
   );
 
   for (const slot of slots) {
     if (!slot.offeringId) continue;
-    const teacherId = teacherByOffering.get(slot.offeringId);
-    if (!teacherId) continue;
+    const staffIds = staffByOffering.get(slot.offeringId);
+    if (!staffIds?.length) continue;
 
     const conflict = otherSlots.find(
       (other) =>
         other.dayOfWeek === slot.dayOfWeek &&
         other.periodIndex === slot.periodIndex &&
-        other.offering?.teacherId === teacherId,
+        other.offering !== null &&
+        [other.offering.teacherId, ...other.offering.coTeacherIds].some(
+          (id) => id !== null && staffIds.includes(id),
+        ),
     );
 
     if (conflict) {

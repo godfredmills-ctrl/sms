@@ -47,10 +47,13 @@ export async function saveScores(
     return { ok: false, error: "This term is locked. Ask an administrator to reopen it." };
   }
 
-  // A teacher may only mark their own class unless they can grade school-wide.
-  const isOwner = offering.teacherId && offering.teacherId === user.staffId;
-  if (!isOwner && !user.permissions.has("assessment.publish")) {
-    return { ok: false, error: "You can only enter marks for your own classes." };
+  // "Your own class" is defined once, in scope.ts, and it means the lead
+  // teacher, any co-teacher, and the form teacher of the section. Asking the
+  // question here by hand meant the mark sheet opened for people it then
+  // refused to save for — a full period of marking, entered and lost.
+  const outOfScope = await offeringOutOfScope(user, offeringId);
+  if (outOfScope && !user.permissions.has("assessment.publish")) {
+    return { ok: false, error: outOfScope };
   }
 
   const byId = new Map(offering.assessments.map((entry) => [entry.id, entry]));

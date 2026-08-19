@@ -13,7 +13,7 @@ import { Badge, Card, CardBody, CardHeader, LinkButton } from "@/components/ui";
 import { db } from "@/lib/db";
 import { formatMoney } from "@/lib/money";
 import { payrollPeriodLabel } from "@/lib/payroll";
-import { ownSectionIdsFor } from "@/lib/scope";
+import { ownSectionIdsFor, taughtBy } from "@/lib/scope";
 import { formatDate } from "@/lib/utils";
 
 /**
@@ -50,7 +50,7 @@ export async function MyDayPanel({ viewer }: { viewer: Viewer }) {
   if (!viewer.staffId) return null;
 
   const lessons = await db.timetableSlot.findMany({
-    where: { dayOfWeek: today(), offering: { teacherId: viewer.staffId } },
+    where: { dayOfWeek: today(), offering: taughtBy(viewer.staffId) },
     orderBy: [{ startTime: "asc" }, { periodIndex: "asc" }],
     select: {
       id: true,
@@ -232,13 +232,13 @@ export async function MyMarkingPanel({ viewer }: { viewer: Viewer }) {
       where: {
         status: "SUBMITTED",
         score: null,
-        assignment: { course: { offering: { teacherId: viewer.staffId } } },
+        assignment: { course: { offering: taughtBy(viewer.staffId) } },
       },
     }),
     db.quizAttempt.count({
       where: {
         status: "SUBMITTED",
-        quiz: { course: { offering: { teacherId: viewer.staffId } } },
+        quiz: { course: { offering: taughtBy(viewer.staffId) } },
       },
     }),
   ]);

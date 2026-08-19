@@ -90,7 +90,7 @@ export default async function MyTimetablePage() {
   // JHS 1's period 2 can overlap JHS 2's period 3 on the clock while never
   // sharing an index.
   const minutes = (time: string): number | null => {
-    const match = /^(d{1,2}):(d{2})$/.exec(time);
+    const match = /^(\d{1,2}):(\d{2})$/.exec(time);
     if (!match) return null;
     return Number(match[1]) * 60 + Number(match[2]);
   };

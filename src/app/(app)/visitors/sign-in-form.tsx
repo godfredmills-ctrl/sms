@@ -68,14 +68,14 @@ export function SignInForm({
     <form key={formKey} action={action}>
       <CardBody className="space-y-3">
         {state.error ? <Alert tone="danger">{state.error}</Alert> : null}
-        {state.ok && state.passNo ? (
+        {state.ok && state.passNo && state.visitorId ? (
           <Alert tone="success">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <span>
                 Signed in — pass <strong className="numeric">{state.passNo}</strong>.
               </span>
               <LinkButton
-                href={`/api/visitor-passes?pass=${encodeURIComponent(state.passNo)}`}
+                href={`/api/visitor-passes?id=${state.visitorId}`}
                 target="_blank"
                 size="sm"
                 variant="secondary"
