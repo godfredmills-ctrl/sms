@@ -42,7 +42,7 @@ type EnquiryData = {
 
 async function markReadAction(formData: FormData) {
   "use server";
-  await authorize("student.create");
+  await authorize("website.enquiry.manage");
   const id = String(formData.get("id") ?? "");
   if (!id) return;
   await db.siteFormSubmission.update({ where: { id }, data: { isRead: true } });
@@ -51,7 +51,7 @@ async function markReadAction(formData: FormData) {
 
 async function toggleSpamAction(formData: FormData) {
   "use server";
-  await authorize("student.create");
+  await authorize("website.enquiry.manage");
   const id = String(formData.get("id") ?? "");
   if (!id) return;
   const current = await db.siteFormSubmission.findUnique({
@@ -73,7 +73,7 @@ export default async function EnquiriesPage({
 }) {
   // Enquiries are pre-admissions work, so the admission permission governs
   // them — not the website permission, which is about editing pages.
-  await requirePermission("student.create");
+  await requirePermission("website.enquiry.manage");
 
   const params = await searchParams;
   const { page, skip, take } = pageOf(params, PER_PAGE);

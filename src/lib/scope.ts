@@ -9,12 +9,30 @@ import { db } from "@/lib/db";
  * students list, the discipline desk and anything else that says "your
  * classes" cannot quietly mean different classes.
  */
+/**
+ * The Prisma filter for "an offering this person teaches".
+ *
+ * A subject offering has a lead teacher and a list of co-teachers, and until
+ * this existed only the lead counted anywhere: six separate queries each
+ * wrote `teacherId: staffId` by hand, so a lab assistant or a co-teacher
+ * recorded on the offering was locked out of the very class they teach —
+ * no error, just an empty gradebook.
+ *
+ * Every query that means "your classes" goes through here, so adding a
+ * third kind of teacher later changes one line rather than six.
+ */
+export function taughtBy(staffId: string) {
+  return {
+    OR: [{ teacherId: staffId }, { coTeacherIds: { has: staffId } }],
+  };
+}
+
 export async function ownSectionIdsFor(staffId: string | null | undefined): Promise<string[]> {
   if (!staffId) return [];
 
   const [taught, registers] = await Promise.all([
     db.subjectOffering.findMany({
-      where: { teacherId: staffId },
+      where: taughtBy(staffId),
       select: { classSectionId: true },
       distinct: ["classSectionId"],
     }),
@@ -122,12 +140,17 @@ export async function offeringOutOfScope(
 
   const offering = await db.subjectOffering.findUnique({
     where: { id: offeringId },
-    select: { teacherId: true, classSection: { select: { formTeacherId: true } } },
+    select: {
+      teacherId: true,
+      coTeacherIds: true,
+      classSection: { select: { formTeacherId: true } },
+    },
   });
   if (!offering) return "That subject does not exist.";
 
   const mine =
     offering.teacherId === user.staffId ||
+    offering.coTeacherIds.includes(user.staffId) ||
     offering.classSection.formTeacherId === user.staffId;
 
   return mine ? null : "That subject is taught by someone else.";

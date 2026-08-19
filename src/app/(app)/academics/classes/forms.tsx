@@ -153,8 +153,25 @@ export function OfferingForm({
             required
           />
         </Field>
-        <Field label="Teacher" htmlFor="offering-teacher">
+        <Field
+          label="Teacher"
+          htmlFor="offering-teacher"
+          hint="The one whose gradebook and register this is."
+        >
           <SearchableSelect id="offering-teacher" name="teacherId" options={teachers} />
+        </Field>
+        <Field
+          label="Also teaching"
+          htmlFor="offering-coteachers"
+          hint="Co-teachers and lab assistants. They see this class too."
+        >
+          <SearchableSelect
+            id="offering-coteachers"
+            name="coTeacherIds"
+            multiple
+            options={teachers}
+            placeholder="Nobody else"
+          />
         </Field>
         <Field label="Room" htmlFor="offering-room">
           <Input id="offering-room" name="room" />

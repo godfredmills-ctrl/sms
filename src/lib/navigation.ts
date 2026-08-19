@@ -323,6 +323,12 @@ export const STAFF_NAVIGATION: NavGroup[] = [
     label: "Operations",
     items: [
       {
+        label: "Visitors",
+        href: "/visitors",
+        icon: "DoorOpen",
+        permissions: ["visitor.read"],
+      },
+      {
         label: "Documents",
         href: "/documents",
         icon: "FolderOpen",
@@ -357,7 +363,7 @@ export const STAFF_NAVIGATION: NavGroup[] = [
             label: "Enquiries",
             href: "/website/enquiries",
             icon: "MailQuestion",
-            permissions: ["student.create"],
+            permissions: ["website.enquiry.manage"],
           },
         ],
       },

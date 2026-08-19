@@ -33,6 +33,7 @@ import { formatDate, formatPercent, relativeTime, toNumber } from "@/lib/utils";
 
 import { generateManagementBriefAction } from "./actions";
 import { panelsFor } from "@/lib/dashboard";
+import { taughtBy } from "@/lib/scope";
 import {
   ApprovalsPanel,
   ClinicTodayPanel,
@@ -721,5 +722,5 @@ async function upcomingCalendar() {
 
 async function myClassCount(staffId: string | null) {
   if (!staffId) return 0;
-  return db.subjectOffering.count({ where: { teacherId: staffId, isActive: true } });
+  return db.subjectOffering.count({ where: { ...taughtBy(staffId), isActive: true } });
 }

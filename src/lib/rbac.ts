@@ -160,6 +160,12 @@ export const PERMISSIONS: PermissionDef[] = [
     ["read", "read", "View the website builder"],
     ["manage", "update", "Edit pages, media and menus"],
     ["publish", "approve", "Publish the public website"],
+    ["enquiry.manage", "update", "Read and handle website enquiries and newsletter sign-ups"],
+  ]),
+
+  ...define("visitor", [
+    ["read", "read", "View the visitor log"],
+    ["manage", "update", "Sign visitors in and out, and issue passes"],
   ]),
 
   ...define("settings", [
@@ -239,6 +245,7 @@ export const ROLE_PRESETS: RolePreset[] = [
         "report",
         "ai",
         "website",
+        "visitor",
       ),
       "finance.read",
       "finance.report",
@@ -261,6 +268,8 @@ export const ROLE_PRESETS: RolePreset[] = [
     permissions: [
       ...expand("dashboard.view", "student", "academic", "attendance", "assessment", "lms"),
       ...expand("communication", "document", "election", "report"),
+      "website.enquiry.manage",
+      "visitor.read",
       "ai.insight.view",
       "ai.insight.generate",
       "staff.read",
@@ -311,6 +320,10 @@ export const ROLE_PRESETS: RolePreset[] = [
       "assessment.certificate.issue",
       "assessment.template.manage",
       ...expand("document"),
+      // Admissions runs the enquiry inbox: an enquiry is a prospective
+      // student, which is the registrar's work before it is anyone else's.
+      "website.enquiry.manage",
+      "visitor.read",
       "communication.announcement.read",
       "communication.email.send",
       "communication.sms.send",
@@ -436,6 +449,9 @@ export const ROLE_PRESETS: RolePreset[] = [
       "dashboard.view",
       "student.read",
       "staff.read",
+      "website.enquiry.manage",
+      "visitor.read",
+      "visitor.manage",
       "communication.announcement.read",
       "communication.announcement.manage",
       "communication.email.send",

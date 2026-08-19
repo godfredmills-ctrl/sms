@@ -17,6 +17,7 @@ import { isAiEnabled } from "@/lib/ai/client";
 import { getCachedInsight } from "@/lib/ai/insights";
 import { requirePermission, userCan } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { taughtBy } from "@/lib/scope";
 import { toNumber } from "@/lib/utils";
 
 import { generateTeachingInsightAction } from "./actions";
@@ -50,7 +51,7 @@ export default async function GradebookPage() {
     where: {
       termId: term.id,
       isActive: true,
-      ...(seesAll ? {} : { teacherId: user.staffId ?? "" }),
+      ...(seesAll ? {} : taughtBy(user.staffId ?? "")),
     },
     orderBy: [
       { classSection: { classLevel: { sequence: "asc" } } },

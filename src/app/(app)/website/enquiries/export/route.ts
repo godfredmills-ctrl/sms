@@ -20,7 +20,7 @@ function csvCell(value: string): string {
  */
 export async function GET() {
   const user = await getCurrentUser();
-  if (!user || !userCan(user, "student.create")) {
+  if (!user || !userCan(user, "website.enquiry.manage")) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

@@ -12,6 +12,7 @@ import {
 } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { taughtBy } from "@/lib/scope";
 
 export const metadata: Metadata = { title: "My timetable" };
 export const dynamic = "force-dynamic";
@@ -58,7 +59,7 @@ export default async function MyTimetablePage() {
   }
 
   const slots = await db.timetableSlot.findMany({
-    where: { offering: { teacherId: user.staffId } },
+    where: { offering: taughtBy(user.staffId ?? "") },
     // startTime is a zero-padded "HH:MM", so string order is time order.
     // periodIndex is NOT a school-wide clock — each class numbers its own
     // periods, and two classes' bell schedules are free to differ.

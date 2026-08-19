@@ -25,6 +25,7 @@ import { renderReportPdf } from "../src/lib/report-pdf";
 import { summariseReport } from "../src/lib/report-stats";
 import { datasetFor } from "../src/lib/reporting";
 import { renderTimetablePdf } from "../src/lib/timetable-pdf";
+import { renderVisitorPassesPdf } from "../src/lib/visitor-pass-pdf";
 import { renderReportCardPdf, renderTablePdf, renderTemplatePdf } from "../src/lib/pdf";
 import { starterLayout } from "../src/lib/templates";
 
@@ -187,6 +188,64 @@ async function main() {
         },
       },
       images: { "/api/media/demo": crest },
+    }),
+  );
+
+  // Visitor passes: a long organisation that must truncate rather than run
+  // under the QR code, a name with Twi orthography, and one walk-in with no
+  // host so the "Visiting Reception" fallback is exercised.
+  writeFileSync(
+    `${out}/visitor-passes.pdf`,
+    await renderVisitorPassesPdf({
+      school: {
+        name: "Golden Crest International School",
+        address: "12 Independence Avenue, Accra",
+        phone: "+233 30 212 3456",
+      },
+      crest,
+      passes: [
+        {
+          passNo: "V-0819-04",
+          name: "Comfort Adjoa Quartey",
+          organisation: "Parent of Priscilla, JHS 2 Amber",
+          category: "Parent",
+          host: "Mensah, Grace",
+          signedInAt: new Date("2026-08-19T09:12:00Z"),
+        },
+        {
+          passNo: "V-0819-05",
+          name: "Kwabɛna Asantɛ-Ɔboɔ",
+          organisation: "Ghana Education Service, Ayawaso West Municipal Directorate",
+          category: "Inspector",
+          host: null,
+          signedInAt: new Date("2026-08-19T10:45:00Z"),
+        },
+      ],
+    }),
+  );
+
+  // The same pass with every string at its worst: a school name longer than
+  // the card, a pass number from a very busy day, a two-line visitor name and
+  // no crest. What this catches is text running under the QR column.
+  writeFileSync(
+    `${out}/visitor-passes-long.pdf`,
+    await renderVisitorPassesPdf({
+      school: {
+        name: "The Golden Crest International School of Science and Technology, Accra",
+        address: "12 Independence Avenue, Airport Residential Area, Accra, Greater Accra",
+        phone: "+233 30 212 3456",
+      },
+      crest: null,
+      passes: [
+        {
+          passNo: "V-1231-148",
+          name: "Nana Yaw Owusu-Ansah Boateng-Mensah",
+          organisation: "Ghana Water Company Limited, Metropolitan Maintenance Division",
+          category: "Contractor",
+          host: "Owusu-Ansah Boateng-Mensah, Nana Yaw Kwabena",
+          signedInAt: new Date("2026-12-31T16:05:00Z"),
+        },
+      ],
     }),
   );
 

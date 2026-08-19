@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { AuthError, authorize, requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { loadDocumentImage } from "@/lib/document-images";
+import { taughtBy } from "@/lib/scope";
 import {
   renderTimetablePdf,
   type TimetableCell,
@@ -193,7 +194,7 @@ export async function GET(request: Request) {
     }
 
     const slots = await db.timetableSlot.findMany({
-      where: { offering: { teacherId: staffId } },
+      where: { offering: taughtBy(staffId) },
       orderBy: [{ startTime: "asc" }, { dayOfWeek: "asc" }],
       select: {
         dayOfWeek: true,

@@ -798,6 +798,7 @@ model Staff {
   takenAttendance  AttendanceSession[]
   leaveRequests    StaffLeave[]
   payslips         Payslip[]
+  visitors         Visitor[]
   documents        StaffDocument[]
 
   @@index([status])
@@ -983,6 +984,7 @@ model Student {
   paymentPlans     PaymentPlan[]
   documents        StudentDocument[]
   disciplinary     DisciplinaryRecord[]
+  visitors         Visitor[]
   promotions       PromotionRecord[]
   transcripts      Transcript[]
   certificates     IssuedCertificate[]
@@ -3367,4 +3369,49 @@ model DataJob {
   createdAt   DateTime @default(now())
 
   @@index([entity, status])
+}
+
+/// A person who came to the school and was signed in at the front desk.
+///
+/// The log answers two questions a school is asked after the fact — who was
+/// on site on the day, and who were they here to see — and one it is asked
+/// during: who is in the building right now, which is what matters in a fire
+/// drill. Signing out is therefore its own timestamp rather than a deletion.
+model Visitor {
+  id String @id @default(cuid())
+
+  fullName     String
+  phone        String?
+  organisation String?
+  /// PARENT, CONTRACTOR, INSPECTOR, SUPPLIER, GUEST, OTHER
+  category     String  @default("GUEST")
+  purpose      String
+
+  /// Whom they came to see. Either may be set, or neither for a walk-in.
+  hostStaffId    String?
+  hostStaff      Staff?   @relation(fields: [hostStaffId], references: [id], onDelete: SetNull)
+  aboutStudentId String?
+  aboutStudent   Student? @relation(fields: [aboutStudentId], references: [id], onDelete: SetNull)
+
+  /// Identification sighted at the desk — the type and last digits only.
+  idType   String?
+  idNumber String?
+
+  vehicleReg String?
+
+  /// The number written on the pass they were handed.
+  badgeNo String
+
+  signedInAt    DateTime  @default(now())
+  signedInById  String?
+  signedOutAt   DateTime?
+  signedOutById String?
+
+  notes String?
+
+  @@index([signedInAt])
+  @@index([signedOutAt])
+  @@index([badgeNo])
+  @@index([hostStaffId])
+  @@index([aboutStudentId])
 }

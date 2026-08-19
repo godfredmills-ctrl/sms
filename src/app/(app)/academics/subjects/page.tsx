@@ -12,7 +12,7 @@ import {
 } from "@/components/ui";
 import { requirePermission, userCan } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { seesWholeSchool } from "@/lib/scope";
+import { seesWholeSchool, taughtBy } from "@/lib/scope";
 
 import { toggleSubjectAction } from "../actions";
 import { LevelPicker, SubjectForm } from "./subject-form";
@@ -29,7 +29,7 @@ export default async function SubjectsPage() {
   const wholeSchool = seesWholeSchool(user);
   const subjectScope = wholeSchool
     ? {}
-    : { offerings: { some: { teacherId: user.staffId ?? "" } } };
+    : { offerings: { some: taughtBy(user.staffId ?? "") } };
 
   const [subjects, levels] = await Promise.all([
     db.subject.findMany({

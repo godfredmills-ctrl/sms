@@ -400,6 +400,21 @@ export async function createOfferingAction(
 
   const termId = text(formData, "termId") || year.terms[0]?.id || null;
 
+  const teacherId = text(formData, "teacherId") || null;
+
+  // A class takes a subject from one lead teacher and any number of others
+  // alongside them — a lab assistant, a second set teacher, a trainee. The
+  // lead is filtered out of the co-teacher list so nobody is counted twice
+  // when the same name is picked in both boxes.
+  const coTeacherIds = [
+    ...new Set(
+      formData
+        .getAll("coTeacherIds")
+        .map((value) => String(value).trim())
+        .filter((value) => value && value !== teacherId),
+    ),
+  ];
+
   const existing = await db.subjectOffering.findFirst({
     where: { academicYearId: year.id, termId, subjectId, classSectionId },
     select: { id: true },
@@ -408,8 +423,9 @@ export async function createOfferingAction(
   if (existing) {
     await db.subjectOffering.update({
       where: { id: existing.id },
-      data: { teacherId: text(formData, "teacherId") || null, isActive: true },
+      data: { teacherId, coTeacherIds, isActive: true },
     });
+    revalidatePath("/academics/classes");
     return { ok: true, message: "Updated the existing assignment." };
   }
 
@@ -419,7 +435,8 @@ export async function createOfferingAction(
       termId,
       subjectId,
       classSectionId,
-      teacherId: text(formData, "teacherId") || null,
+      teacherId,
+      coTeacherIds,
       room: text(formData, "room") || null,
     },
   });
