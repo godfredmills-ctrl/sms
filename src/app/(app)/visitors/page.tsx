@@ -16,7 +16,9 @@ import {
 } from "@/components/ui";
 import { requirePermission, userCan } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { formatDateTime, formatPhone, humanise, listName, relativeTime } from "@/lib/utils";
+import { formatDateTime, formatPhone, listName, relativeTime } from "@/lib/utils";
+
+import { categoryLabel } from "./categories";
 
 import { SignInForm } from "./sign-in-form";
 import { CloseOpenVisitsButton, SignOutButton } from "./sign-out-button";
@@ -278,7 +280,7 @@ export default async function VisitorsPage({
                         </div>
 
                         <p className="mt-0.5 text-sm text-[var(--text-muted)]">
-                          {humanise(row.category)}
+                          {categoryLabel(row.category)}
                           {row.organisation ? ` · ${row.organisation}` : ""} — {row.purpose}
                         </p>
 

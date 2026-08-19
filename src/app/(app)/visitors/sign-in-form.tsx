@@ -17,15 +17,7 @@ import {
 } from "@/components/ui";
 
 import { signInVisitorAction, type VisitorState } from "./actions";
-
-const CATEGORIES = [
-  { value: "PARENT", label: "Parent or guardian" },
-  { value: "CONTRACTOR", label: "Contractor" },
-  { value: "INSPECTOR", label: "Inspector or official" },
-  { value: "SUPPLIER", label: "Supplier or delivery" },
-  { value: "GUEST", label: "Guest" },
-  { value: "OTHER", label: "Other" },
-];
+import { VISITOR_CATEGORIES } from "./categories";
 
 const ID_TYPES = [
   { value: "", label: "None sighted" },
@@ -94,7 +86,7 @@ export function SignInForm({
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label="They are a" htmlFor="visitor-category">
             <Select id="visitor-category" name="category" defaultValue="PARENT">
-              {CATEGORIES.map((option) => (
+              {VISITOR_CATEGORIES.map((option) => (
                 <option key={option.value} value={option.value}>
                   {option.label}
                 </option>

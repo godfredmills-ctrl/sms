@@ -17,11 +17,11 @@ import {
 } from "@/components/ui";
 
 import {
-  LIFECYCLE_TRANSITIONS,
   setStudentLifecycleAction,
   transferStudentClassAction,
   type StudentState,
 } from "../actions";
+import { LIFECYCLE_TRANSITIONS } from "../lifecycle";
 
 /**
  * The rest of a student's life at the school: a change of class, and the

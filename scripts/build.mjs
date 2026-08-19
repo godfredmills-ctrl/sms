@@ -89,5 +89,10 @@ function run(label, bin, args) {
   }
 }
 
+// Cheap, and it catches a class of defect `next build` does not: a "use
+// server" module exporting a value rather than an async function compiles,
+// type-checks and builds clean, then 500s the first time the page is opened.
+run("Checking server-action exports", "scripts/check-server-exports.mjs", []);
+
 run("Generating Prisma client", await binOf("prisma/build/index.js"), ["generate"]);
 run("Building Next.js application", await binOf("next/dist/bin/next"), ["build"]);

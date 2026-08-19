@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { authorize } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { loadDocumentImage } from "@/lib/document-images";
+import { categoryLabel } from "@/app/(app)/visitors/categories";
 import { listName } from "@/lib/utils";
 import { renderVisitorPassesPdf, type VisitorPass } from "@/lib/visitor-pass-pdf";
 
@@ -135,7 +136,7 @@ export async function GET(request: Request) {
     passNo: row.badgeNo,
     name: row.fullName,
     organisation: row.organisation,
-    category: humaniseCategory(row.category),
+    category: categoryLabel(row.category),
     host: row.hostStaff ? listName(row.hostStaff) : null,
     signedInAt: row.signedInAt,
   }));
@@ -160,10 +161,4 @@ export async function GET(request: Request) {
       "Cache-Control": "no-store",
     },
   });
-}
-
-/** PARENT -> "Parent", INSPECTOR -> "Inspector". */
-function humaniseCategory(value: string): string {
-  const words = value.toLowerCase().replace(/_/g, " ");
-  return words.charAt(0).toUpperCase() + words.slice(1);
 }

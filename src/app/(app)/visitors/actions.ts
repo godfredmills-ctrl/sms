@@ -6,6 +6,8 @@ import { authorize } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { normalisePhone } from "@/lib/utils";
 
+import { normaliseCategory } from "./categories";
+
 export type VisitorState = {
   ok?: boolean;
   error?: string;
@@ -17,15 +19,6 @@ export type VisitorState = {
 function text(formData: FormData, key: string): string {
   return String(formData.get(key) ?? "").trim();
 }
-
-export const VISITOR_CATEGORIES = [
-  "PARENT",
-  "CONTRACTOR",
-  "INSPECTOR",
-  "SUPPLIER",
-  "GUEST",
-  "OTHER",
-] as const;
 
 /**
  * The next pass number for today: V-0819-04, reset each morning.
@@ -78,10 +71,7 @@ export async function signInVisitorAction(
   if (!fullName) return { error: "Who is signing in?" };
   if (!purpose) return { error: "What have they come for?" };
 
-  const categoryRaw = text(formData, "category").toUpperCase();
-  const category = (VISITOR_CATEGORIES as readonly string[]).includes(categoryRaw)
-    ? categoryRaw
-    : "GUEST";
+  const category = normaliseCategory(text(formData, "category"));
 
   const hostStaffId = text(formData, "hostStaffId") || null;
   const aboutStudentId = text(formData, "aboutStudentId") || null;

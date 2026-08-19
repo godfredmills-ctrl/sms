@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 
 import { authorize } from "@/lib/auth";
 import { db } from "@/lib/db";
+
+import { LIFECYCLE_TRANSITIONS } from "./lifecycle";
 import { hashPassword } from "@/lib/crypto";
 import { parseAttachedDocuments } from "@/lib/person-documents";
 import { studentOutOfScope } from "@/lib/scope";
@@ -602,41 +604,6 @@ export async function updateStudentAction(
   return { ok: true, message: "Saved." };
 }
 
-/** What a student's record can become, and what each transition means. */
-export const LIFECYCLE_TRANSITIONS = [
-  {
-    value: "ON_LEAVE",
-    label: "On leave",
-    description:
-      "Away for a while and expected back. Keeps their class place, but comes out of the headcount and the next billing run.",
-    endsEnrolment: false,
-  },
-  {
-    value: "SUSPENDED",
-    label: "Suspended",
-    description:
-      "Excluded temporarily. Keeps their class place, but comes out of the headcount and the next billing run.",
-    endsEnrolment: false,
-  },
-  {
-    value: "WITHDRAWN",
-    label: "Withdrawn",
-    description: "Taken out of the school by the family. Leaves the roll and billing.",
-    endsEnrolment: true,
-  },
-  {
-    value: "TRANSFERRED_OUT",
-    label: "Transferred out",
-    description: "Moved to another school. Leaves the roll and billing.",
-    endsEnrolment: true,
-  },
-  {
-    value: "ENROLLED",
-    label: "Reinstate as enrolled",
-    description: "Back on the roll, on the register, and billed again.",
-    endsEnrolment: false,
-  },
-] as const;
 
 /**
  * Moves a student through the rest of their life at the school.
