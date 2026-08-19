@@ -22,7 +22,13 @@ const TRANSLITERATE: Record<string, string> = {
 };
 
 export function sanitisePdfText(text: string, font: PDFFont): string {
-  const mapped = text.replace(/[ɛƐɔƆŋŊƒƑʋƲɖƉ]/g, (char) => TRANSLITERATE[char]);
+  const mapped = text
+    // The cedi sign is not in WinAnsi either, and dropping it silently turned
+    // every amount on a payslip into "GH2,800.00". GHS is the ISO code and
+    // what a Ghanaian bank statement prints, so it substitutes cleanly.
+    .replace(/GH₵s?/g, "GHS ")
+    .replace(/₵s?/g, "GHS ")
+    .replace(/[ɛƐɔƆŋŊƒƑʋƲɖƉ]/g, (char) => TRANSLITERATE[char]);
   try {
     font.widthOfTextAtSize(mapped, 8);
     return mapped;

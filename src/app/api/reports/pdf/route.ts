@@ -9,6 +9,7 @@ import {
   formatCell,
   type ReportConfig,
 } from "@/lib/reporting";
+import { summariseReport } from "@/lib/report-stats";
 import { seesWholeSchool } from "@/lib/scope";
 import { formatDateTime } from "@/lib/utils";
 
@@ -107,7 +108,12 @@ export async function GET(request: Request) {
     numeric: ["number", "money", "percent"].includes(field.type),
   }));
 
-  const rows = ((run.result as Array<Record<string, string | number | null>>) ?? []).map(
+  // The analysis runs over the RAW values, before formatting: "GH₵1,250.00"
+  // is a string and a mean of strings is nothing.
+  const rawRows = (run.result as Array<Record<string, string | number | null>>) ?? [];
+  const summary = summariseReport(rawRows, dataset, chosenKeys);
+
+  const rows = rawRows.map(
     (row) =>
       Object.fromEntries(
         chosen.map((field) => [field.key, formatCell(row[field.key] ?? null, field.type)]),
@@ -165,6 +171,7 @@ export async function GET(request: Request) {
       meta: `Run by ${author ? `${author.firstName} ${author.lastName}` : "—"} on ${formatDateTime(run.createdAt)}`,
       columns,
       rows,
+      summary,
       narrative: run.aiNarrative
         ? { heading: "Analysis", body: run.aiNarrative }
         : null,

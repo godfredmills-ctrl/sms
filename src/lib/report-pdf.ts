@@ -8,6 +8,11 @@ import {
   type Letterhead,
 } from "@/lib/letterhead";
 import { sanitisePdfText } from "@/lib/pdf-text";
+import {
+  formatMeasure,
+  type Breakdown,
+  type ReportSummary,
+} from "@/lib/report-stats";
 
 /**
  * A report as a document.
@@ -47,6 +52,8 @@ export type ReportDocument = {
   meta?: string | null;
   columns: ReportColumn[];
   rows: Array<Record<string, string>>;
+  /** Key figures, breakdowns and gaps, derived from the rows. */
+  summary?: ReportSummary | null;
   /** The AI narrative, when the report was run with one. */
   narrative?: { heading: string; body: string; findings?: string[] } | null;
   /** Printed at the foot of every page. */
@@ -144,7 +151,200 @@ export async function renderReportPdf(input: {
   }
   y -= 8;
 
+  // --- The analysis ---------------------------------------------------------
+  // A reader meets the findings first and the four hundred rows afterwards,
+  // because a table is evidence and this is the report.
+  const summary = report.summary;
+
+  const sectionHeading = (text: string) => {
+    page.drawText(clean(text).toUpperCase(), {
+      x: MARGIN,
+      y,
+      size: 7,
+      font: bold,
+      color: MUTED,
+    });
+    y -= 6;
+    page.drawRectangle({ x: MARGIN, y, width: usable, height: 0.5, color: RULE });
+    y -= 14;
+  };
+
+  const newPage = () => {
+    page = pdf.addPage([PAGE_W, PAGE_H]);
+    drawLetterheadFooter(page, letterhead, {
+      margin: MARGIN,
+      font: regular,
+      note: clean(report.footerNote),
+    });
+    y = PAGE_H - MARGIN;
+    page.drawText(truncate(clean(report.title), bold, 9, usable), {
+      x: MARGIN,
+      y,
+      size: 9,
+      font: bold,
+      color: MUTED,
+    });
+    y -= 20;
+  };
+
+  if (summary?.numerics.length) {
+    sectionHeading("Key figures");
+
+    // One tile per numeric column: the total is the headline, with the
+    // spread underneath — a mean without a range hides the outlier that is
+    // usually the point.
+    const tiles = summary.numerics.slice(0, 4);
+    const tileWidth = usable / tiles.length;
+    const tileHeight = 46;
+
+    tiles.forEach((figure, index) => {
+      const x = MARGIN + index * tileWidth;
+      page.drawRectangle({
+        x,
+        y: y - tileHeight + 12,
+        width: tileWidth - 8,
+        height: tileHeight,
+        color: rgb(0.965, 0.972, 0.98),
+      });
+      page.drawText(
+        truncate(
+          clean(`${figure.label} — ${figure.headlineLabel.toLowerCase()}`),
+          regular,
+          6.5,
+          tileWidth - 20,
+        ),
+        { x: x + 8, y: y + 1, size: 6.5, font: regular, color: MUTED },
+      );
+      page.drawText(
+        truncate(clean(formatMeasure(figure.headline, figure.type)), bold, 13, tileWidth - 20),
+        { x: x + 8, y: y - 14, size: 13, font: bold, color: INK },
+      );
+      page.drawText(
+        truncate(
+          clean(
+            (figure.headlineLabel === "Total"
+              ? `avg ${formatMeasure(figure.mean, figure.type)}  ·  `
+              : `${figure.count} rows  ·  `) +
+              `${formatMeasure(figure.min, figure.type)}–${formatMeasure(figure.max, figure.type)}`,
+          ),
+          regular,
+          6,
+          tileWidth - 20,
+        ),
+        { x: x + 8, y: y - 26, size: 6, font: regular, color: MUTED },
+      );
+    });
+
+    y -= tileHeight + 18;
+  }
+
+  if (summary?.breakdowns.length) {
+    // Two side by side, so four breakdowns are two rows rather than four
+    // pages of half-empty tables.
+    const perRow = 2;
+    const columnWidth = usable / perRow;
+
+    for (let index = 0; index < summary.breakdowns.length; index += perRow) {
+      const pair = summary.breakdowns.slice(index, index + perRow);
+      const tallest = Math.max(...pair.map((entry) => entry.rows.length));
+      const needed = tallest * 12 + 40;
+      if (y - needed < MARGIN + 30) newPage();
+
+      if (index === 0) sectionHeading("Breakdown");
+      const top = y;
+
+      pair.forEach((breakdown: Breakdown, column) => {
+        const x = MARGIN + column * columnWidth;
+        const inner = columnWidth - 16;
+        let rowY = top;
+
+        page.drawText(truncate(clean(breakdown.label), bold, 8, inner), {
+          x,
+          y: rowY,
+          size: 8,
+          font: bold,
+          color: INK,
+        });
+        rowY -= 12;
+
+        const widest = Math.max(...breakdown.rows.map((entry) => entry.count), 1);
+
+        for (const entry of breakdown.rows) {
+          // A bar behind the label: the shape of the distribution reads
+          // before any of the numbers do.
+          const barWidth = (entry.count / widest) * (inner * 0.55);
+          page.drawRectangle({
+            x,
+            y: rowY - 2.5,
+            width: Math.max(barWidth, 0.6),
+            height: 8,
+            color: rgb(0.87, 0.91, 0.97),
+          });
+          page.drawText(truncate(clean(entry.value), regular, 7, inner * 0.5), {
+            x: x + 3,
+            y: rowY,
+            size: 7,
+            font: regular,
+            color: INK,
+          });
+
+          const right = clean(
+            `${entry.count}  ·  ${entry.percent.toFixed(0)}%` +
+              (entry.measure !== undefined && breakdown.measureType
+                ? `  ·  ${formatMeasure(entry.measure, breakdown.measureType)}`
+                : ""),
+          );
+          const rightText = truncate(right, regular, 7, inner * 0.45);
+          const rightWidth = regular.widthOfTextAtSize(rightText, 7);
+          page.drawText(rightText, {
+            x: x + inner - rightWidth,
+            y: rowY,
+            size: 7,
+            font: regular,
+            color: MUTED,
+          });
+          rowY -= 12;
+        }
+
+        if (breakdown.otherCount) {
+          page.drawText(`and ${breakdown.otherCount} more`, {
+            x,
+            y: rowY,
+            size: 6,
+            font: italic,
+            color: MUTED,
+          });
+        }
+      });
+
+      y = top - tallest * 12 - 20;
+    }
+  }
+
+  if (summary?.gaps.length) {
+    const needed = summary.gaps.length * 11 + 30;
+    if (y - needed < MARGIN + 30) newPage();
+
+    sectionHeading("What is missing");
+    for (const gap of summary.gaps) {
+      page.drawText(
+        truncate(
+          `${clean(gap.label)} — ${gap.filled} of ${gap.total} rows filled (${gap.percent.toFixed(0)}%)`,
+          regular,
+          7.5,
+          usable,
+        ),
+        { x: MARGIN, y, size: 7.5, font: regular, color: INK },
+      );
+      y -= 11;
+    }
+    y -= 10;
+  }
+
   // --- Table ----------------------------------------------------------------
+  if (summary && y < MARGIN + 120) newPage();
+  if (summary) sectionHeading("The detail");
+
   const columns = report.columns.slice(0, 12);
   const columnWidth = usable / Math.max(1, columns.length);
   const rowHeight = 14;

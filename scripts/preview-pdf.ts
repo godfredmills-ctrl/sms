@@ -21,6 +21,8 @@ import sharp from "sharp";
 import { renderIdCardsPdf } from "../src/lib/id-card-pdf";
 import { renderPayslipsPdf } from "../src/lib/payslip-pdf";
 import { renderReportPdf } from "../src/lib/report-pdf";
+import { summariseReport } from "../src/lib/report-stats";
+import { datasetFor } from "../src/lib/reporting";
 import { renderTimetablePdf } from "../src/lib/timetable-pdf";
 import { renderReportCardPdf, renderTablePdf, renderTemplatePdf } from "../src/lib/pdf";
 import { starterLayout } from "../src/lib/templates";
@@ -320,6 +322,25 @@ async function main() {
     }),
   );
 
+  const studentsDataset = datasetFor("students")!;
+  const rawReportRows = Array.from({ length: 40 }, (_, index) => ({
+    admissionNo: `GCS/2024/${String(300 + index).padStart(4, "0")}`,
+    name: ["Priscilla Naa Quartey", "Kwabena Asante-Oboo", "Efua Mensimah", "Nana Yaw Owusu-Ansah"][index % 4],
+    className: ["JHS 2 Amber", "JHS 2 Coral", "JHS 1 Amber"][index % 3],
+    house: ["Ruby", "Topaz", "Jade", "Onyx"][index % 4],
+    gender: index % 3 === 0 ? "Female" : "Male",
+    guardianName: ["Comfort Quartey", "Akosua Boateng", "Yaw Darko", "Abena Serwaa"][index % 4],
+    // A fifth of the rows have no phone on file — the gap the report should
+    // surface rather than leave a reader to notice.
+    guardianPhone: index % 5 === 0 ? null : "+233 24 555 0" + String(100 + index),
+    outstanding: 1250 + index * 37,
+    attendanceRate: 88 + (index % 11),
+  }));
+  const reportSummary = summariseReport(rawReportRows, studentsDataset, [
+    "admissionNo", "name", "className", "house", "gender",
+    "guardianName", "guardianPhone", "outstanding", "attendanceRate",
+  ]);
+
   writeFileSync(
     `${out}/report.pdf`,
     await renderReportPdf({
@@ -350,15 +371,16 @@ async function main() {
           { key: "outstanding", label: "Outstanding", numeric: true },
           { key: "attendanceRate", label: "Attendance", numeric: true },
         ],
-        rows: Array.from({ length: 40 }, (_, index) => ({
-          admissionNo: `GCS/2024/${String(300 + index).padStart(4, "0")}`,
-          name: ["Priscilla Naa Quartey", "Kwabena Asante-Oboo", "Efua Mensimah", "Nana Yaw Owusu-Ansah"][index % 4],
-          className: "JHS 2 Amber",
-          guardianName: ["Comfort Quartey", "Akosua Boateng", "Yaw Darko", "Abena Serwaa"][index % 4],
-          guardianPhone: "+233 24 555 0" + String(100 + index),
-          outstanding: "GH₵" + (1250 + index * 37).toLocaleString() + ".00",
-          attendanceRate: (88 + (index % 11)) + "%",
+        rows: rawReportRows.map((row) => ({
+          admissionNo: row.admissionNo,
+          name: row.name,
+          className: row.className,
+          guardianName: row.guardianName,
+          guardianPhone: row.guardianPhone ?? "—",
+          outstanding: "GH₵" + row.outstanding.toLocaleString() + ".00",
+          attendanceRate: row.attendanceRate + "%",
         })),
+        summary: reportSummary,
         narrative: {
           heading: "Analysis",
           body: "Arrears in JHS 2 Amber are concentrated in a small group: eleven families account for just over sixty per cent of the outstanding balance, and nine of those eleven have made no payment since the second week of term. Attendance among that group is four points below the class average, which is the pattern the at-risk scan usually picks up a term later.",
