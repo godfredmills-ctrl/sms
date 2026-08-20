@@ -168,6 +168,12 @@ export const PERMISSIONS: PermissionDef[] = [
     ["manage", "update", "Sign visitors in and out, and issue passes"],
   ]),
 
+  ...define("library", [
+    ["read", "read", "Search the library catalogue"],
+    ["circulate", "update", "Issue and take back books at the desk"],
+    ["manage", "update", "Add and edit titles, copies and shelf marks"],
+  ]),
+
   ...define("settings", [
     ["read", "read", "View system settings"],
     ["school.manage", "update", "Edit school profile and branding"],
@@ -246,6 +252,7 @@ export const ROLE_PRESETS: RolePreset[] = [
         "ai",
         "website",
         "visitor",
+        "library",
       ),
       "finance.read",
       "finance.report",
@@ -354,6 +361,7 @@ export const ROLE_PRESETS: RolePreset[] = [
       "assessment.grade",
       "assessment.report.generate",
       ...expand("lms"),
+      "library.read",
       "communication.announcement.read",
       "communication.memo.read",
       "communication.message",
@@ -427,12 +435,16 @@ export const ROLE_PRESETS: RolePreset[] = [
   {
     key: "librarian",
     name: "Librarian",
-    description: "Document cabinet and learning resources.",
+    description: "The library catalogue, the issue desk and the document cabinet.",
     portal: "STAFF",
     rank: 65,
     permissions: [
       "dashboard.view",
+      // The desk needs to find any child by name to issue them a book, so
+      // this is the whole school by design — see seesWholeSchool in scope.ts,
+      // which reads student.read as exactly that signal.
       "student.read",
+      ...expand("library"),
       ...expand("document"),
       "lms.course.read",
       "communication.announcement.read",
@@ -452,6 +464,8 @@ export const ROLE_PRESETS: RolePreset[] = [
       "website.enquiry.manage",
       "visitor.read",
       "visitor.manage",
+      "library.read",
+      "library.circulate",
       "communication.announcement.read",
       "communication.announcement.manage",
       "communication.email.send",
@@ -480,6 +494,10 @@ export const ROLE_PRESETS: RolePreset[] = [
       "election.read",
       "election.vote",
       "document.read",
+      // Search the catalogue and see what they themselves have out. The
+      // library page narrows to the viewer's own loans for a portal account —
+      // read here is the catalogue, not the borrowing history of the school.
+      "library.read",
     ],
   },
   {
@@ -495,6 +513,7 @@ export const ROLE_PRESETS: RolePreset[] = [
       "communication.announcement.read",
       "communication.message",
       "document.read",
+      "library.read",
     ],
   },
 ];

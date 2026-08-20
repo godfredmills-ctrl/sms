@@ -221,6 +221,21 @@ export const STAFF_NAVIGATION: NavGroup[] = [
     label: "Learning",
     items: [
       {
+        label: "Library",
+        href: "/library",
+        icon: "Library",
+        permissions: ["library.read"],
+        children: [
+          { label: "Catalogue", href: "/library", icon: "BookOpen" },
+          {
+            label: "Issue desk",
+            href: "/library/loans",
+            icon: "BookUp",
+            permissions: ["library.circulate"],
+          },
+        ],
+      },
+      {
         label: "Courses (VLE)",
         href: "/lms",
         icon: "MonitorPlay",
@@ -470,6 +485,12 @@ export const STUDENT_NAVIGATION: NavGroup[] = [
       { label: "Certificates", href: "/portal/student/credentials", icon: "Award" },
       { label: "Timetable", href: "/portal/student/timetable", icon: "Calendar" },
       { label: "Attendance", href: "/portal/student/attendance", icon: "CalendarCheck" },
+      {
+        label: "My Library",
+        href: "/portal/student/library",
+        icon: "Library",
+        permissions: ["library.read"],
+      },
     ],
   },
   {

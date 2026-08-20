@@ -38,6 +38,7 @@ import {
 } from "@/components/ui";
 import { requirePermission, userCan } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { daysOverdue } from "@/lib/library";
 import { getStudentStatement } from "@/lib/finance";
 import { studentOutOfScope } from "@/lib/scope";
 import { CONDUCT_STATUS_TONES } from "../discipline/fields";
@@ -61,7 +62,8 @@ type TabKey =
   | "attendance"
   | "finance"
   | "documents"
-  | "conduct";
+  | "conduct"
+  | "library";
 
 const TABS: Array<{ key: TabKey; label: string; icon: typeof Home; permission?: string }> = [
   { key: "overview", label: "Overview", icon: Home },
@@ -74,6 +76,7 @@ const TABS: Array<{ key: TabKey; label: string; icon: typeof Home; permission?: 
   { key: "finance", label: "Fees", icon: Wallet, permission: "finance.read" },
   { key: "documents", label: "Documents", icon: FolderOpen },
   { key: "conduct", label: "Conduct", icon: ShieldAlert },
+  { key: "library", label: "Library", icon: BookOpen, permission: "library.read" },
 ];
 
 export async function generateMetadata({
@@ -148,6 +151,20 @@ export default async function StudentProfilePage({
       },
       documents: { include: { file: true }, orderBy: { uploadedAt: "desc" } },
       disciplinary: { orderBy: { incidentAt: "desc" } },
+      // A child's reading is one of the few records that follows them through
+      // the whole school, so this is the history rather than a current list —
+      // what is out now simply sorts to the top of it.
+      libraryLoans: {
+        orderBy: [{ returnedAt: { sort: "asc", nulls: "first" } }, { issuedAt: "desc" }],
+        take: 50,
+        include: {
+          copy: {
+            include: {
+              item: { select: { title: true, author: true, category: true } },
+            },
+          },
+        },
+      },
     },
   });
 
@@ -1224,6 +1241,59 @@ export default async function StudentProfilePage({
           canManage={userCan(user, "student.document.manage")}
           canVerify={userCan(user, "student.update")}
         />
+      ) : null}
+
+      {active === "library" ? (
+        <Card>
+          <CardHeader
+            title="Library"
+            description="What this pupil has out, and what they have read."
+          />
+          {student.libraryLoans.length ? (
+            <ul className="divide-y divide-[var(--border)]">
+              {student.libraryLoans.map((loan) => {
+                const late = loan.returnedAt ? 0 : daysOverdue(loan.dueAt);
+                return (
+                  <li key={loan.id} className="flex flex-wrap gap-3 px-5 py-3">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="text-sm font-medium">{loan.copy.item.title}</p>
+                        {loan.returnedAt ? null : late ? (
+                          <Badge tone="danger">
+                            {late} day{late === 1 ? "" : "s"} late
+                          </Badge>
+                        ) : (
+                          <Badge tone="info">Out</Badge>
+                        )}
+                      </div>
+                      <p className="mt-0.5 text-xs text-[var(--text-muted)]">
+                        {loan.copy.item.author ?? "Author unknown"}
+                        {" · "}
+                        <span className="numeric">{loan.copy.accessionNo}</span>
+                      </p>
+                    </div>
+                    <div className="shrink-0 text-right text-xs">
+                      <p className="numeric text-[var(--text-muted)]">
+                        {loan.returnedAt
+                          ? `Returned ${formatDate(loan.returnedAt)}`
+                          : `Due ${formatDate(loan.dueAt)}`}
+                      </p>
+                      <p className="numeric text-[var(--text-subtle)]">
+                        Borrowed {formatDate(loan.issuedAt)}
+                      </p>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          ) : (
+            <EmptyState
+              icon={<BookOpen className="size-6" />}
+              title="Nothing borrowed yet"
+              description="Books appear here as the library issues them."
+            />
+          )}
+        </Card>
       ) : null}
 
       {active === "conduct" ? (

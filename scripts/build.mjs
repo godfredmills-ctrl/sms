@@ -96,6 +96,7 @@ for (const check of [
   ["server-action exports", "scripts/check-server-exports.mjs"],
   ["internal links", "scripts/check-internal-links.mjs"],
   ["PDF text sanitising", "scripts/check-pdf-text.mjs"],
+  ["seed coverage", "scripts/check-seed-tables.mjs"],
 ]) {
   run(`Checking ${check[0]}`, check[1], []);
 }

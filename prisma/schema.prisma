@@ -799,6 +799,7 @@ model Staff {
   leaveRequests    StaffLeave[]
   payslips         Payslip[]
   visitors         Visitor[]
+  libraryLoans     LibraryLoan[]
   documents        StaffDocument[]
 
   @@index([status])
@@ -985,6 +986,7 @@ model Student {
   documents        StudentDocument[]
   disciplinary     DisciplinaryRecord[]
   visitors         Visitor[]
+  libraryLoans     LibraryLoan[]
   promotions       PromotionRecord[]
   transcripts      Transcript[]
   certificates     IssuedCertificate[]
@@ -1382,6 +1384,7 @@ model Subject {
   reportLines     ReportCardLine[]
   transcriptLines TranscriptLine[]
   bankQuestions   QuizQuestion[]    @relation("BankQuestions")
+  libraryItems    LibraryItem[]
 
   @@index([department])
 }
@@ -3414,4 +3417,122 @@ model Visitor {
   @@index([badgeNo])
   @@index([hostStaffId])
   @@index([aboutStudentId])
+}
+
+/// A title the library holds — a book, an atlas, a DVD, a past-paper pack.
+///
+/// Separate from the physical copies on the shelf because a school owns five
+/// of the same textbook and one question — "can a child borrow this today?" —
+/// can only be answered by counting copies. It also means a single lost copy
+/// is recorded as lost without the title disappearing from the catalogue.
+model LibraryItem {
+  id String @id @default(cuid())
+
+  title     String
+  author    String?
+  /// ISBN-10 or ISBN-13 as printed. Not unique: a school legitimately holds
+  /// two editions of the same ISBN, and much of a school library — locally
+  /// published readers, past papers — has no ISBN at all.
+  isbn      String?
+  publisher String?
+  /// Year of publication as printed on the title page.
+  published Int?
+  edition   String?
+
+  /// FICTION, NON_FICTION, TEXTBOOK, REFERENCE, PERIODICAL, PAST_PAPER, MEDIA
+  category  String  @default("FICTION")
+  /// Dewey number or the school's own shelf mark — what is written on the spine.
+  shelfMark String?
+  language  String  @default("English")
+
+  /// The subject this supports, where it supports one. A library that can
+  /// answer "what do we hold for JHS 2 Science?" is a library a teacher uses.
+  subjectId        String?
+  subject          Subject? @relation(fields: [subjectId], references: [id], onDelete: SetNull)
+  /// Suitable from this class level upward, by sequence. Advisory, not enforced.
+  minLevelSequence Int?
+
+  summary  String?
+  coverUrl String?
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  copies LibraryCopy[]
+
+  @@index([title])
+  @@index([isbn])
+  @@index([category])
+  @@index([subjectId])
+}
+
+/// One physical copy on the shelf.
+model LibraryCopy {
+  id     String      @id @default(cuid())
+  itemId String
+  item   LibraryItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  /// The number written inside the front cover. Unique across the library —
+  /// it is what the desk types, and what a returned book is identified by.
+  accessionNo String @unique
+
+  /// AVAILABLE | ON_LOAN | LOST | WITHDRAWN | REPAIR
+  status    String @default("AVAILABLE")
+  /// NEW | GOOD | FAIR | POOR
+  condition String @default("GOOD")
+
+  acquiredOn DateTime?
+  /// What the school paid, in pesewas — for the replacement charge on a loss.
+  costMinor  Int?
+  notes      String?
+
+  createdAt DateTime @default(now())
+
+  loans LibraryLoan[]
+
+  @@index([itemId])
+  @@index([status])
+}
+
+/// A copy in someone's hands, or the record that it once was.
+///
+/// Returning sets returnedAt rather than deleting the row: "who had this book
+/// when it came back damaged" is a question asked months later, and a school
+/// library's reading history is one of the few records that follows a child
+/// through the whole school.
+model LibraryLoan {
+  id     String      @id @default(cuid())
+  copyId String
+  copy   LibraryCopy @relation(fields: [copyId], references: [id], onDelete: Cascade)
+
+  /// Exactly one of these is set — enforced by a CHECK constraint in the
+  /// migration, because a loan belonging to nobody, or to two people, is not
+  /// a state any code should have to interpret.
+  studentId String?
+  student   Student? @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  staffId   String?
+  staff     Staff?   @relation(fields: [staffId], references: [id], onDelete: Cascade)
+
+  issuedAt     DateTime  @default(now())
+  issuedById   String?
+  dueAt        DateTime
+  returnedAt   DateTime?
+  returnedById String?
+
+  /// How many times the loan has been extended.
+  renewals Int @default(0)
+
+  /// Charged at return, in pesewas. Null where the school charges nothing,
+  /// which is most of them — an overdue book is a conversation, not an invoice.
+  fineMinor       Int?
+  /// Condition noted when it came back, where it differs from when it went out.
+  returnCondition String?
+  notes           String?
+
+  @@index([copyId])
+  @@index([studentId])
+  @@index([staffId])
+  @@index([returnedAt])
+  @@index([dueAt])
 }

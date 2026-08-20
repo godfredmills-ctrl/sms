@@ -150,6 +150,7 @@ async function main() {
   await seedDocumentTemplates();
   await seedLearning(offerings, students, sections, demoStudentSectionId);
   await seedQuestionBank(subjects);
+  await seedLibrary(subjects, students, staff);
   await seedReportCards(terms, sections, demoStudentSectionId);
   await seedWebsite(school);
   await seedPayroll(staff);
@@ -213,6 +214,9 @@ async function reset() {
     "timetableSlot", "subjectOffering", "levelSubject",
     "promotionRecord", "enrollment",
     "clinicVisit", "studentMedical", "disciplinaryRecord",
+    // Loans before copies before titles, and all three before the pupils,
+    // staff and subjects they point at.
+    "libraryLoan", "libraryCopy", "libraryItem",
     // Documents on a person's file — before the people and the files they
     // point at, both of which are deleted further down.
     "studentDocument", "staffDocument", "guardianDocument",
@@ -2861,6 +2865,330 @@ async function seedPayroll(staff: StaffRow[]) {
       }),
     });
   }
+}
+
+/**
+ * A school library that looks like one.
+ *
+ * Weighted the way a Ghanaian international school's shelves actually are:
+ * West African writing alongside the British and American set texts, several
+ * copies of each class reader because thirty children read it at once, one
+ * copy of each reference work, and a run of past papers. Every title carries
+ * real accession numbers so the issue desk can be used the moment the seed
+ * finishes — the demo is only useful if someone can type a number into it.
+ */
+async function seedLibrary(subjects: SubjectRow[], students: StudentRow[], staff: StaffRow[]) {
+  console.log("  Library…");
+
+  const subjectId = (code: string) =>
+    subjects.find((subject) => subject.code === code)?.id ?? null;
+
+  const catalogue: Array<{
+    title: string;
+    author: string;
+    category: string;
+    copies: number;
+    subject?: string;
+    shelfMark?: string;
+    isbn?: string;
+    publisher?: string;
+    published?: number;
+    summary?: string;
+  }> = [
+    {
+      title: "Things Fall Apart",
+      author: "Chinua Achebe",
+      category: "FICTION",
+      copies: 12,
+      subject: "ENG",
+      shelfMark: "F ACH",
+      isbn: "9780385474542",
+      publisher: "Heinemann",
+      published: 1958,
+      summary: "Okonkwo, Umuofia, and the arrival of the missionaries.",
+    },
+    {
+      title: "The Beautyful Ones Are Not Yet Born",
+      author: "Ayi Kwei Armah",
+      category: "FICTION",
+      copies: 8,
+      subject: "ENG",
+      shelfMark: "F ARM",
+      publisher: "Heinemann",
+      published: 1968,
+      summary: "A railway clerk in Accra who will not take the bribe.",
+    },
+    {
+      title: "Anowa",
+      author: "Ama Ata Aidoo",
+      category: "FICTION",
+      copies: 10,
+      subject: "ENG",
+      shelfMark: "F AID",
+      publisher: "Longman",
+      published: 1970,
+    },
+    {
+      title: "Faceless",
+      author: "Amma Darko",
+      category: "FICTION",
+      copies: 9,
+      subject: "ENG",
+      shelfMark: "F DAR",
+      publisher: "Sub-Saharan Publishers",
+      published: 2003,
+    },
+    {
+      title: "The Gods Are Not to Blame",
+      author: "Ola Rotimi",
+      category: "FICTION",
+      copies: 8,
+      subject: "ENG",
+      shelfMark: "F ROT",
+      published: 1968,
+    },
+    {
+      title: "Matilda",
+      author: "Roald Dahl",
+      category: "FICTION",
+      copies: 6,
+      shelfMark: "F DAH",
+      publisher: "Puffin",
+      published: 1988,
+    },
+    {
+      title: "Charlie and the Chocolate Factory",
+      author: "Roald Dahl",
+      category: "FICTION",
+      copies: 5,
+      shelfMark: "F DAH",
+      publisher: "Puffin",
+      published: 1964,
+    },
+    {
+      title: "Sosu's Call",
+      author: "Meshack Asare",
+      category: "FICTION",
+      copies: 7,
+      shelfMark: "F ASA",
+      publisher: "Sub-Saharan Publishers",
+      published: 1997,
+      summary: "A boy who cannot walk saves his village. Set on the Ghanaian coast.",
+    },
+    {
+      title: "Ghana Mathematics for Junior High Schools, Book 2",
+      author: "Ministry of Education",
+      category: "TEXTBOOK",
+      copies: 35,
+      subject: "MATH",
+      shelfMark: "510 GES",
+      publisher: "GES",
+      published: 2021,
+    },
+    {
+      title: "Integrated Science for JHS, Book 2",
+      author: "Ministry of Education",
+      category: "TEXTBOOK",
+      copies: 35,
+      subject: "SCI",
+      shelfMark: "500 GES",
+      publisher: "GES",
+      published: 2021,
+    },
+    {
+      title: "Social Studies for Junior High Schools",
+      author: "Ministry of Education",
+      category: "TEXTBOOK",
+      copies: 30,
+      subject: "SOC",
+      shelfMark: "300 GES",
+      publisher: "GES",
+      published: 2021,
+    },
+    {
+      title: "Oxford Advanced Learner's Dictionary",
+      author: "A. S. Hornby",
+      category: "REFERENCE",
+      copies: 4,
+      subject: "ENG",
+      shelfMark: "R 423 HOR",
+      publisher: "Oxford University Press",
+      published: 2020,
+    },
+    {
+      title: "Philip's Modern School Atlas",
+      author: "Philip's",
+      category: "REFERENCE",
+      copies: 6,
+      shelfMark: "R 912 PHI",
+      publisher: "Philip's",
+      published: 2019,
+    },
+    {
+      title: "BECE Past Questions and Answers 2015–2024",
+      author: "Compiled",
+      category: "PAST_PAPER",
+      copies: 15,
+      shelfMark: "P BECE",
+      published: 2024,
+    },
+    {
+      title: "IGCSE Mathematics Past Papers",
+      author: "Cambridge Assessment",
+      category: "PAST_PAPER",
+      copies: 8,
+      subject: "MATH",
+      shelfMark: "P IGCSE",
+      published: 2024,
+    },
+    {
+      title: "New African",
+      author: "IC Publications",
+      category: "PERIODICAL",
+      copies: 3,
+      shelfMark: "PER NA",
+    },
+  ];
+
+  let accession = 4800;
+  const allCopies: Array<{ id: string; itemId: string; category: string }> = [];
+
+  for (const entry of catalogue) {
+    const item = await db.libraryItem.create({
+      data: {
+        title: entry.title,
+        author: entry.author,
+        category: entry.category,
+        subjectId: entry.subject ? subjectId(entry.subject) : null,
+        shelfMark: entry.shelfMark ?? null,
+        isbn: entry.isbn ?? null,
+        publisher: entry.publisher ?? null,
+        published: entry.published ?? null,
+        summary: entry.summary ?? null,
+      },
+      select: { id: true },
+    });
+
+    for (let index = 0; index < entry.copies; index += 1) {
+      accession += 1;
+      const copy = await db.libraryCopy.create({
+        data: {
+          itemId: item.id,
+          accessionNo: `GCS-${String(accession).padStart(6, "0")}`,
+          // A shelf that is all NEW has never been used by anyone.
+          condition: index % 7 === 0 ? "FAIR" : index % 3 === 0 ? "NEW" : "GOOD",
+          costMinor: 4500 + (index % 4) * 1500,
+          acquiredOn: new Date(2023, index % 12, 1 + (index % 27)),
+        },
+        select: { id: true },
+      });
+      allCopies.push({ id: copy.id, itemId: item.id, category: entry.category });
+    }
+  }
+
+  // Loans. Reference and periodicals never leave, so they are not eligible —
+  // seeding a state the desk would refuse to create would make the demo lie
+  // about its own rules.
+  const lendable = allCopies.filter(
+    (copy) => copy.category !== "REFERENCE" && copy.category !== "PERIODICAL",
+  );
+
+  const today = new Date();
+  const day = 86_400_000;
+  let cursor = 0;
+
+  // Returned history first: a library with no reading history has no history
+  // to show on a child's record, which is half the point of keeping it.
+  for (let index = 0; index < 60 && cursor < lendable.length; index += 1) {
+    const copy = lendable[cursor++];
+    const student = students[index % students.length];
+    const issued = new Date(today.getTime() - (30 + index * 3) * day);
+    const due = new Date(issued.getTime() + 14 * day);
+    await db.libraryLoan.create({
+      data: {
+        copyId: copy.id,
+        studentId: student.id,
+        issuedAt: issued,
+        dueAt: due,
+        // Most come back on time; some a few days late.
+        returnedAt: new Date(due.getTime() - (index % 5 === 0 ? -4 : 2) * day),
+        returnCondition: index % 11 === 0 ? "FAIR" : null,
+      },
+    });
+  }
+
+  // Out now, within date.
+  for (let index = 0; index < 18 && cursor < lendable.length; index += 1) {
+    const copy = lendable[cursor++];
+    const student = students[(index * 7) % students.length];
+    const issued = new Date(today.getTime() - (index % 10) * day);
+    await db.libraryLoan.create({
+      data: {
+        copyId: copy.id,
+        studentId: student.id,
+        issuedAt: issued,
+        dueAt: new Date(issued.getTime() + 14 * day),
+      },
+    });
+    await db.libraryCopy.update({
+      where: { id: copy.id },
+      data: { status: "ON_LOAN" },
+    });
+  }
+
+  // Overdue, so the desk opens on something to do.
+  for (let index = 0; index < 5 && cursor < lendable.length; index += 1) {
+    const copy = lendable[cursor++];
+    const student = students[(index * 13 + 3) % students.length];
+    const issued = new Date(today.getTime() - (25 + index * 4) * day);
+    await db.libraryLoan.create({
+      data: {
+        copyId: copy.id,
+        studentId: student.id,
+        issuedAt: issued,
+        dueAt: new Date(issued.getTime() + 14 * day),
+      },
+    });
+    await db.libraryCopy.update({
+      where: { id: copy.id },
+      data: { status: "ON_LOAN" },
+    });
+  }
+
+  // Staff keep set texts for the term.
+  for (let index = 0; index < 6 && cursor < lendable.length; index += 1) {
+    const copy = lendable[cursor++];
+    const person = staff[index % staff.length];
+    const issued = new Date(today.getTime() - (index * 6) * day);
+    await db.libraryLoan.create({
+      data: {
+        copyId: copy.id,
+        staffId: person.id,
+        issuedAt: issued,
+        dueAt: new Date(issued.getTime() + 42 * day),
+      },
+    });
+    await db.libraryCopy.update({
+      where: { id: copy.id },
+      data: { status: "ON_LOAN" },
+    });
+  }
+
+  // One lost and one being repaired, so those states are not theoretical.
+  if (cursor + 1 < lendable.length) {
+    await db.libraryCopy.update({
+      where: { id: lendable[cursor++].id },
+      data: { status: "LOST", notes: "Not returned at the end of last year." },
+    });
+    await db.libraryCopy.update({
+      where: { id: lendable[cursor++].id },
+      data: { status: "REPAIR", condition: "POOR", notes: "Spine detached; with the binder." },
+    });
+  }
+
+  console.log(
+    `    ${catalogue.length} titles, ${allCopies.length} copies, ${cursor} in circulation`,
+  );
 }
 
 async function seedQuestionBank(subjects: SubjectRow[]) {
