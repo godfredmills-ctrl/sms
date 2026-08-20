@@ -226,7 +226,49 @@ const port = process.env.PORT ?? "3000";
  */
 const hostname = process.env.HOST || "0.0.0.0";
 
-console.log(`  Serving on http://${hostname}:${port}\n`);
+/**
+ * Where the server can reach itself.
+ *
+ * Next forwards a Server Action to itself over HTTP in two situations: when
+ * the POST lands on a worker that does not own the action, and when an action
+ * redirects to another page of the app. Both build that URL from the incoming
+ * request's own origin — which in production is the public address.
+ *
+ * A container cannot generally reach its own public hostname. The request
+ * leaves for the internet, the platform's edge answers with a redirect to
+ * HTTPS, undici follows it, and the connection fails about twenty seconds
+ * later. What the log shows is:
+ *
+ *     failed to forward action response TypeError: fetch failed
+ *       at httpRedirectFetch (node:internal/deps/undici/undici)
+ *
+ * and what the person at the screen sees is worse than an error: Next answers
+ * the action with `{}`, so the action never ran, the form reports neither
+ * success nor failure, and nothing happens — after a twenty-second wait.
+ *
+ * Pointing the origin at loopback keeps the hop inside the container, where it
+ * is instant and cannot fail. `__NEXT_PRIVATE_ORIGIN` is Next's own escape
+ * hatch for this and is read before the request-derived value in both code
+ * paths (node_modules/next/dist/server/app-render/action-handler.js). It is
+ * private API and marked TODO-remove upstream; if a future Next drops it, the
+ * behaviour returns to what it is today rather than breaking further.
+ *
+ * Set explicitly by an operator, that wins — a deployment terminating TLS
+ * somewhere unusual may know better.
+ */
+if (!process.env.__NEXT_PRIVATE_ORIGIN) {
+  // Loopback only when the server is actually listening on every interface.
+  // Someone who has pinned HOST to one address has a reason, and 127.0.0.1
+  // would not be bound — the fix would then be the fault.
+  const reachable =
+    hostname === "0.0.0.0" || hostname === "::" || hostname === "localhost"
+      ? "127.0.0.1"
+      : hostname;
+  process.env.__NEXT_PRIVATE_ORIGIN = `http://${reachable}:${port}`;
+}
+
+console.log(`  Serving on http://${hostname}:${port}`);
+console.log(`  Internal origin ${process.env.__NEXT_PRIVATE_ORIGIN}\n`);
 
 const server = spawn(
   process.execPath,
