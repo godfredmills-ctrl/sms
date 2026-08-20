@@ -143,6 +143,19 @@ export async function createLessonAction(formData: FormData) {
   const title = text(formData, "title");
   if (!moduleId || !title) return;
 
+  // Every other write in this module asks courseOutOfScope; this one did not,
+  // so lms.course.manage — which every teacher holds — let a lesson be posted
+  // into any course in the school by supplying another module's id. The
+  // module is resolved to its own course rather than trusting the courseId
+  // the form also carries, since the two are separate fields and only the
+  // module decides where the lesson actually lands.
+  const owningModule = await db.courseModule.findUnique({
+    where: { id: moduleId },
+    select: { courseId: true },
+  });
+  if (!owningModule) return;
+  if (await courseOutOfScope(user, owningModule.courseId)) return;
+
   const last = await db.lesson.findFirst({
     where: { moduleId },
     orderBy: { sortKey: "desc" },

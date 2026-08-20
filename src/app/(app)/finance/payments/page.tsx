@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Banknote, Receipt, Smartphone, TriangleAlert } from "lucide-react";
 
 import { Alert, LinkButton, PageHeader, StatCard } from "@/components/ui";
+import { LedgerSearch } from "@/components/ledger-search";
 import { Pager, pageOf } from "@/components/pager";
 import { RefreshButton } from "@/components/refresh-button";
 import { requirePermission, userCan } from "@/lib/auth";
@@ -26,13 +27,27 @@ export default async function PaymentsPage({
   const params = await searchParams;
   const { page, skip, take } = pageOf(params, PER_PAGE);
 
+  const query = String(params.q ?? "").trim();
+  const where = query
+    ? {
+        OR: [
+          { receiptNo: { contains: query, mode: "insensitive" as const } },
+          { reference: { contains: query, mode: "insensitive" as const } },
+          { payerName: { contains: query, mode: "insensitive" as const } },
+          { student: { firstName: { contains: query, mode: "insensitive" as const } } },
+          { student: { lastName: { contains: query, mode: "insensitive" as const } } },
+          { student: { admissionNo: { contains: query, mode: "insensitive" as const } } },
+        ],
+      }
+    : {};
+
   // Every figure on this page describes the whole ledger, so every one of them
   // is aggregated in the database. Summing the rows on screen would turn
   // "GH₵1.2m collected" into "GH₵1.2m collected on this page", and it would
   // shrink as a bursar paged backwards through the year.
   const [totalPayments, successAgg, allocatedAgg, failed, momoCount, successCount] =
     await Promise.all([
-      db.payment.count(),
+      db.payment.count({ where }),
       db.payment.aggregate({
         where: { status: "SUCCESS" },
         _sum: { amountMinor: true, feeMinor: true },
@@ -55,6 +70,7 @@ export default async function PaymentsPage({
     : 0;
 
   const payments = await db.payment.findMany({
+    where,
     orderBy: { paidAt: "desc" },
     skip,
     take,
@@ -200,6 +216,14 @@ export default async function PaymentsPage({
         </Alert>
       ) : null}
 
+      <LedgerSearch
+        action="/finance/payments"
+        defaultValue={query}
+        placeholder="Receipt, reference, payer or pupil…"
+        label="Search every payment"
+        found={totalPayments}
+        noun="payment"
+      />
       <PaymentsTable rows={rows} />
 
       <Pager

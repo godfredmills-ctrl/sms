@@ -65,7 +65,13 @@ export default async function GradebookPage() {
         select: {
           name: true,
           classLevel: { select: { name: true } },
-          _count: { select: { enrollments: true } },
+          // ACTIVE only. Enrolment rows are never deleted — a leaver is
+          // flipped to WITHDRAWN and a promotion writes a fresh row for the
+          // new year — so an unfiltered count is every pupil the class has
+          // ever held. Measured against that, a fully marked class read 45%
+          // and "0/4 fully marked", while the mark sheet itself (which does
+          // filter, at gradebook/[offeringId]/page.tsx) read 100%.
+          _count: { select: { enrollments: { where: { status: "ACTIVE" } } } },
         },
       },
       assessments: {

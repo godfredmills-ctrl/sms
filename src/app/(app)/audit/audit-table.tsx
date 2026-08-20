@@ -107,6 +107,7 @@ export function AuditTable({ rows }: { rows: AuditRow[] }) {
   return (
     <>
       <DataTable
+        partial
         rows={rows}
         columns={columns}
         rowKey={(row) => row.id}

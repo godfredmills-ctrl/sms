@@ -334,7 +334,11 @@ export async function addGradeBandAction(formData: FormData) {
   if (!Number.isFinite(minScore) || !Number.isFinite(maxScore)) return;
   if (minScore > maxScore) return;
 
-  const point = Number(text(formData, "point"));
+  // Number("") is 0, not NaN — so leaving the optional Point box empty
+  // stored a real zero, and every report card computed a GPA of 0.00 and an
+  // aggregate of 0 from bands that were meant to carry no point value.
+  const pointRaw = text(formData, "point");
+  const point = pointRaw === "" ? Number.NaN : Number(pointRaw);
 
   await db.gradeBand.upsert({
     where: { scaleId_grade: { scaleId, grade } },

@@ -12,14 +12,39 @@ import { ComposeForm } from "./compose-form";
 export const metadata: Metadata = { title: "Send a message" };
 export const dynamic = "force-dynamic";
 
-export default async function ComposePage() {
+/**
+ * The bulk bar on the students list links here with ?students=a,b,c&channel=SMS.
+ * Until this page read those, both were dropped on the floor: the form opened
+ * with its own defaults — every guardian in the school — and the secretary who
+ * had ticked twelve children sent to eight hundred families instead. The
+ * audience layer supported studentIds all along (lib/messaging AudienceFilter);
+ * nothing was passing them.
+ */
+export default async function ComposePage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   await requirePermission([
     "communication.sms.send",
     "communication.email.send",
     "communication.push.send",
   ]);
 
-  const [sections, templates, recentJobs] = await Promise.all([
+  const params = await searchParams;
+
+  const requestedIds = String(params.students ?? "")
+    .split(",")
+    .map((id) => id.trim())
+    .filter(Boolean)
+    .slice(0, 500);
+
+  const requestedChannel = String(params.channel ?? "").toUpperCase();
+  const initialChannel = (["SMS", "EMAIL", "PUSH", "IN_APP"] as const).find(
+    (option) => option === requestedChannel,
+  );
+
+  const [sections, templates, recentJobs, preselected] = await Promise.all([
     db.classSection.findMany({
       where: { isActive: true },
       orderBy: [{ classLevel: { sequence: "asc" } }, { name: "asc" }],
@@ -50,6 +75,16 @@ export default async function ComposePage() {
         createdAt: true,
       },
     }),
+    // Resolved to names, not just counted: "12 students selected" is a number
+    // to be trusted or doubted, and the names are what let someone notice the
+    // selection is not the one they made.
+    requestedIds.length
+      ? db.student.findMany({
+          where: { id: { in: requestedIds } },
+          orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
+          select: { id: true, firstName: true, lastName: true, admissionNo: true },
+        })
+      : Promise.resolve([]),
   ]);
 
   return (
@@ -71,6 +106,11 @@ export default async function ComposePage() {
           description: `${section._count.enrollments} students`,
         }))}
         templates={templates}
+        initialChannel={initialChannel}
+        initialStudents={preselected.map((student) => ({
+          id: student.id,
+          name: `${student.firstName} ${student.lastName}`,
+        }))}
       />
 
       {recentJobs.length ? (

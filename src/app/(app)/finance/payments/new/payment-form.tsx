@@ -49,9 +49,12 @@ const MOMO_NETWORKS = ["MTN", "TELECEL", "AIRTELTIGO"];
 export function RecordPaymentForm({
   students,
   initialStudentId,
+  initialInvoiceId,
 }: {
   students: PayableStudent[];
   initialStudentId?: string;
+  /** Set when the bursar came from a specific bill. */
+  initialInvoiceId?: string;
 }) {
   const [state, action] = useActionState<RecordPaymentState, FormData>(
     recordPaymentAction,
@@ -60,7 +63,7 @@ export function RecordPaymentForm({
   const [studentId, setStudentId] = useState(initialStudentId ?? "");
   const [channel, setChannel] = useState<PaymentChannel>("CASH");
   const [amount, setAmount] = useState("");
-  const [invoiceId, setInvoiceId] = useState("");
+  const [invoiceId, setInvoiceId] = useState(initialInvoiceId ?? "");
 
   const student = useMemo(
     () => students.find((entry) => entry.id === studentId),

@@ -51,13 +51,20 @@ const TEMPLATE_TOKENS = [
 export function ComposeForm({
   classes,
   templates,
+  initialChannel,
+  initialStudents = [],
 }: {
   classes: Array<{ value: string; label: string; description?: string }>;
   templates: Array<{ id: string; name: string; subject: string | null; body: string; smsBody: string | null }>;
+  /** Set when the students list sent us here with a channel already chosen. */
+  initialChannel?: MessageChannel;
+  /** Children ticked on the students list. Empty for an ordinary compose. */
+  initialStudents?: Array<{ id: string; name: string }>;
 }) {
   const [state, action] = useActionState<SendState, FormData>(sendMessageAction, {});
 
-  const [channel, setChannel] = useState<MessageChannel>("SMS");
+  const [channel, setChannel] = useState<MessageChannel>(initialChannel ?? "SMS");
+  const [students, setStudents] = useState(initialStudents);
   const [audiences, setAudiences] = useState<string[]>(["GUARDIAN"]);
   const [classIds, setClassIds] = useState<string[]>([]);
   const [billPayersOnly, setBillPayersOnly] = useState(false);
@@ -75,6 +82,7 @@ export function ComposeForm({
           {
             portals: audiences as ("STAFF" | "STUDENT" | "GUARDIAN")[],
             classSectionIds: classIds.length ? classIds : undefined,
+            studentIds: students.length ? students.map((s) => s.id) : undefined,
             billPayersOnly,
             withOutstandingBalance: withBalance,
           },
@@ -85,7 +93,7 @@ export function ComposeForm({
       });
     }, 400);
     return () => clearTimeout(timer);
-  }, [audiences, classIds, billPayersOnly, withBalance, channel, body]);
+  }, [audiences, classIds, students, billPayersOnly, withBalance, channel, body]);
 
   if (state.ok) {
     return (
@@ -117,6 +125,7 @@ export function ComposeForm({
         <input key={portal} type="hidden" name="portals" value={portal} />
       ))}
       <input type="hidden" name="classSectionIds" value={classIds.join(",")} />
+      <input type="hidden" name="studentIds" value={students.map((s) => s.id).join(",")} />
       <input type="hidden" name="channel" value={channel} />
 
       <div className="space-y-4">
@@ -232,6 +241,38 @@ export function ComposeForm({
         <Card>
           <CardHeader title="Audience" description="Who this goes to." />
           <CardBody className="space-y-3">
+            {/*
+              A narrowed send must never be able to pass for a school-wide one.
+              This states the narrowing in words, names the children, and puts
+              the way out beside it — because the failure worth designing
+              against is someone believing the selection carried over when it
+              had not, and the same screen serving both cases.
+            */}
+            {students.length ? (
+              <Alert tone="info">
+                <div className="space-y-1.5">
+                  <p className="font-medium">
+                    Only {students.length} selected{" "}
+                    {students.length === 1 ? "student" : "students"}
+                  </p>
+                  <p className="text-xs">
+                    {students
+                      .slice(0, 6)
+                      .map((student) => student.name)
+                      .join(", ")}
+                    {students.length > 6 ? ` and ${students.length - 6} more` : ""}.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setStudents([])}
+                    className="text-xs font-medium underline"
+                  >
+                    Clear the selection and choose an audience below
+                  </button>
+                </div>
+              </Alert>
+            ) : null}
+
             <div className="flex flex-wrap gap-2">
               {(["GUARDIAN", "STUDENT", "STAFF"] as const).map((portal) => (
                 <button

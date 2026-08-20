@@ -1,8 +1,16 @@
 import "server-only";
 
-import { PDFDocument, StandardFonts, rgb, degrees, type PDFFont } from "pdf-lib";
+import {
+  PDFDocument,
+  StandardFonts,
+  rgb,
+  degrees,
+  type PDFFont,
+  type PDFPage,
+} from "pdf-lib";
 import QRCode from "qrcode";
 
+import { sanitisePdfText } from "@/lib/pdf-text";
 import { parseLayout, resolveBinding, type TemplateElement } from "@/lib/templates";
 
 /**
@@ -20,6 +28,61 @@ const PAGE_SIZES: Record<string, [number, number]> = {
   A5: [419.53, 595.28],
   LETTER: [612, 792],
 };
+
+/**
+ * Every string this file puts on a page goes through here.
+ *
+ * The standard PDF fonts are WinAnsi-encoded, and pdf-lib throws rather than
+ * substituting when asked to draw a character the encoding has no room for.
+ * Ghanaian names carry exactly those characters — the Twi letters ɛ and ɔ —
+ * so a child called Kwabɛna took down the report-card download, the
+ * transcript and the certificate with a 500, for that child only, on a
+ * document whose entire purpose is to have their name on it.
+ *
+ * Its siblings — payslip-pdf, id-card-pdf, letter-pdf, letterhead — all
+ * sanitise. This file was written first and never swept. Rather than repeat
+ * the call at each of two dozen draw sites and rely on the next one
+ * remembering, drawText is reached only through this function: a raw
+ * page.drawText in this file is now the thing to look for, and
+ * scripts/check-pdf-text.mjs looks for it on every build.
+ */
+function drawText(
+  page: PDFPage,
+  value: string,
+  options: Parameters<PDFPage["drawText"]>[1] & { font: PDFFont },
+) {
+  page.drawText(sanitisePdfText(value, options.font), options);
+}
+
+/**
+ * Cleans every string in an input structure, before anything measures it.
+ *
+ * Sanitising at the draw call alone was not enough, and the way that surfaced
+ * is worth recording: the fix looked complete, the whole PDF preview suite
+ * passed, and a report card for a child called Kwabɛna still threw — from
+ * `widthOfTextAtSize`. This file measures before it wraps, truncates and
+ * centres, so an unencodable character takes the render down while the
+ * layout is still being worked out, several steps before any ink.
+ *
+ * Cleaning the input at the door makes the whole renderer safe at once
+ * instead of one call site at a time. Uint8Array is stepped over: the crest
+ * is bytes, not text, and mapping it as an object would quietly turn an
+ * image into a dictionary of numbers.
+ */
+function cleanDeep<T>(value: T, font: PDFFont): T {
+  if (typeof value === "string") return sanitisePdfText(value, font) as T;
+  if (Array.isArray(value)) return value.map((entry) => cleanDeep(entry, font)) as T;
+  if (value instanceof Uint8Array) return value;
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>).map(([key, entry]) => [
+        key,
+        cleanDeep(entry, font),
+      ]),
+    ) as T;
+  }
+  return value;
+}
 
 function hexToRgb(hex: string) {
   const clean = hex.replace("#", "").trim();
@@ -122,6 +185,10 @@ export async function renderTemplatePdf(input: {
   const italic = await pdf.embedFont(StandardFonts.HelveticaOblique);
   const boldItalic = await pdf.embedFont(StandardFonts.HelveticaBoldOblique);
 
+  // The template's own text lives in the layout; the school's and the
+  // pupil's live in the context. Both reach drawText, so both are cleaned.
+  const context = cleanDeep(input.context, regular);
+
   if (layout.backgroundColour && layout.backgroundColour !== "#ffffff") {
     page.drawRectangle({
       x: 0,
@@ -167,7 +234,7 @@ export async function renderTemplatePdf(input: {
       await drawImageElement(pdf, page, element, {
         width,
         height,
-        context: input.context,
+        context,
         images: input.images ?? {},
       });
       continue;
@@ -177,7 +244,7 @@ export async function renderTemplatePdf(input: {
       await drawVerificationCode(pdf, page, element, {
         width,
         height,
-        context: input.context,
+        context,
         font: regular,
       });
       continue;
@@ -186,7 +253,7 @@ export async function renderTemplatePdf(input: {
     drawElement(page, element, {
       width,
       height,
-      context: input.context,
+      context,
       fonts: { regular, bold, italic, boldItalic },
     });
   }
@@ -280,7 +347,7 @@ async function drawVerificationCode(
   const label = value.includes("/") ? (value.split("/").pop() ?? value) : value;
   const labelWidth = font.widthOfTextAtSize(label, 7);
 
-  page.drawText(label, {
+  drawText(page, label, {
     x: boxX + (boxWidth - labelWidth) / 2,
     y: boxTop - side - 9,
     size: 7,
@@ -421,7 +488,7 @@ async function drawResultsTable(
       while (fonts.bold.widthOfTextAtSize(text, size * 0.85) > max && text.length > 1) {
         text = text.slice(0, -1);
       }
-      page.drawText(text, {
+      drawText(page, text, {
         x: boxX + index * columnWidth,
         y,
         size: size * 0.85,
@@ -463,7 +530,7 @@ async function drawResultsTable(
       }
       if (value !== cell && value.length > 1) value = `${value.slice(0, -1)}…`;
 
-      page.drawText(value, {
+      drawText(page, value, {
         x: boxX + index * columnWidth,
         y,
         size,
@@ -561,7 +628,7 @@ function drawElement(
           ? boxX + boxWidth - lineWidth
           : boxX;
 
-    page.drawText(line, {
+    drawText(page, line, {
       x,
       // Baseline sits a little below the top of the box, then steps down.
       y: boxTop - size - index * lineHeight,
@@ -609,11 +676,13 @@ export type ReportCardPdf = {
  * would break the moment a school taught one more subject than the layout had
  * rows for.
  */
-export async function renderReportCardPdf(input: ReportCardPdf): Promise<Buffer> {
+export async function renderReportCardPdf(rawInput: ReportCardPdf): Promise<Buffer> {
   const pdf = await PDFDocument.create();
   const regular = await pdf.embedFont(StandardFonts.Helvetica);
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
   const italic = await pdf.embedFont(StandardFonts.HelveticaOblique);
+
+  const input = cleanDeep(rawInput, regular);
 
   const [width, height] = PAGE_SIZES.A4;
   const margin = 40;
@@ -648,27 +717,27 @@ export async function renderReportCardPdf(input: ReportCardPdf): Promise<Buffer>
   const textWidth = usable - gutter;
 
   for (const nameLine of wrap(input.school.name, bold, 15, textWidth)) {
-    page.drawText(nameLine, { x: margin, y, size: 15, font: bold, color: ink });
+    drawText(page, nameLine, { x: margin, y, size: 15, font: bold, color: ink });
     y -= 17;
   }
   y += 3;
 
   if (input.school.address) {
     for (const addressLine of wrap(input.school.address, regular, 8, textWidth)) {
-      page.drawText(addressLine, { x: margin, y, size: 8, font: regular, color: muted });
+      drawText(page, addressLine, { x: margin, y, size: 8, font: regular, color: muted });
       y -= 10;
     }
   }
   if (input.school.motto) {
     for (const mottoLine of wrap(input.school.motto, italic, 8, textWidth)) {
-      page.drawText(mottoLine, { x: margin, y, size: 8, font: italic, color: muted });
+      drawText(page, mottoLine, { x: margin, y, size: 8, font: italic, color: muted });
       y -= 10;
     }
   }
 
   y -= 4;
   const headingWidth = bold.widthOfTextAtSize(input.heading, 11);
-  page.drawText(input.heading, {
+  drawText(page, input.heading, {
     x: margin + (usable - headingWidth) / 2,
     y,
     size: 11,
@@ -691,14 +760,14 @@ export async function renderReportCardPdf(input: ReportCardPdf): Promise<Buffer>
     const column = index % 2;
     const rowY = y - Math.floor(index / 2) * 13;
 
-    page.drawText(`${pair.label}:`, {
+    drawText(page, `${pair.label}:`, {
       x: margin + column * columnWidth,
       y: rowY,
       size: 8,
       font: regular,
       color: muted,
     });
-    page.drawText(pair.value, {
+    drawText(page, pair.value, {
       x: margin + column * columnWidth + 72,
       y: rowY,
       size: 9,
@@ -732,7 +801,7 @@ export async function renderReportCardPdf(input: ReportCardPdf): Promise<Buffer>
 
   function subjectHeader() {
     headers.forEach((header, index) => {
-      page.drawText(header, {
+      drawText(page, header, {
         x: margin + offsets[index],
         y,
         size: 7.5,
@@ -774,7 +843,7 @@ export async function renderReportCardPdf(input: ReportCardPdf): Promise<Buffer>
       }
       if (value !== cell && value.length > 1) value = `${value.slice(0, -1)}…`;
 
-      page.drawText(value, {
+      drawText(page, value, {
         x: margin + offsets[index],
         y,
         size: 8.5,
@@ -797,14 +866,14 @@ export async function renderReportCardPdf(input: ReportCardPdf): Promise<Buffer>
       const column = index % 4;
       const rowY = y - Math.floor(index / 4) * 28;
 
-      page.drawText(entry.label.toUpperCase(), {
+      drawText(page, entry.label.toUpperCase(), {
         x: margin + column * boxWidth,
         y: rowY,
         size: 6.5,
         font: regular,
         color: muted,
       });
-      page.drawText(entry.value, {
+      drawText(page, entry.value, {
         x: margin + column * boxWidth,
         y: rowY - 12,
         size: 13,
@@ -826,7 +895,7 @@ export async function renderReportCardPdf(input: ReportCardPdf): Promise<Buffer>
       y = height - margin;
     }
 
-    page.drawText(remark.label.toUpperCase(), {
+    drawText(page, remark.label.toUpperCase(), {
       x: margin,
       y,
       size: 6.5,
@@ -836,12 +905,12 @@ export async function renderReportCardPdf(input: ReportCardPdf): Promise<Buffer>
     y -= 11;
 
     for (const wrapped of wrap(remark.body, regular, 9, usable)) {
-      page.drawText(wrapped, { x: margin, y, size: 9, font: regular, color: ink });
+      drawText(page, wrapped, { x: margin, y, size: 9, font: regular, color: ink });
       y -= 12;
     }
 
     if (remark.signatory) {
-      page.drawText(`— ${remark.signatory}`, {
+      drawText(page, `— ${remark.signatory}`, {
         x: margin,
         y,
         size: 8,
@@ -855,7 +924,7 @@ export async function renderReportCardPdf(input: ReportCardPdf): Promise<Buffer>
   }
 
   if (input.footer) {
-    page.drawText(input.footer, {
+    drawText(page, input.footer, {
       x: margin,
       y: margin - 14,
       size: 7,
@@ -871,7 +940,7 @@ export async function renderReportCardPdf(input: ReportCardPdf): Promise<Buffer>
  * A plain tabular PDF, used for a transcript's results table where the
  * template model's single-string binding cannot carry rows.
  */
-export async function renderTablePdf(input: {
+export async function renderTablePdf(rawInput: {
   title: string;
   subtitle?: string;
   headers: string[];
@@ -882,6 +951,8 @@ export async function renderTablePdf(input: {
   const pdf = await PDFDocument.create();
   const regular = await pdf.embedFont(StandardFonts.Helvetica);
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
+
+  const input = cleanDeep(rawInput, regular);
 
   const [width, height] = PAGE_SIZES.A4;
   const margin = 48;
@@ -904,7 +975,7 @@ export async function renderTablePdf(input: {
   const headerWidth = usable - (input.crest ? 52 : 0);
 
   for (const titleLine of wrap(input.title, bold, 16, headerWidth)) {
-    page.drawText(titleLine, {
+    drawText(page, titleLine, {
       x: margin,
       y: cursor,
       size: 16,
@@ -916,7 +987,7 @@ export async function renderTablePdf(input: {
 
   if (input.subtitle) {
     for (const subtitleLine of wrap(input.subtitle, regular, 9, headerWidth)) {
-      page.drawText(subtitleLine, {
+      drawText(page, subtitleLine, {
         x: margin,
         y: cursor,
         size: 9,
@@ -930,7 +1001,7 @@ export async function renderTablePdf(input: {
 
   function drawHeaderRow() {
     input.headers.forEach((header, index) => {
-      page.drawText(header, {
+      drawText(page, header, {
         x: margin + index * columnWidth,
         y: cursor,
         size: 8,
@@ -966,7 +1037,7 @@ export async function renderTablePdf(input: {
           ? `${cell.slice(0, Math.max(0, Math.floor(columnWidth / 5)))}…`
           : cell;
 
-      page.drawText(truncated, {
+      drawText(page, truncated, {
         x: margin + index * columnWidth,
         y: cursor,
         size: 9,
@@ -979,7 +1050,7 @@ export async function renderTablePdf(input: {
   }
 
   if (input.footer) {
-    page.drawText(input.footer, {
+    drawText(page, input.footer, {
       x: margin,
       y: margin - 12,
       size: 7,

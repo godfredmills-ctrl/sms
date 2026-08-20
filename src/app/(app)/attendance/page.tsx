@@ -23,7 +23,19 @@ export default async function AttendancePage({
   const user = await requirePermission(["attendance.read", "attendance.take"]);
   const { class: sectionId, date: dateParam } = await searchParams;
 
-  const date = dateParam ?? new Date().toISOString().slice(0, 10);
+  // `??` only catches null and undefined, and the date input is not
+  // required — clearing it and pressing Go submits `?date=`, an empty
+  // string, which sailed past the fallback into new Date("") and reached
+  // Prisma as an Invalid Date. There is no error boundary, so the register
+  // became "Application error" until someone edited the URL. Anything that
+  // is not a real calendar date falls back to today.
+  const parsed = /^\d{4}-\d{2}-\d{2}$/.test(dateParam ?? "")
+    ? new Date(`${dateParam}T00:00:00Z`)
+    : null;
+  const date =
+    parsed && !Number.isNaN(parsed.getTime())
+      ? (dateParam as string)
+      : new Date().toISOString().slice(0, 10);
 
   const term = await db.term.findFirst({
     where: { isCurrent: true },

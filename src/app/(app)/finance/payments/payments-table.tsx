@@ -125,7 +125,7 @@ export function PaymentsTable({ rows }: { rows: PaymentRow[] }) {
       href={(row) => `/finance/payments/${row.id}`}
       storageKey="payments"
       exportFileName="payments"
-      searchPlaceholder="Search by receipt, reference, student or payer…"
+      partial
       emptyTitle="No payments"
       initialSort={{ columnId: "paidAt", direction: "desc" }}
     />

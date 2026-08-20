@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { AlertTriangle, FileText, Receipt, Wallet } from "lucide-react";
 
 import { Alert, Card, CardHeader, PageHeader, StatCard } from "@/components/ui";
+import { LedgerSearch } from "@/components/ledger-search";
 import { Pager, pageOf } from "@/components/pager";
 import { RefreshButton } from "@/components/refresh-button";
 import { requirePermission, userCan } from "@/lib/auth";
@@ -29,10 +30,26 @@ export default async function InvoicesPage({
   const params = await searchParams;
   const { page, skip, take } = pageOf(params, PER_PAGE);
 
+  // Searched in the database, because the table below holds one page. A
+  // bursar looking for a parent's bill was told "no invoices match" while
+  // the three they wanted sat on server page 12.
+  const query = String(params.q ?? "").trim();
+  const where = query
+    ? {
+        OR: [
+          { invoiceNo: { contains: query, mode: "insensitive" as const } },
+          { student: { firstName: { contains: query, mode: "insensitive" as const } } },
+          { student: { lastName: { contains: query, mode: "insensitive" as const } } },
+          { student: { admissionNo: { contains: query, mode: "insensitive" as const } } },
+        ],
+      }
+    : {};
+
   // 3000 was one term's billing for a school this size, so the cap was reached
   // in the first year and everything before it fell off the end.
   const [invoices, total, years] = await Promise.all([
     db.invoice.findMany({
+      where,
       orderBy: { issueDate: "desc" },
       skip,
       take,
@@ -66,7 +83,7 @@ export default async function InvoicesPage({
         },
       },
     }),
-    db.invoice.count(),
+    db.invoice.count({ where }),
     db.academicYear.findMany({
       orderBy: { startDate: "desc" },
       select: {
@@ -186,6 +203,14 @@ export default async function InvoicesPage({
 
       <div className={canGenerate ? "grid gap-4 xl:grid-cols-[1fr_340px]" : ""}>
         <div>
+          <LedgerSearch
+            action="/finance/invoices"
+            defaultValue={query}
+            placeholder="Invoice number, pupil name or admission number…"
+            label="Search every invoice"
+            found={total}
+            noun="invoice"
+          />
           <InvoicesTable
             rows={rows}
             canRemind={userCan(user, "finance.reminder.manage")}

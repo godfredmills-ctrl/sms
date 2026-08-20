@@ -163,7 +163,7 @@ export function InvoicesTable({
       href={(row) => `/finance/invoices/${row.id}`}
       storageKey="invoices"
       exportFileName="invoices"
-      searchPlaceholder="Search by invoice number, student, class…"
+      partial
       emptyTitle="No invoices match"
       emptyDescription="Adjust the filters, or generate invoices for the term."
       initialSort={{ columnId: "balance", direction: "desc" }}

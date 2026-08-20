@@ -206,7 +206,7 @@ export async function MyRegistersPanel({ viewer }: { viewer: Viewer }) {
         {outstanding.map((section) => (
           <Link
             key={section.id}
-            href={`/attendance?section=${section.id}`}
+            href={`/attendance?class=${section.id}`}
             className="rounded-full border border-[var(--warning)] bg-[var(--warning-soft)] px-3 py-1 text-xs font-medium text-[var(--warning)]"
           >
             {section.classLevel.name} {section.name}

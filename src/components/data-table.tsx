@@ -65,6 +65,21 @@ export type DataTableProps<T> = {
   emptyTitle?: string;
   emptyDescription?: string;
   pageSize?: number;
+  /**
+   * These rows are one server-fetched page of a larger set, not the whole
+   * table.
+   *
+   * It matters because everything this component does — search, filter, sort,
+   * export — happens in the browser over `rows`. Handed 50 of a school's
+   * 3,200 invoices, the search box answered "no invoices match" for a parent
+   * who had three, and the pager underneath went on reporting 3,200. Two
+   * paginators, one of them lying.
+   *
+   * Set this and the component stops pretending: its own pagination goes
+   * (the page's Pager is the real one), and the search box says what it
+   * actually searches.
+   */
+  partial?: boolean;
   toolbar?: ReactNode;
   /** Enables checkboxes and renders the bulk bar when rows are selected. */
   bulkActions?: (selected: T[], clear: () => void) => ReactNode;
@@ -85,6 +100,7 @@ export function DataTable<T>({
   emptyTitle = "Nothing to show",
   emptyDescription = "Try adjusting your search or filters.",
   pageSize: initialPageSize = 25,
+  partial = false,
   toolbar,
   bulkActions,
   exportFileName,
@@ -98,6 +114,8 @@ export function DataTable<T>({
   const [filters, setFilters] = useState<Record<string, string[]>>({});
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(initialPageSize);
+  // One page in, one page out: the outer Pager moves between server pages.
+  const effectivePageSize = partial ? Math.max(rows.length, 1) : pageSize;
   const [hidden, setHidden] = useState<string[]>([]);
   const [dense, setDense] = useState(false);
   const [expanded, setExpanded] = useState<string | null>(null);
@@ -209,11 +227,15 @@ export function DataTable<T>({
     return result;
   }, [rows, columns, deferredQuery, filters, sort, valueOf]);
 
-  const pageCount = Math.max(1, Math.ceil(processed.length / pageSize));
+  const pageCount = Math.max(1, Math.ceil(processed.length / effectivePageSize));
   const currentPage = Math.min(page, pageCount - 1);
   const pageRows = useMemo(
-    () => processed.slice(currentPage * pageSize, currentPage * pageSize + pageSize),
-    [processed, currentPage, pageSize],
+    () =>
+      processed.slice(
+        currentPage * effectivePageSize,
+        currentPage * effectivePageSize + effectivePageSize,
+      ),
+    [processed, currentPage, effectivePageSize],
   );
 
   // Reset to the first page whenever the result set changes shape.
@@ -281,8 +303,8 @@ export function DataTable<T>({
             type="search"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder={searchPlaceholder}
-            aria-label={searchPlaceholder}
+            placeholder={partial ? "Search this page…" : searchPlaceholder}
+            aria-label={partial ? "Search the rows on this page" : searchPlaceholder}
             className="input-base h-9 pl-9"
           />
         </div>
@@ -642,17 +664,21 @@ export function DataTable<T>({
       <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[var(--border)] px-4 py-2.5 text-xs text-[var(--text-muted)]">
         <div className="flex items-center gap-3">
           <span className="numeric">
-            {processed.length === 0
-              ? "No results"
-              : `${currentPage * pageSize + 1}–${Math.min(
-                  (currentPage + 1) * pageSize,
-                  processed.length,
-                )} of ${processed.length}`}
-            {processed.length !== rows.length ? (
+            {partial
+              ? processed.length === rows.length
+                ? `${rows.length} on this page`
+                : `${processed.length} of ${rows.length} on this page`
+              : processed.length === 0
+                ? "No results"
+                : `${currentPage * pageSize + 1}–${Math.min(
+                    (currentPage + 1) * pageSize,
+                    processed.length,
+                  )} of ${processed.length}`}
+            {!partial && processed.length !== rows.length ? (
               <span className="text-[var(--text-subtle)]"> (filtered from {rows.length})</span>
             ) : null}
           </span>
-          <label className="flex items-center gap-1.5">
+          <label className={partial ? "hidden" : "flex items-center gap-1.5"}>
             <span className="sr-only">Rows per page</span>
             <select
               value={pageSize}

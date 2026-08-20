@@ -67,19 +67,12 @@ export async function logClinicVisitAction(
 
   const notifyGuardian = formData.get("notifyGuardian") === "on";
 
-  await db.clinicVisit.create({
-    data: {
-      medicalId,
-      complaint,
-      temperature,
-      treatment: text(formData, "treatment") || null,
-      medicationGiven: text(formData, "medicationGiven") || null,
-      outcome: text(formData, "outcome") || "RETURNED_TO_CLASS",
-      attendedBy: user.fullName,
-      guardianNotified: notifyGuardian,
-      notes: text(formData, "notes") || null,
-    },
-  });
+  // Whether a message was actually sent, not whether the nurse asked for one.
+  // The record used to store the tick: a child whose guardians have no portal
+  // account — the common case for a family that fills in paper forms — was
+  // filed as "Family notified" with nothing sent, and the visit history said
+  // so months later when it mattered.
+  let notified = false;
 
   if (notifyGuardian) {
     const guardians = await db.studentGuardian.findMany({
@@ -101,9 +94,27 @@ export async function logClinicVisitAction(
         category: "GENERAL",
         priority: text(formData, "outcome") === "SENT_HOME" ? "URGENT" : "HIGH",
         url: "/portal/guardian",
-      }).catch(() => undefined);
+      })
+        .then(() => {
+          notified = true;
+        })
+        .catch(() => undefined);
     }
   }
+
+  await db.clinicVisit.create({
+    data: {
+      medicalId,
+      complaint,
+      temperature,
+      treatment: text(formData, "treatment") || null,
+      medicationGiven: text(formData, "medicationGiven") || null,
+      outcome: text(formData, "outcome") || "RETURNED_TO_CLASS",
+      attendedBy: user.fullName,
+      guardianNotified: notified,
+      notes: text(formData, "notes") || null,
+    },
+  });
 
   await db.auditLog.create({
     data: {
@@ -118,10 +129,14 @@ export async function logClinicVisitAction(
 
   revalidatePath("/clinic");
   revalidatePath(`/students/${studentId}`);
+  // The nurse is standing next to the child; if nobody was reached, that is
+  // the one thing they need to know now rather than from the record later.
   return {
     ok: true,
-    message: notifyGuardian
-      ? "Logged, and the emergency contacts have been notified."
-      : "Logged.",
+    message: !notifyGuardian
+      ? "Logged."
+      : notified
+        ? "Logged, and the emergency contacts have been notified."
+        : "Logged — but no emergency contact could be reached from here. None of them has a portal account, so phone them.",
   };
 }

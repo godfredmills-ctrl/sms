@@ -12,10 +12,14 @@ export const dynamic = "force-dynamic";
 export default async function RecordPaymentPage({
   searchParams,
 }: {
-  searchParams: Promise<{ student?: string }>;
+  searchParams: Promise<{ student?: string; invoice?: string }>;
 }) {
   await requirePermission("finance.payment.record");
-  const { student: initialStudentId } = await searchParams;
+  // The invoice page links here with both — "Record payment" on a specific
+  // bill means that bill. Only `student` was read, so the form opened with
+  // the invoice picker empty and the money was allocated whereever the
+  // bursar's next click landed.
+  const { student: initialStudentId, invoice: initialInvoiceId } = await searchParams;
 
   const students = await db.student.findMany({
     where: { status: "ENROLLED" },
@@ -85,7 +89,11 @@ export default async function RecordPaymentPage({
         }
       />
 
-      <RecordPaymentForm students={rows} initialStudentId={initialStudentId} />
+      <RecordPaymentForm
+        students={rows}
+        initialStudentId={initialStudentId}
+        initialInvoiceId={initialInvoiceId}
+      />
     </>
   );
 }

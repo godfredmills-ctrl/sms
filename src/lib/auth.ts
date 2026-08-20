@@ -38,7 +38,14 @@ export type AuthUser = {
 // Session lifecycle
 // -----------------------------------------------------------------------------
 
-export async function createSession(userId: string): Promise<string> {
+/**
+ * @param remember  Whether the person asked to stay signed in. The login form
+ *   has offered that choice since it was written and nothing ever read it, so
+ *   every session lasted the full TTL — including one started on the shared
+ *   machine in the staff room by someone who had deliberately unticked the box.
+ *   Unticked now means a session cookie: gone when the browser closes.
+ */
+export async function createSession(userId: string, remember = true): Promise<string> {
   const token = generateToken(48);
   const expiresAt = new Date(Date.now() + env.sessionTtlDays * 24 * 60 * 60 * 1000);
   const headerList = await headers();
@@ -59,7 +66,9 @@ export async function createSession(userId: string): Promise<string> {
     sameSite: "lax",
     secure: env.isProduction,
     path: "/",
-    expires: expiresAt,
+    // The row still expires at the TTL either way — this only decides whether
+    // the browser keeps the cookie after it is closed.
+    ...(remember ? { expires: expiresAt } : {}),
   });
 
   return token;

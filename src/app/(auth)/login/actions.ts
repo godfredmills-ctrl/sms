@@ -37,7 +37,7 @@ export async function loginAction(
     return { error: result.error };
   }
 
-  await createSession(result.userId);
+  await createSession(result.userId, formData.get("remember") === "on");
 
   await db.auditLog
     .create({
@@ -49,7 +49,14 @@ export async function loginAction(
     })
     .catch(() => undefined);
 
-  if (result.mustChangePassword) redirect("/account/password?first=1");
+  // /account#password, not /account/password — there is no such route, and
+  // there never was. Every account this system creates is born with
+  // mustChangePassword set (staff, guardian, student, invite, admin reset),
+  // so this line was the first screen every new user ever saw: the catch-all
+  // "nothing is served here" page. They never reached the change-password
+  // form, and the change was therefore never made — the temporary password
+  // stayed live and went on working.
+  if (result.mustChangePassword) redirect("/account#password");
 
   // Only allow same-origin relative paths, so `?next=` cannot be used to
   // bounce a signed-in user to an attacker's site.
