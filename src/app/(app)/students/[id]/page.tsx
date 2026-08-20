@@ -157,7 +157,11 @@ export default async function StudentProfilePage({
       // what is out now simply sorts to the top of it.
       transport: {
         orderBy: [{ endedOn: { sort: "asc", nulls: "first" } }, { startedOn: "desc" }],
-        take: 5,
+        // Live arrangements sort first, and there are never more than two of
+        // them — but a child with a long history and a take of 5 could still
+        // lose one to the window if the ordering ever changed. 12 is history
+        // enough and leaves no doubt about the part that matters.
+        take: 12,
         include: {
           route: { select: { id: true, code: true, name: true } },
           stop: { select: { name: true, landmark: true, pickupTime: true, dropoffTime: true } },
@@ -179,9 +183,15 @@ export default async function StudentProfilePage({
 
   if (!student) notFound();
 
-  // The one live arrangement, if there is one — see lib/transport.ts for why
-  // a child can hold a morning and an afternoon one but never both plus BOTH.
-  const liveTransport = student.transport.find((entry) => !entry.endedOn) ?? null;
+  // ALL the live arrangements. A child may hold a morning one and an
+  // afternoon one at the same time, on different routes — conflictingDirections
+  // in lib/transport.ts permits exactly that, and the partial unique index
+  // keys on direction so the database does too. Taking the first match showed
+  // whichever started most recently and hid the other, so the office answered
+  // "which bus does she go home on?" with the morning route, while the
+  // guardian portal — which lists both — showed the parent something else.
+  const liveTransport = student.transport.filter((entry) => !entry.endedOn);
+  const primaryTransport = liveTransport[0] ?? null;
 
   // The list already narrows a form teacher to their own classes, but the
   // list is not the way in — /students/<id> is. Without this, a teacher who
@@ -610,14 +620,22 @@ export default async function StudentProfilePage({
                 { label: "Transport", value: humanise(student.transportMode ?? "") },
                 {
                   label: "Bus route",
-                  value: liveTransport ? (
-                    <Link
-                      href={`/transport/${liveTransport.route.id}`}
-                      className="hover:text-[var(--primary)]"
-                    >
-                      {liveTransport.route.code} — {liveTransport.route.name}
-                      {liveTransport.stop ? `, ${liveTransport.stop.name}` : ""}
-                    </Link>
+                  value: liveTransport.length ? (
+                    <span className="flex flex-col gap-0.5">
+                      {liveTransport.map((entry) => (
+                        <Link
+                          key={entry.id}
+                          href={`/transport/${entry.route.id}`}
+                          className="hover:text-[var(--primary)]"
+                        >
+                          {entry.route.code} — {entry.route.name}
+                          {entry.stop ? `, ${entry.stop.name}` : ""}
+                          {entry.direction === "BOTH"
+                            ? ""
+                            : ` (${directionLabel(entry.direction).toLowerCase()})`}
+                        </Link>
+                      ))}
+                    </span>
                   ) : student.busRoute ? (
                     // The old free-text field, labelled as what it is: a note
                     // somebody typed, not an arrangement the office has made.
@@ -627,29 +645,21 @@ export default async function StudentProfilePage({
                     </span>
                   ) : null,
                 },
-                ...(liveTransport?.stop
+                ...(primaryTransport?.stop
                   ? [
                       {
                         label: "Bus times",
                         value:
                           [
-                            liveTransport.stop.pickupTime
-                              ? `picked up ${liveTransport.stop.pickupTime}`
+                            primaryTransport.stop.pickupTime
+                              ? `picked up ${primaryTransport.stop.pickupTime}`
                               : null,
-                            liveTransport.stop.dropoffTime
-                              ? `dropped off ${liveTransport.stop.dropoffTime}`
+                            primaryTransport.stop.dropoffTime
+                              ? `dropped off ${primaryTransport.stop.dropoffTime}`
                               : null,
                           ]
                             .filter(Boolean)
                             .join(", ") || null,
-                      },
-                    ]
-                  : []),
-                ...(liveTransport && liveTransport.direction !== "BOTH"
-                  ? [
-                      {
-                        label: "Bus travel",
-                        value: directionLabel(liveTransport.direction),
                       },
                     ]
                   : []),

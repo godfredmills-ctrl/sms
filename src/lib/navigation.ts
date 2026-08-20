@@ -509,6 +509,12 @@ export const STUDENT_NAVIGATION: NavGroup[] = [
         icon: "Library",
         permissions: ["library.read"],
       },
+      {
+        label: "My Bus",
+        href: "/portal/student/transport",
+        icon: "Bus",
+        permissions: ["transport.read"],
+      },
     ],
   },
   {

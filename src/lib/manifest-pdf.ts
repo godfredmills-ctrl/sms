@@ -56,6 +56,15 @@ export type Manifest = {
     driverPhone?: string | null;
     assistant?: string | null;
     assistantPhone?: string | null;
+    /**
+     * Why this bus should not be running, if it should not.
+     *
+     * The screen refuses to let a grounded bus pass unremarked and the paper
+     * did not, which is the wrong way round: the sheet is the thing that
+     * travels, and a driver holding it at a checkpoint is the person the
+     * expired certificate is about to be a problem for.
+     */
+    grounded?: string | null;
   }>;
   run: "MORNING" | "AFTERNOON";
   /** Printed on the sheet so an old one in the cab is visibly old. */
@@ -156,6 +165,7 @@ export async function renderManifestPdf(input: Manifest): Promise<Buffer> {
     contactLines.push(
       [
         vehicle.registration,
+        vehicle.grounded ? `DO NOT RUN — ${vehicle.grounded}` : null,
         driver ? `Driver: ${driver}` : null,
         assistant ? `Assistant: ${assistant}` : null,
       ]
@@ -192,32 +202,46 @@ export async function renderManifestPdf(input: Manifest): Promise<Buffer> {
 
   // --- The list --------------------------------------------------------------
   const drawStop = (stop: ManifestStop, heading: string, urgent = false) => {
-    room(46);
+    // A heading needs room for itself AND its first child, or it is drawn at
+    // the foot of one page with every one of its children on the next — under
+    // a "(continued)" line that names the route and not the stop. The
+    // assistant standing at that stop then has a heading with nothing under
+    // it and a list of names that reads as belonging to the stop below.
+    room(26 + 32);
 
-    page.drawRectangle({
-      x: MARGIN,
-      y: y - 18,
-      width: USABLE,
-      height: 18,
-      color: urgent ? rgb(0.99, 0.93, 0.86) : rgb(0.95, 0.96, 0.97),
-      ...(urgent ? { borderColor: ALERT, borderWidth: 0.75 } : {}),
-    });
-    page.drawText(truncate(clean(heading), bold, 10, USABLE - 90), {
-      x: MARGIN + 8,
-      y: y - 13,
-      size: 10,
-      font: bold,
-      color: urgent ? ALERT : INK,
-    });
-    const count = `${stop.children.length}`;
-    page.drawText(count, {
-      x: MARGIN + USABLE - 8 - bold.widthOfTextAtSize(count, 10),
-      y: y - 13,
-      size: 10,
-      font: bold,
-      color: MUTED,
-    });
-    y -= 26;
+    // Redrawn after every break, marked as the same stop continuing, so no
+    // child is ever printed without the stop they are waiting at.
+    let heading_ = heading;
+    const drawBand = (text: string) => {
+
+      page.drawRectangle({
+        x: MARGIN,
+        y: y - 18,
+        width: USABLE,
+        height: 18,
+        color: urgent ? rgb(0.99, 0.93, 0.86) : rgb(0.95, 0.96, 0.97),
+        ...(urgent ? { borderColor: ALERT, borderWidth: 0.75 } : {}),
+      });
+      page.drawText(truncate(clean(text), bold, 10, USABLE - 90), {
+        x: MARGIN + 8,
+        y: y - 13,
+        size: 10,
+        font: bold,
+        color: urgent ? ALERT : INK,
+      });
+      const count = `${stop.children.length}`;
+      page.drawText(count, {
+        x: MARGIN + USABLE - 8 - bold.widthOfTextAtSize(count, 10),
+        y: y - 13,
+        size: 10,
+        font: bold,
+        color: MUTED,
+      });
+      y -= 26;
+    };
+
+    drawBand(heading_);
+    heading_ = `${heading} (continued)`;
 
     if (stop.children.length === 0) {
       page.drawText("Nobody at this stop today.", {
@@ -232,7 +256,12 @@ export async function renderManifestPdf(input: Manifest): Promise<Buffer> {
     }
 
     for (const child of stop.children) {
-      room(24);
+      // 32, not 24: a child with a hand-over note is two lines plus a rule,
+      // and the old figure let the second line fall off the bottom.
+      const before = y;
+      room(32);
+      // room() moved us to a new page — say which stop this is, again.
+      if (y > before) drawBand(heading_);
 
       // The tick box: this sheet gets marked with a biro, twice a day.
       page.drawRectangle({

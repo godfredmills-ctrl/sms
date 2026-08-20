@@ -360,17 +360,40 @@ export async function assignTransportAction(
     };
   }
 
-  const assignment = await db.transportAssignment.create({
-    data: {
-      studentId,
-      routeId,
-      stopId,
-      direction,
-      collectedBy: text(formData, "collectedBy") || null,
-      notes: text(formData, "notes") || null,
-    },
-    select: { id: true },
-  });
+  try {
+    await db.transportAssignment.create({
+      data: {
+        studentId,
+        routeId,
+        stopId,
+        direction,
+        collectedBy: text(formData, "collectedBy") || null,
+        notes: text(formData, "notes") || null,
+      },
+      select: { id: true },
+    });
+  } catch (error) {
+    const code = (error as { code?: string }).code;
+
+    // The partial unique index on (studentId, direction) settles the race the
+    // conflict check above cannot: two clerks putting the same child on two
+    // routes in the same instant both read an empty live list. Reported as
+    // the ordinary situation it is.
+    if (code === "P2002") {
+      return {
+        error: `${student.firstName} has just been put on a route by someone else. Reload and check.`,
+      };
+    }
+
+    // The trigger that keeps a stop on its own route raises a plain exception
+    // rather than a Prisma error code. It should be unreachable — the check
+    // above catches it — but a message beats a 500 if it ever is not.
+    if (String((error as Error).message ?? "").includes("is not on route")) {
+      return { error: "That stop is not on this route." };
+    }
+
+    throw error;
+  }
 
   await db.auditLog.create({
     data: {

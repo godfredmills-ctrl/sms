@@ -11,6 +11,8 @@ import {
   PageHeader,
   StatCard,
 } from "@/components/ui";
+import { notFound } from "next/navigation";
+
 import { requirePermission, userCan } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { formatMoney } from "@/lib/money";
@@ -32,6 +34,15 @@ export const dynamic = "force-dynamic";
  */
 export default async function TransportPage() {
   const user = await requirePermission("transport.read");
+
+  // Staff only. transport.read is held by pupils and parents so that
+  // /portal/student/transport and /portal/guardian/transport work — and
+  // without this line that same permission opened this page, which lists
+  // every child on every route by name, with the handover notes. The manifest
+  // endpoint takes transport.manage for exactly this reason; the page it
+  // prints from was still on read. Same guard as src/app/(app)/lms/page.tsx.
+  if (user.portal !== "STAFF") notFound();
+
   const canManage = userCan(user, "transport.manage");
 
   const [routes, vehicles, staff, unassignedBusChildren] = await Promise.all([
@@ -243,7 +254,18 @@ export default async function TransportPage() {
                     <li key={vehicle.id} className="flex flex-wrap gap-3 px-4 py-3">
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
-                          <span className="numeric font-medium">{vehicle.registration}</span>
+                          {canManage ? (
+                            <Link
+                              href={`/transport/vehicles/${vehicle.id}`}
+                              className="numeric font-medium hover:text-[var(--primary)]"
+                            >
+                              {vehicle.registration}
+                            </Link>
+                          ) : (
+                            <span className="numeric font-medium">
+                              {vehicle.registration}
+                            </span>
+                          )}
                           {vehicle.make ? (
                             <span className="text-xs text-[var(--text-subtle)]">
                               {vehicle.make}

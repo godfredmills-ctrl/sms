@@ -20,6 +20,7 @@ import { formatMoney } from "@/lib/money";
 import { capacityOf, directionLabel, fitnessOf, travelsOn } from "@/lib/transport";
 import { listName } from "@/lib/utils";
 
+import { RouteForm } from "../forms";
 import { AssignForm, EndAssignmentButton } from "./assign-form";
 
 export const dynamic = "force-dynamic";
@@ -54,6 +55,15 @@ export default async function RoutePage({
   searchParams: Promise<{ run?: string }>;
 }) {
   const user = await requirePermission("transport.read");
+
+  // Staff only. transport.read is held by pupils and parents so that
+  // /portal/student/transport and /portal/guardian/transport work — and
+  // without this line that same permission opened this page, which lists
+  // every child on every route by name, with the handover notes. The manifest
+  // endpoint takes transport.manage for exactly this reason; the page it
+  // prints from was still on read. Same guard as src/app/(app)/lms/page.tsx.
+  if (user.portal !== "STAFF") notFound();
+
   const canManage = userCan(user, "transport.manage");
 
   const { id } = await params;
@@ -131,9 +141,15 @@ export default async function RoutePage({
   // lives in lib/transport.ts so this page and the manifest cannot disagree.
   const travelling = route.assignments.filter((entry) => travelsOn(entry.direction, run));
 
+  // Sorted by name, as the manifest sorts them — two lists of the same
+  // children in different orders is how someone ticks the wrong row.
+  const ordered = [...travelling].sort((a, b) =>
+    listName(a.student).localeCompare(listName(b.student)),
+  );
+
   const byStop = new Map<string, typeof travelling>();
   const unplaced: typeof travelling = [];
-  for (const entry of travelling) {
+  for (const entry of ordered) {
     if (!entry.stopId) {
       unplaced.push(entry);
       continue;
@@ -209,26 +225,31 @@ export default async function RoutePage({
           </Link>
         }
         action={
-          <>
-            <LinkButton
-              href={`/api/manifest?route=${route.id}&run=morning`}
-              target="_blank"
-              size="sm"
-              variant="secondary"
-            >
-              <Printer className="size-4" />
-              Morning manifest
-            </LinkButton>
-            <LinkButton
-              href={`/api/manifest?route=${route.id}&run=afternoon`}
-              target="_blank"
-              size="sm"
-              variant="secondary"
-            >
-              <Printer className="size-4" />
-              Afternoon
-            </LinkButton>
-          </>
+          // Shown only to the people the manifest is for. It carries every
+          // child's guardian phone number, and transport.read reaches parents
+          // and pupils so they can see which bus they are on.
+          canManage ? (
+            <>
+              <LinkButton
+                href={`/api/manifest?route=${route.id}&run=morning`}
+                target="_blank"
+                size="sm"
+                variant="secondary"
+              >
+                <Printer className="size-4" />
+                Morning manifest
+              </LinkButton>
+              <LinkButton
+                href={`/api/manifest?route=${route.id}&run=afternoon`}
+                target="_blank"
+                size="sm"
+                variant="secondary"
+              >
+                <Printer className="size-4" />
+                Afternoon
+              </LinkButton>
+            </>
+          ) : null
         }
       />
 
@@ -433,6 +454,35 @@ export default async function RoutePage({
         </div>
 
         <div className="space-y-5">
+          {canManage ? (
+            <Card>
+              <CardHeader
+                title="Edit this route"
+                description="Re-listing the stops updates their times and order."
+              />
+              <RouteForm
+                route={{
+                  id: route.id,
+                  code: route.code,
+                  name: route.name,
+                  description: route.description,
+                  durationMins: route.durationMins,
+                  feeMinor: route.feeMinor,
+                  // Rendered back into the one-per-line format the form reads,
+                  // so a stop is corrected rather than re-typed from memory.
+                  stopsText: route.stops
+                    .map((stop) =>
+                      [stop.name, stop.landmark, stop.pickupTime, stop.dropoffTime]
+                        .map((part) => part ?? "")
+                        .join(" | ")
+                        .replace(/(\s*\|\s*)+$/, ""),
+                    )
+                    .join("\n"),
+                }}
+              />
+            </Card>
+          ) : null}
+
           {canManage ? (
             <Card>
               <CardHeader title="Put a child on this route" />

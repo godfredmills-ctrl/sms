@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { authorize } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { renderManifestPdf, type ManifestChild } from "@/lib/manifest-pdf";
-import { travelsOn } from "@/lib/transport";
+import { fitnessOf, travelsOn } from "@/lib/transport";
 import { listName } from "@/lib/utils";
 
 /**
@@ -34,8 +34,16 @@ function message(status: number, title: string, body: string) {
 }
 
 export async function GET(request: Request) {
+  // transport.manage, not transport.read.
+  //
+  // read is held by teachers, pupils and parents so they can see which bus a
+  // child is on — and this sheet is a different thing entirely: every child on
+  // the route by name, their class, who collects them, and a guardian's phone
+  // number beside each one. Gated on read, any pupil with a route id could
+  // have pulled the contact details of everyone on their bus. It is the
+  // office's document, printed and handed to a driver.
   try {
-    await authorize("transport.read");
+    await authorize("transport.manage");
   } catch (error) {
     return message(403, "Not signed in for this", (error as Error).message);
   }
@@ -54,9 +62,13 @@ export async function GET(request: Request) {
         name: true,
         stops: { orderBy: { sequence: "asc" }, select: { id: true, name: true, landmark: true, pickupTime: true, dropoffTime: true } },
         vehicles: {
-          where: { isActive: true },
+          // Every bus on the route, not only the ones in service: a grounded
+          // bus that is still assigned is exactly what the sheet must say.
           select: {
             registration: true,
+            isActive: true,
+            roadworthyExpiry: true,
+            insuranceExpiry: true,
             driverName: true,
             driverPhone: true,
             assistantName: true,
@@ -143,6 +155,9 @@ export async function GET(request: Request) {
     printedOn: new Date(),
     vehicles: route.vehicles.map((vehicle) => ({
       registration: vehicle.registration,
+      grounded: fitnessOf(vehicle).grounded
+        ? fitnessOf(vehicle).reasons.join(", ").toLowerCase()
+        : null,
       driver: vehicle.driverStaff
         ? `${vehicle.driverStaff.firstName} ${vehicle.driverStaff.lastName}`
         : vehicle.driverName,

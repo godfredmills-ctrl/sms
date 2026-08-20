@@ -87,7 +87,15 @@ export function fitnessOf(
     ["Roadworthy", vehicle.roadworthyExpiry],
     ["Insurance", vehicle.insuranceExpiry],
   ] as const) {
-    if (!expiry) continue;
+    if (!expiry) {
+      // Not recorded is not the same as valid. A bus with no roadworthy date
+      // read as perfectly fit, which is the wrong way round for a safety
+      // check — and the likeliest state for a bus somebody added in a hurry.
+      // It warns rather than grounds: the certificate probably exists, in a
+      // folder, and grounding the fleet over data entry helps nobody.
+      reasons.push(`${label} date not recorded`);
+      continue;
+    }
     if (expiry < asOf) {
       grounded = true;
       reasons.push(`${label} expired`);

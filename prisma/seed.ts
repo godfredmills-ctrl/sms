@@ -2961,6 +2961,18 @@ async function seedTransport(students: StudentRow[], staff: StaffRow[]) {
   // Drivers come from the staff list where the school has them on the books.
   const drivers = staff.slice(0, plan.length);
 
+  // seedStudents returns the school in section order — every Nursery child,
+  // then every KG child, and so on. Walking it from the start put the entire
+  // bus fleet in the nursery: no demo login had a bus, the manifest read like
+  // a creche run, and the class column was the same value forty times. Taking
+  // every nth child instead spreads the routes across the school, which is
+  // what a real bus list looks like.
+  const stride = Math.max(1, Math.floor(students.length / 90));
+  const riders: StudentRow[] = [];
+  for (let index = 0; index < students.length; index += stride) {
+    riders.push(students[index]);
+  }
+
   let cursor = 0;
   let placed = 0;
 
@@ -3014,8 +3026,8 @@ async function seedTransport(students: StudentRow[], staff: StaffRow[]) {
     // Children spread across the stops, a few travelling one way only — which
     // is what makes the morning and afternoon counts differ, and therefore
     // what makes the capacity arithmetic worth having.
-    for (let rider = 0; rider < entry.riders && cursor < students.length; rider += 1) {
-      const student = students[cursor++];
+    for (let rider = 0; rider < entry.riders && cursor < riders.length; rider += 1) {
+      const student = riders[cursor++];
       const direction =
         rider % 9 === 0 ? "MORNING" : rider % 11 === 0 ? "AFTERNOON" : "BOTH";
 
@@ -3041,15 +3053,29 @@ async function seedTransport(students: StudentRow[], staff: StaffRow[]) {
     }
   }
 
-  // A handful the admission form says come by bus who were never put on a
+  // Exactly four the admission form says come by bus who were never put on a
   // route — the gap the transport page warns about, which exists in every
-  // school and should exist in the demo.
-  for (let index = 0; index < 4 && cursor < students.length; index += 1) {
+  // school and should exist in the demo. Four, and not "whatever is left":
+  // seedStudents already scatters transportMode across the whole school, so
+  // this loop is the only one that should be adding to that count, and a
+  // banner reading sixty is a banner nobody reads.
+  for (let index = 0; index < 4 && cursor < riders.length; index += 1) {
     await db.student.update({
-      where: { id: students[cursor++].id },
+      where: { id: riders[cursor++].id },
       data: { transportMode: "SCHOOL_BUS", busRoute: "Route 3 (per admission form)" },
     });
   }
+
+  // Everyone else who is not on a route should not claim to come by bus, or
+  // the warning counts children the office never intended to arrange for.
+  await db.student.updateMany({
+    where: {
+      transportMode: "SCHOOL_BUS",
+      busRoute: null,
+      transport: { none: { endedOn: null } },
+    },
+    data: { transportMode: "PRIVATE" },
+  });
 
   console.log(`    ${plan.length} routes, ${placed} children riding`);
 }
