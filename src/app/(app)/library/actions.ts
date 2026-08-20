@@ -6,6 +6,7 @@ import { authorize } from "@/lib/auth";
 import { db } from "@/lib/db";
 import {
   MAX_RENEWALS,
+  daysOverdue,
   dueDateFor,
   loanRefusal,
   type BorrowerKind,
@@ -98,26 +99,30 @@ export async function saveItemAction(
   const clashes: string[] = [];
 
   for (const accessionNo of [...new Set(accessions)]) {
-    const existing = await db.libraryCopy.findUnique({
-      where: { accessionNo },
-      select: { id: true },
-    });
-    if (existing) {
-      clashes.push(accessionNo);
-      continue;
+    try {
+      await db.libraryCopy.create({
+        data: {
+          itemId: item.id,
+          accessionNo,
+          condition: text(formData, "condition") || "GOOD",
+          costMinor: text(formData, "cost") ? toMinor(text(formData, "cost")) : null,
+          acquiredOn: text(formData, "acquiredOn")
+            ? new Date(`${text(formData, "acquiredOn")}T00:00:00Z`)
+            : null,
+        },
+      });
+      added += 1;
+    } catch (error) {
+      // The unique index decides, not a look-up beforehand: checking first
+      // and creating second leaves a window, and a collision landing in that
+      // window threw out of the action — losing the twenty-nine copies
+      // already catalogued along with any account of what happened.
+      if ((error as { code?: string }).code === "P2002") {
+        clashes.push(accessionNo);
+        continue;
+      }
+      throw error;
     }
-    await db.libraryCopy.create({
-      data: {
-        itemId: item.id,
-        accessionNo,
-        condition: text(formData, "condition") || "GOOD",
-        costMinor: text(formData, "cost") ? toMinor(text(formData, "cost")) : null,
-        acquiredOn: text(formData, "acquiredOn")
-          ? new Date(`${text(formData, "acquiredOn")}T00:00:00Z`)
-          : null,
-      },
-    });
-    added += 1;
   }
 
   await db.auditLog.create({
@@ -275,12 +280,21 @@ export async function issueLoanAction(
       }),
       db.libraryCopy.update({ where: { id: copy.id }, data: { status: "ON_LOAN" } }),
     ]);
-  } catch {
+  } catch (error) {
     // The partial unique index on live loans is what actually prevents a
     // double-issue: two people at the desk can pass the status check in the
-    // same instant, and only the database can settle it. Reported as the
-    // ordinary situation it is rather than as a failure.
-    return { error: "That copy has just been issued to someone else." };
+    // same instant, and only the database can settle it.
+    //
+    // Only that collision gets the friendly message. A bare catch here told
+    // the desk "issued to someone else" for a dropped connection or a
+    // constraint nobody had thought about, sending a librarian to look for a
+    // book that was on the shelf the whole time, and swallowing the real
+    // fault where nobody would see it.
+    const code = (error as { code?: string }).code;
+    if (code === "P2002") {
+      return { error: "That copy has just been issued to someone else." };
+    }
+    throw error;
   }
 
   await db.auditLog.create({
@@ -332,6 +346,7 @@ export async function returnLoanAction(
     where: { accessionNo },
     select: {
       id: true,
+      status: true,
       item: { select: { title: true } },
       loans: {
         where: { returnedAt: null },
@@ -348,24 +363,58 @@ export async function returnLoanAction(
 
   const loan = copy.loans[0];
   if (!loan) {
-    // Not an error: a book handed back that the system already has down as
-    // returned is a shelf to put it on, not a problem to solve.
-    if (copy.item) {
+    // A book handed back that the system already has down as returned is a
+    // shelf to put it on, not a problem to solve — but only if it was out.
+    //
+    // This branch used to be guarded by `if (copy.item)`, which is a required
+    // relation and therefore always true: it guarded nothing. So mistyping one
+    // digit onto a copy recorded LOST, WITHDRAWN or at the binder answered
+    // "it is on the shelf now" and made that true in the database, putting a
+    // missing book back into circulation for the next child who asked. The
+    // status is what the guard should always have been.
+    if (copy.status === "ON_LOAN") {
+      // Recorded out with nobody holding it — the state this branch exists
+      // to clear. Audited, because a status changing with no loan behind it
+      // is exactly the kind of thing someone later needs explained.
       await db.libraryCopy.update({
         where: { id: copy.id },
         data: { status: "AVAILABLE" },
       });
+      await db.auditLog.create({
+        data: {
+          userId: user.id,
+          actorLabel: user.fullName,
+          action: "library.copy.unstick",
+          entity: "LibraryCopy",
+          entityId: copy.id,
+          summary: `${accessionNo} was marked on loan with no loan open; set available`,
+        },
+      });
+      revalidatePath("/library");
+      revalidatePath("/library/loans");
+      return { ok: true, message: "That copy was not out. It is on the shelf now." };
     }
-    revalidatePath("/library");
-    return { ok: true, message: "That copy was not out. It is on the shelf now." };
+
+    if (copy.status === "AVAILABLE") {
+      return { ok: true, message: "That copy was already on the shelf." };
+    }
+
+    return {
+      error: `${accessionNo} is not out — it is recorded as ${copy.status
+        .toLowerCase()
+        .replace(/_/g, " ")}. Change that from the catalogue if it is wrong.`,
+    };
   }
 
   const condition = text(formData, "returnCondition") || null;
   const fine = text(formData, "fine");
 
   await db.$transaction([
-    db.libraryLoan.update({
-      where: { id: loan.id },
+    // updateMany with returnedAt: null, not update by id: the loan was read a
+    // moment ago and outside this write, so a return racing another return
+    // would otherwise stamp the second time over the first.
+    db.libraryLoan.updateMany({
+      where: { id: loan.id, returnedAt: null },
       data: {
         returnedAt: new Date(),
         returnedById: user.id,
@@ -440,6 +489,20 @@ export async function renewLoanAction(formData: FormData): Promise<LibraryState>
   });
   if (!loan) return { error: "That loan was not found." };
   if (loan.returnedAt) return { error: "That book is already back." };
+
+  // The desk's only overdue guard used to be `&& !late` on the button, and a
+  // page left open all day renders yesterday's state: one click the next
+  // morning renewed an overdue loan and, because the new date is measured
+  // from today, erased the lateness entirely — the loan left the Overdue
+  // view, the pupil's portal stopped warning them, and loanRefusal's overdue
+  // count dropped to zero so the desk would lend them another book while the
+  // late one was still out.
+  if (daysOverdue(loan.dueAt) > 0) {
+    return {
+      error: "That one is already overdue. It has to come back before it can go out again.",
+    };
+  }
+
   if (loan.renewals >= MAX_RENEWALS) {
     return {
       error: `Renewed ${loan.renewals} times already. It needs to come back so someone else can have it.`,

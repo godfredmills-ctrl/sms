@@ -391,6 +391,10 @@ export const ROLE_PRESETS: RolePreset[] = [
       "academic.structure.read",
       "academic.timetable.read",
       ...expand("attendance"),
+      // The teacher preset has this; the form teacher, who is a teacher with
+      // a register on top, did not — so the one member of staff a child asks
+      // about a missing library book could not look it up.
+      "library.read",
       "assessment.read",
       "assessment.create",
       "assessment.grade",

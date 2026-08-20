@@ -354,6 +354,10 @@ export async function deleteStaffAction(formData: FormData): Promise<StaffState>
       userId: true,
       _count: {
         select: {
+          // A live loan cascades away with the staff row, leaving the copy
+          // marked ON_LOAN with nothing pointing at it — unissuable, and
+          // unfixable except through the desk's unstick path.
+          libraryLoans: { where: { returnedAt: null } },
           offerings: true,
           formClasses: true,
           takenAttendance: true,
@@ -378,6 +382,7 @@ export async function deleteStaffAction(formData: FormData): Promise<StaffState>
     [staff._count.gradedScores, "graded score"],
     [staff._count.offerings, "class assignment"],
     [staff._count.formClasses, "form class"],
+    [staff._count.libraryLoans, "library book still out"],
   ] as const;
 
   const blocking = history

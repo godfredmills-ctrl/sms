@@ -20,6 +20,7 @@ import { ITEM_CATEGORIES, NON_CIRCULATING, labelFor } from "@/lib/library";
 import { listName } from "@/lib/utils";
 
 import { CatalogueForm } from "./catalogue-form";
+import { CopyStatusChip } from "./copy-status";
 
 export const metadata: Metadata = { title: "Library" };
 export const dynamic = "force-dynamic";
@@ -157,6 +158,13 @@ export default async function LibraryPage({
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
         <div className="min-w-0">
+          {/*
+            The category rides along in a hidden field, and each category link
+            carries the query. Otherwise the two controls sit beside each
+            other and silently cancel one another: searching from a category
+            widened to the whole catalogue, and picking a category cleared the
+            search — in both cases the other control still looked applied.
+          */}
           <LedgerSearch
             action="/library"
             defaultValue={query}
@@ -164,11 +172,12 @@ export default async function LibraryPage({
             label="Search the catalogue"
             found={total}
             noun="title"
+            hidden={category ? { category } : undefined}
           />
 
           <div className="mb-3 flex flex-wrap gap-1.5">
             <Link
-              href="/library"
+              href={query ? `/library?q=${encodeURIComponent(query)}` : "/library"}
               className={
                 category
                   ? "rounded-full px-3 py-1 text-xs font-medium text-[var(--text-muted)] hover:bg-[var(--surface-2)]"
@@ -180,7 +189,9 @@ export default async function LibraryPage({
             {ITEM_CATEGORIES.map((option) => (
               <Link
                 key={option.value}
-                href={`/library?category=${option.value}`}
+                href={`/library?category=${option.value}${
+                  query ? `&q=${encodeURIComponent(query)}` : ""
+                }`}
                 className={
                   category === option.value
                     ? "rounded-full bg-[var(--primary)] px-3 py-1 text-xs font-medium text-white"
@@ -245,21 +256,34 @@ export default async function LibraryPage({
                           {item.isbn ? ` · ISBN ${item.isbn}` : ""}
                         </p>
                         <p className="mt-1 flex flex-wrap gap-1.5">
-                          {item.copies.slice(0, 8).map((copy) => (
-                            <span
-                              key={copy.id}
-                              title={`${copy.accessionNo} — ${copy.status.toLowerCase()}`}
-                              className={
-                                copy.status === "AVAILABLE"
-                                  ? "numeric rounded border border-[var(--success)] px-1.5 py-0.5 text-[10px] text-[var(--success)]"
-                                  : copy.status === "ON_LOAN"
-                                    ? "numeric rounded border border-[var(--border)] px-1.5 py-0.5 text-[10px] text-[var(--text-subtle)]"
-                                    : "numeric rounded border border-[var(--danger)] px-1.5 py-0.5 text-[10px] text-[var(--danger)]"
-                              }
-                            >
-                              {copy.accessionNo}
-                            </span>
-                          ))}
+                          {item.copies.slice(0, 8).map((copy) =>
+                            // Only a library.manage holder gets the control;
+                            // everyone else sees the same chip, inert.
+                            canManage ? (
+                              <CopyStatusChip
+                                key={copy.id}
+                                copyId={copy.id}
+                                accessionNo={copy.accessionNo}
+                                status={copy.status}
+                              />
+                            ) : (
+                              <span
+                                key={copy.id}
+                                title={`${copy.accessionNo} — ${copy.status
+                                  .toLowerCase()
+                                  .replace(/_/g, " ")}`}
+                                className={
+                                  copy.status === "AVAILABLE"
+                                    ? "numeric rounded border border-[var(--success)] px-1.5 py-0.5 text-[10px] text-[var(--success)]"
+                                    : copy.status === "ON_LOAN"
+                                      ? "numeric rounded border border-[var(--border)] px-1.5 py-0.5 text-[10px] text-[var(--text-subtle)]"
+                                      : "numeric rounded border border-[var(--danger)] px-1.5 py-0.5 text-[10px] text-[var(--danger)]"
+                                }
+                              >
+                                {copy.accessionNo}
+                              </span>
+                            ),
+                          )}
                           {item.copies.length > 8 ? (
                             <span className="text-[10px] text-[var(--text-subtle)]">
                               +{item.copies.length - 8} more

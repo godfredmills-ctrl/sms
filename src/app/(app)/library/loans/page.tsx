@@ -13,7 +13,7 @@ import {
   PageHeader,
   StatCard,
 } from "@/components/ui";
-import { requirePermission } from "@/lib/auth";
+import { requirePermission, userCan } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { MAX_RENEWALS, daysOverdue } from "@/lib/library";
 import { formatDate, listName, relativeTime } from "@/lib/utils";
@@ -38,7 +38,12 @@ export default async function LoansPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  await requirePermission("library.circulate");
+  const user = await requirePermission("library.circulate");
+  // The librarian's whole job is this page, and their role does not carry
+  // staff.read — so linking a staff borrower's name sent the one person who
+  // uses it most to a refusal. Linked only where the link goes somewhere.
+  const canOpenStudent = userCan(user, "student.read");
+  const canOpenStaff = userCan(user, "staff.read");
 
   const params = await searchParams;
   const { page, skip, take } = pageOf(params, PER_PAGE);
@@ -253,11 +258,12 @@ export default async function LoansPage({
                 {loans.map((loan) => {
                   const late = loan.returnedAt ? 0 : daysOverdue(loan.dueAt, now);
                   const borrower = loan.student ?? loan.staff;
-                  const href = loan.student
-                    ? `/students/${loan.student.id}`
-                    : loan.staff
-                      ? `/staff/${loan.staff.id}`
-                      : null;
+                  const href =
+                    loan.student && canOpenStudent
+                      ? `/students/${loan.student.id}`
+                      : loan.staff && canOpenStaff
+                        ? `/staff/${loan.staff.id}`
+                        : null;
 
                   return (
                     <li key={loan.id} className="flex flex-wrap gap-3 px-4 py-3">

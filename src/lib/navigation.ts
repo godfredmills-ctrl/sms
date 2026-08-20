@@ -449,6 +449,12 @@ export const GUARDIAN_NAVIGATION: NavGroup[] = [
       { label: "Children", href: "/portal/guardian/children", icon: "GraduationCap" },
       { label: "Results", href: "/portal/guardian/results", icon: "FileText" },
       { label: "Attendance", href: "/portal/guardian/attendance", icon: "CalendarCheck" },
+      {
+        label: "Library Books",
+        href: "/portal/guardian/library",
+        icon: "Library",
+        permissions: ["library.read"],
+      },
     ],
   },
   {

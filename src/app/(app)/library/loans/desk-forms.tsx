@@ -46,8 +46,10 @@ export function IssueForm({
 
   // After the remount the node is new, so focus is taken here rather than in
   // the effect above — which would be pointing at the element just discarded.
+  // Guarded on formKey so it does not also fire on mount, where autoFocus has
+  // it covered — see the note on the same effect in ReturnForm.
   useEffect(() => {
-    accession.current?.focus();
+    if (formKey > 0) accession.current?.focus();
   }, [formKey]);
 
   return (
@@ -92,13 +94,22 @@ export function IssueForm({
         </div>
 
         {/*
-          Only the chosen borrower's field is rendered, not merely hidden: a
-          hidden-but-present select would still submit its value, and the
-          action refuses a request naming both a pupil and a teacher.
+          Only the chosen borrower's field is rendered — and `key` is what
+          makes that true.
+          
+          Without it React reconciles the two branches as one component,
+          because they sit at the same position and are the same type: only
+          the props change. SearchableSelect keeps its choice in its own
+          state, so that state survived the switch. The staff select then
+          showed its placeholder — its options no longer contain a pupil's
+          id — while still posting a hidden staffId holding that pupil's id.
+          The desk answered "That borrower was not found", the field looked
+          empty, and clicking Issue again did the same thing forever.
         */}
         {borrowerKind === "STUDENT" ? (
           <Field label="Pupil" htmlFor="issue-student" required>
             <SearchableSelect
+              key="borrower-student"
               id="issue-student"
               name="studentId"
               required
@@ -110,6 +121,7 @@ export function IssueForm({
         ) : (
           <Field label="Member of staff" htmlFor="issue-staff" required>
             <SearchableSelect
+              key="borrower-staff"
               id="issue-staff"
               name="staffId"
               required
@@ -142,8 +154,15 @@ export function ReturnForm() {
     }
   }, [state]);
 
+  // formKey > 0 means "after a successful return", which is when the desk
+  // wants the cursor back here. On mount it must not fire: this form renders
+  // after the issue form, so its focus call landed last and took the cursor
+  // off the Issue box on every page load. A librarian typing an accession
+  // number and pressing Enter was then closing someone else's loan instead of
+  // issuing a book — a single-input form submits on Enter, and the message
+  // that came back looked like an ordinary success.
   useEffect(() => {
-    accession.current?.focus();
+    if (formKey > 0) accession.current?.focus();
   }, [formKey]);
 
   return (

@@ -23,6 +23,7 @@ export function LedgerSearch({
   label,
   found,
   noun,
+  hidden,
 }: {
   /** The page's own path — the form posts back to it. */
   action: string;
@@ -33,9 +34,20 @@ export function LedgerSearch({
   found: number;
   /** Singular noun for the result line, e.g. "invoice". */
   noun: string;
+  /**
+   * Other query parameters the page is currently filtered by.
+   *
+   * A GET form submits only its own fields, so anything already in the URL —
+   * a category, a tab — is dropped the moment someone searches. Carried as
+   * hidden inputs, the two controls compose instead of cancelling.
+   */
+  hidden?: Record<string, string>;
 }) {
   return (
     <form method="get" action={action} className="mb-3">
+      {Object.entries(hidden ?? {}).map(([key, value]) => (
+        <input key={key} type="hidden" name={key} value={value} />
+      ))}
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative min-w-0 flex-1">
           <Search className="absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-[var(--text-subtle)]" />

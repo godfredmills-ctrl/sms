@@ -12,7 +12,7 @@ import {
   PageHeader,
   StatCard,
 } from "@/components/ui";
-import { requireUser } from "@/lib/auth";
+import { requirePermission } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { LOAN_LIMIT, MAX_RENEWALS, daysOverdue } from "@/lib/library";
 import { formatDate } from "@/lib/utils";
@@ -31,7 +31,10 @@ export const dynamic = "force-dynamic";
  * how many more they may take, and when this one has to be back.
  */
 export default async function StudentLibraryPage() {
-  const user = await requireUser();
+  // The nav row is gated on library.read, so the page is too — otherwise an
+  // administrator removing the permission from the Student role hides the
+  // link and leaves the page answering to anyone who kept the URL.
+  const user = await requirePermission("library.read");
 
   const student = await db.student.findFirst({
     where: { userId: user.id },
@@ -39,24 +42,37 @@ export default async function StudentLibraryPage() {
   });
   if (!student) return <NotLinked />;
 
-  const loans = await db.libraryLoan.findMany({
-    where: { studentId: student.id },
-    orderBy: [{ returnedAt: { sort: "asc", nulls: "first" } }, { issuedAt: "desc" }],
-    take: 60,
-    select: {
-      id: true,
-      issuedAt: true,
-      dueAt: true,
-      returnedAt: true,
-      renewals: true,
-      copy: {
-        select: {
-          accessionNo: true,
-          item: { select: { title: true, author: true } },
+  // Nulls first puts what is still out at the top; among the returned,
+  // issuedAt descending is what makes `take` keep the most recent reading.
+  // Ordering the returned by returnedAt ascending — as this did — sorted the
+  // oldest first, so a pupil who had borrowed more than sixty books over
+  // their years at the school saw their Primary 1 readers and none of this
+  // term's.
+  const [loans, readCount] = await Promise.all([
+    db.libraryLoan.findMany({
+      where: { studentId: student.id },
+      orderBy: [{ returnedAt: { sort: "asc", nulls: "first" } }, { issuedAt: "desc" }],
+      take: 60,
+      select: {
+        id: true,
+        issuedAt: true,
+        dueAt: true,
+        returnedAt: true,
+        renewals: true,
+        copy: {
+          select: {
+            accessionNo: true,
+            item: { select: { title: true, author: true } },
+          },
         },
       },
-    },
-  });
+    }),
+    // Counted, not measured off the page: "Read so far" is a number about a
+    // whole school career and the list above it is a window sixty long.
+    db.libraryLoan.count({
+      where: { studentId: student.id, returnedAt: { not: null } },
+    }),
+  ]);
 
   const out = loans.filter((loan) => !loan.returnedAt);
   const overdue = out.filter((loan) => daysOverdue(loan.dueAt) > 0);
@@ -106,7 +122,7 @@ export default async function StudentLibraryPage() {
         />
         <StatCard
           label="Read so far"
-          value={loans.filter((loan) => loan.returnedAt).length}
+          value={readCount}
           hint="Books returned"
           icon={<Clock className="size-4" />}
           tone="violet"
