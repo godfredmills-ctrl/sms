@@ -168,6 +168,11 @@ export const PERMISSIONS: PermissionDef[] = [
     ["manage", "update", "Sign visitors in and out, and issue passes"],
   ]),
 
+  ...define("transport", [
+    ["read", "read", "View bus routes and who is on them"],
+    ["manage", "update", "Set up routes, stops and vehicles, and assign children"],
+  ]),
+
   ...define("library", [
     ["read", "read", "Search the library catalogue"],
     ["circulate", "update", "Issue and take back books at the desk"],
@@ -253,6 +258,7 @@ export const ROLE_PRESETS: RolePreset[] = [
         "website",
         "visitor",
         "library",
+        "transport",
       ),
       "finance.read",
       "finance.report",
@@ -331,6 +337,10 @@ export const ROLE_PRESETS: RolePreset[] = [
       // student, which is the registrar's work before it is anyone else's.
       "website.enquiry.manage",
       "visitor.read",
+      // A child arriving in September needs a seat on a bus, which is settled
+      // at admission rather than by the office in October.
+      "transport.read",
+      "transport.manage",
       "communication.announcement.read",
       "communication.email.send",
       "communication.sms.send",
@@ -391,6 +401,7 @@ export const ROLE_PRESETS: RolePreset[] = [
       "academic.structure.read",
       "academic.timetable.read",
       ...expand("attendance"),
+      "transport.read",
       // The teacher preset has this; the form teacher, who is a teacher with
       // a register on top, did not — so the one member of staff a child asks
       // about a missing library book could not look it up.
@@ -470,6 +481,8 @@ export const ROLE_PRESETS: RolePreset[] = [
       "visitor.manage",
       "library.read",
       "library.circulate",
+      "transport.read",
+      "transport.manage",
       "communication.announcement.read",
       "communication.announcement.manage",
       "communication.email.send",
@@ -502,6 +515,7 @@ export const ROLE_PRESETS: RolePreset[] = [
       // library page narrows to the viewer's own loans for a portal account —
       // read here is the catalogue, not the borrowing history of the school.
       "library.read",
+      "transport.read",
     ],
   },
   {
@@ -518,6 +532,7 @@ export const ROLE_PRESETS: RolePreset[] = [
       "communication.message",
       "document.read",
       "library.read",
+      "transport.read",
     ],
   },
 ];

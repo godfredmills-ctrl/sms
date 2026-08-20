@@ -39,6 +39,7 @@ import {
 import { requirePermission, userCan } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { daysOverdue } from "@/lib/library";
+import { directionLabel } from "@/lib/transport";
 import { getStudentStatement } from "@/lib/finance";
 import { studentOutOfScope } from "@/lib/scope";
 import { CONDUCT_STATUS_TONES } from "../discipline/fields";
@@ -154,6 +155,14 @@ export default async function StudentProfilePage({
       // A child's reading is one of the few records that follows them through
       // the whole school, so this is the history rather than a current list —
       // what is out now simply sorts to the top of it.
+      transport: {
+        orderBy: [{ endedOn: { sort: "asc", nulls: "first" } }, { startedOn: "desc" }],
+        take: 5,
+        include: {
+          route: { select: { id: true, code: true, name: true } },
+          stop: { select: { name: true, landmark: true, pickupTime: true, dropoffTime: true } },
+        },
+      },
       libraryLoans: {
         orderBy: [{ returnedAt: { sort: "asc", nulls: "first" } }, { issuedAt: "desc" }],
         take: 50,
@@ -169,6 +178,10 @@ export default async function StudentProfilePage({
   });
 
   if (!student) notFound();
+
+  // The one live arrangement, if there is one — see lib/transport.ts for why
+  // a child can hold a morning and an afternoon one but never both plus BOTH.
+  const liveTransport = student.transport.find((entry) => !entry.endedOn) ?? null;
 
   // The list already narrows a form teacher to their own classes, but the
   // list is not the way in — /students/<id> is. Without this, a teacher who
@@ -595,7 +608,51 @@ export default async function StudentProfilePage({
                     : null,
                 },
                 { label: "Transport", value: humanise(student.transportMode ?? "") },
-                { label: "Bus route", value: student.busRoute },
+                {
+                  label: "Bus route",
+                  value: liveTransport ? (
+                    <Link
+                      href={`/transport/${liveTransport.route.id}`}
+                      className="hover:text-[var(--primary)]"
+                    >
+                      {liveTransport.route.code} — {liveTransport.route.name}
+                      {liveTransport.stop ? `, ${liveTransport.stop.name}` : ""}
+                    </Link>
+                  ) : student.busRoute ? (
+                    // The old free-text field, labelled as what it is: a note
+                    // somebody typed, not an arrangement the office has made.
+                    <span className="text-[var(--text-muted)]">
+                      {student.busRoute}{" "}
+                      <span className="text-xs">(noted at admission; not on a route)</span>
+                    </span>
+                  ) : null,
+                },
+                ...(liveTransport?.stop
+                  ? [
+                      {
+                        label: "Bus times",
+                        value:
+                          [
+                            liveTransport.stop.pickupTime
+                              ? `picked up ${liveTransport.stop.pickupTime}`
+                              : null,
+                            liveTransport.stop.dropoffTime
+                              ? `dropped off ${liveTransport.stop.dropoffTime}`
+                              : null,
+                          ]
+                            .filter(Boolean)
+                            .join(", ") || null,
+                      },
+                    ]
+                  : []),
+                ...(liveTransport && liveTransport.direction !== "BOTH"
+                  ? [
+                      {
+                        label: "Bus travel",
+                        value: directionLabel(liveTransport.direction),
+                      },
+                    ]
+                  : []),
                 {
                   label: "Internet at home",
                   value:

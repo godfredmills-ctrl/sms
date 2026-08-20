@@ -25,6 +25,7 @@ import { renderReportPdf } from "../src/lib/report-pdf";
 import { summariseReport } from "../src/lib/report-stats";
 import { datasetFor } from "../src/lib/reporting";
 import { renderTimetablePdf } from "../src/lib/timetable-pdf";
+import { renderManifestPdf } from "../src/lib/manifest-pdf";
 import { renderVisitorPassesPdf } from "../src/lib/visitor-pass-pdf";
 import { renderReportCardPdf, renderTablePdf, renderTemplatePdf } from "../src/lib/pdf";
 import { starterLayout } from "../src/lib/templates";
@@ -244,6 +245,77 @@ async function main() {
           category: "Contractor",
           host: "Owusu-Ansah Boateng-Mensah, Nana Yaw Kwabena",
           signedInAt: new Date("2026-12-31T16:05:00Z"),
+        },
+      ],
+    }),
+  );
+
+  // The bus manifest: Twi orthography in the names, one very long stop
+  // landmark, a hand-over note, and children with no stop recorded — the
+  // group most likely to be quietly dropped.
+  writeFileSync(
+    `${out}/manifest.pdf`,
+    await renderManifestPdf({
+      school: { name: "Golden Crest International School", phone: "+233 30 212 3456" },
+      route: { code: "R1", name: "Spintex — Tema" },
+      run: "AFTERNOON",
+      printedOn: new Date("2026-08-20T06:30:00Z"),
+      vehicles: [
+        {
+          registration: "GT 4821-24",
+          driver: "Emmanuel Tetteh",
+          driverPhone: "+233 20 555 0120",
+          assistant: "Comfort Adjei",
+          assistantPhone: "+233 24 555 0140",
+        },
+      ],
+      stops: [
+        {
+          name: "Spintex Junction",
+          landmark: "opposite the Total filling station near the Papaye",
+          time: "15:45",
+          children: [
+            {
+              name: "Priscilla Naa Quartey",
+              admissionNo: "GCS/2024/0390",
+              className: "JHS 2 Amber",
+              guardianName: "Comfort Quartey",
+              guardianPhone: "+233 24 555 0192",
+            },
+            {
+              name: "Kwabɛna Asantɛ-Ɔboɔ",
+              admissionNo: "GCS/2025/0501",
+              className: "JHS 1 Amber",
+              guardianName: "Ɔboɔ Mensah",
+              guardianPhone: "+233 20 555 8871",
+              collectedBy: "Grandmother — Auntie Akosua",
+            },
+          ],
+        },
+        {
+          name: "Baatsona",
+          landmark: "by the traffic light",
+          time: "15:30",
+          children: [
+            {
+              name: "Nana Yaw Owusu-Ansah Boateng-Mensah",
+              admissionNo: "GCS/2023/0114",
+              className: "Primary 6 Sapphire",
+              guardianName: "Akosua Boateng-Mensah",
+              guardianPhone: "+233 20 555 8871",
+              notes: "Do not release to anyone else",
+            },
+          ],
+        },
+        { name: "Nungua Barrier", landmark: "at the police post", time: "15:15", children: [] },
+      ],
+      unplaced: [
+        {
+          name: "Efua Mensimah",
+          admissionNo: "GCS/2022/0007",
+          className: "JHS 3 Coral",
+          guardianName: "Yaw Darko",
+          guardianPhone: "+233 24 555 0311",
         },
       ],
     }),

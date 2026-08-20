@@ -151,6 +151,7 @@ async function main() {
   await seedLearning(offerings, students, sections, demoStudentSectionId);
   await seedQuestionBank(subjects);
   await seedLibrary(subjects, students, staff);
+  await seedTransport(students, staff);
   await seedReportCards(terms, sections, demoStudentSectionId);
   await seedWebsite(school);
   await seedPayroll(staff);
@@ -217,6 +218,9 @@ async function reset() {
     // Loans before copies before titles, and all three before the pupils,
     // staff and subjects they point at.
     "libraryLoan", "libraryCopy", "libraryItem",
+    // Assignments before the stops and routes they point at, vehicles before
+    // their route, and all four before the pupils and staff.
+    "transportAssignment", "transportVehicle", "transportStop", "transportRoute",
     // Documents on a person's file — before the people and the files they
     // point at, both of which are deleted further down.
     "studentDocument", "staffDocument", "guardianDocument",
@@ -2877,6 +2881,179 @@ async function seedPayroll(staff: StaffRow[]) {
  * real accession numbers so the issue desk can be used the moment the seed
  * finishes — the demo is only useful if someone can type a number into it.
  */
+/**
+ * Three routes out of Accra, with the buses that run them.
+ *
+ * The routes follow real corridors — Spintex/Tema, East Legon/Adenta, and the
+ * Airport Residential loop — because a demo whose stops are "Stop 1, Stop 2"
+ * cannot be checked against anything. Registrations are in Ghanaian format,
+ * one bus is a month from its roadworthy expiring so the warning has
+ * something to warn about, and one route is deliberately left a seat short of
+ * comfortable so the capacity arithmetic is visible rather than theoretical.
+ */
+async function seedTransport(students: StudentRow[], staff: StaffRow[]) {
+  console.log("  Transport…");
+
+  const day = 86_400_000;
+  const today = new Date();
+
+  const plan: Array<{
+    code: string;
+    name: string;
+    description: string;
+    durationMins: number;
+    feeMajor: number;
+    stops: Array<{ name: string; landmark: string; pickup: string; dropoff: string }>;
+    buses: Array<{ registration: string; make: string; capacity: number; expiresInDays: number }>;
+    riders: number;
+  }> = [
+    {
+      code: "R1",
+      name: "Spintex — Tema",
+      description: "Along the Spintex Road and into Tema Community 7.",
+      durationMins: 55,
+      feeMajor: 450,
+      stops: [
+        { name: "Spintex Junction", landmark: "opposite the Total filling station", pickup: "06:30", dropoff: "15:45" },
+        { name: "Baatsona", landmark: "by the traffic light", pickup: "06:45", dropoff: "15:30" },
+        { name: "Nungua Barrier", landmark: "at the police post", pickup: "07:00", dropoff: "15:15" },
+        { name: "Tema Community 7", landmark: "beside the Presbyterian church", pickup: "07:15", dropoff: "15:00" },
+      ],
+      buses: [
+        { registration: "GT 4821-24", make: "Toyota Coaster", capacity: 30, expiresInDays: 200 },
+      ],
+      riders: 26,
+    },
+    {
+      code: "R2",
+      name: "East Legon — Adenta",
+      description: "East Legon, through Ogbojo and up to Adenta Barrier.",
+      durationMins: 45,
+      feeMajor: 450,
+      stops: [
+        { name: "East Legon American House", landmark: "at the roundabout", pickup: "06:40", dropoff: "15:40" },
+        { name: "Ogbojo", landmark: "opposite the Shell station", pickup: "06:55", dropoff: "15:25" },
+        { name: "Adenta Barrier", landmark: "by the overhead", pickup: "07:10", dropoff: "15:10" },
+      ],
+      buses: [
+        // A month from expiry, so the warning on the transport page is real.
+        { registration: "GR 1907-23", make: "Mercedes Sprinter", capacity: 22, expiresInDays: 21 },
+      ],
+      riders: 20,
+    },
+    {
+      code: "R3",
+      name: "Airport Residential loop",
+      description: "The short loop through Airport Residential and Dzorwulu.",
+      durationMins: 30,
+      feeMajor: 380,
+      stops: [
+        { name: "Airport Residential", landmark: "at the Marina Mall gate", pickup: "07:00", dropoff: "15:35" },
+        { name: "Dzorwulu", landmark: "by the Fiesta Royale", pickup: "07:12", dropoff: "15:22" },
+      ],
+      buses: [
+        { registration: "GX 2255-25", make: "Toyota Hiace", capacity: 15, expiresInDays: 400 },
+      ],
+      riders: 13,
+    },
+  ];
+
+  // Drivers come from the staff list where the school has them on the books.
+  const drivers = staff.slice(0, plan.length);
+
+  let cursor = 0;
+  let placed = 0;
+
+  for (const [index, entry] of plan.entries()) {
+    const route = await db.transportRoute.create({
+      data: {
+        code: entry.code,
+        name: entry.name,
+        description: entry.description,
+        durationMins: entry.durationMins,
+        feeMinor: entry.feeMajor * 100,
+      },
+      select: { id: true },
+    });
+
+    const stops = [];
+    for (const [order, stop] of entry.stops.entries()) {
+      stops.push(
+        await db.transportStop.create({
+          data: {
+            routeId: route.id,
+            name: stop.name,
+            landmark: stop.landmark,
+            sequence: order + 1,
+            pickupTime: stop.pickup,
+            dropoffTime: stop.dropoff,
+          },
+          select: { id: true },
+        }),
+      );
+    }
+
+    for (const bus of entry.buses) {
+      const driver = drivers[index];
+      await db.transportVehicle.create({
+        data: {
+          routeId: route.id,
+          registration: bus.registration,
+          make: bus.make,
+          capacity: bus.capacity,
+          driverStaffId: driver?.id ?? null,
+          driverPhone: `+2332055501${String(20 + index).padStart(2, "0")}`,
+          assistantName: ["Comfort Adjei", "Mavis Owusu", "Grace Tetteh"][index] ?? null,
+          assistantPhone: `+2332455501${String(40 + index).padStart(2, "0")}`,
+          roadworthyExpiry: new Date(today.getTime() + bus.expiresInDays * day),
+          insuranceExpiry: new Date(today.getTime() + (bus.expiresInDays + 60) * day),
+        },
+      });
+    }
+
+    // Children spread across the stops, a few travelling one way only — which
+    // is what makes the morning and afternoon counts differ, and therefore
+    // what makes the capacity arithmetic worth having.
+    for (let rider = 0; rider < entry.riders && cursor < students.length; rider += 1) {
+      const student = students[cursor++];
+      const direction =
+        rider % 9 === 0 ? "MORNING" : rider % 11 === 0 ? "AFTERNOON" : "BOTH";
+
+      await db.transportAssignment.create({
+        data: {
+          studentId: student.id,
+          routeId: route.id,
+          // Two children per route are left without a stop, so the "no stop
+          // recorded" group on the route page and the manifest is exercised
+          // rather than being a branch nobody has seen.
+          stopId: rider < 2 ? null : stops[rider % stops.length].id,
+          direction,
+          collectedBy: rider % 13 === 0 ? "Grandmother — Auntie Akosua" : null,
+        },
+      });
+
+      // The record they arrived with should agree with the arrangement.
+      await db.student.update({
+        where: { id: student.id },
+        data: { transportMode: "SCHOOL_BUS", busRoute: null },
+      });
+      placed += 1;
+    }
+  }
+
+  // A handful the admission form says come by bus who were never put on a
+  // route — the gap the transport page warns about, which exists in every
+  // school and should exist in the demo.
+  for (let index = 0; index < 4 && cursor < students.length; index += 1) {
+    await db.student.update({
+      where: { id: students[cursor++].id },
+      data: { transportMode: "SCHOOL_BUS", busRoute: "Route 3 (per admission form)" },
+    });
+  }
+
+  console.log(`    ${plan.length} routes, ${placed} children riding`);
+}
+
 async function seedLibrary(subjects: SubjectRow[], students: StudentRow[], staff: StaffRow[]) {
   console.log("  Library…");
 

@@ -344,6 +344,12 @@ export const STAFF_NAVIGATION: NavGroup[] = [
         permissions: ["visitor.read"],
       },
       {
+        label: "Transport",
+        href: "/transport",
+        icon: "Bus",
+        permissions: ["transport.read"],
+      },
+      {
         label: "Documents",
         href: "/documents",
         icon: "FolderOpen",
@@ -454,6 +460,12 @@ export const GUARDIAN_NAVIGATION: NavGroup[] = [
         href: "/portal/guardian/library",
         icon: "Library",
         permissions: ["library.read"],
+      },
+      {
+        label: "School Bus",
+        href: "/portal/guardian/transport",
+        icon: "Bus",
+        permissions: ["transport.read"],
       },
     ],
   },

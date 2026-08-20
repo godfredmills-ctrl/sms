@@ -800,6 +800,7 @@ model Staff {
   payslips         Payslip[]
   visitors         Visitor[]
   libraryLoans     LibraryLoan[]
+  busesDriven      TransportVehicle[]  @relation("BusDriver")
   documents        StaffDocument[]
 
   @@index([status])
@@ -973,7 +974,7 @@ model Student {
 
   medical          StudentMedical?
   guardians        StudentGuardian[]
-  relations        FamilyRelation[]     @relation("StudentRelations")
+  relations        FamilyRelation[]      @relation("StudentRelations")
   educationHistory EducationHistory[]
   enrollments      Enrollment[]
   attendance       AttendanceRecord[]
@@ -987,6 +988,7 @@ model Student {
   disciplinary     DisciplinaryRecord[]
   visitors         Visitor[]
   libraryLoans     LibraryLoan[]
+  transport        TransportAssignment[]
   promotions       PromotionRecord[]
   transcripts      Transcript[]
   certificates     IssuedCertificate[]
@@ -3535,4 +3537,132 @@ model LibraryLoan {
   @@index([staffId])
   @@index([returnedAt])
   @@index([dueAt])
+}
+
+/// A school bus route.
+///
+/// Student.busRoute has always been free text a secretary types, so "Route 3",
+/// "route 3" and "Rt 3" were three different routes and the school could not
+/// answer the one question that matters at half past three: who is on that
+/// bus. That field stays for the records already in it — see the note on
+/// TransportAssignment — but this is what the school runs on now.
+model TransportRoute {
+  id   String @id @default(cuid())
+  /// Short code the school says aloud: "R3", "Airport". Unique.
+  code String @unique
+  name String
+
+  description  String?
+  /// Roughly how long end to end, for the timetable pinned in the office.
+  durationMins Int?
+  /// Termly charge in pesewas, where the school bills for transport.
+  feeMinor     Int?
+
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  stops       TransportStop[]
+  vehicles    TransportVehicle[]
+  assignments TransportAssignment[]
+
+  @@index([isActive])
+}
+
+/// A pick-up point on a route.
+model TransportStop {
+  id      String         @id @default(cuid())
+  routeId String
+  route   TransportRoute @relation(fields: [routeId], references: [id], onDelete: Cascade)
+
+  name     String
+  /// What the driver actually navigates by — "opposite the Total filling station".
+  landmark String?
+  /// Order along the route, outbound in the morning.
+  sequence Int     @default(0)
+
+  /// "06:40" — morning pick-up and afternoon drop-off, as printed for parents.
+  pickupTime  String?
+  dropoffTime String?
+
+  assignments TransportAssignment[]
+
+  @@index([routeId, sequence])
+}
+
+/// A bus, and who drives it.
+model TransportVehicle {
+  id      String          @id @default(cuid())
+  routeId String?
+  route   TransportRoute? @relation(fields: [routeId], references: [id], onDelete: SetNull)
+
+  /// Ghanaian plate as written: "GT 4821-24". Unique.
+  registration String  @unique
+  make         String?
+  /// Seats for children, not including the driver and the assistant.
+  capacity     Int     @default(30)
+
+  /// The driver, where they are on the payroll. Contracted drivers are named
+  /// instead — both are kept because both are how Ghanaian schools do it, and
+  /// a manifest with no way to reach the driver is not a manifest.
+  driverStaffId String?
+  driverStaff   Staff?  @relation("BusDriver", fields: [driverStaffId], references: [id], onDelete: SetNull)
+  driverName    String?
+  driverPhone   String?
+
+  /// The bus assistant who walks children to the gate.
+  assistantName  String?
+  assistantPhone String?
+
+  /// Roadworthy and insurance expiry — the two dates that stop a bus running.
+  roadworthyExpiry DateTime?
+  insuranceExpiry  DateTime?
+
+  isActive Boolean @default(true)
+  notes    String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([routeId])
+  @@index([isActive])
+}
+
+/// A child's standing place on a route.
+///
+/// Standing, not daily: a school bus list is a term-long arrangement, and
+/// modelling every journey would mean a register nobody fills in. What the
+/// afternoon actually needs is the list, and the list is this.
+model TransportAssignment {
+  id        String  @id @default(cuid())
+  studentId String
+  student   Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  routeId String
+  route   TransportRoute @relation(fields: [routeId], references: [id], onDelete: Cascade)
+  stopId  String?
+  stop    TransportStop? @relation(fields: [stopId], references: [id], onDelete: SetNull)
+
+  /// MORNING | AFTERNOON | BOTH — some children are dropped off by a parent
+  /// and go home on the bus.
+  direction String @default("BOTH")
+
+  /// Who to hand the child to at the stop, when it is not the usual guardian.
+  collectedBy String?
+  notes       String?
+
+  startedOn DateTime  @default(now())
+  /// Set rather than deleted, so last term's arrangement is still answerable.
+  endedOn   DateTime?
+
+  createdAt DateTime @default(now())
+
+  /// One live arrangement per child per direction. Enforced in the migration
+  /// with a partial unique index, because "which bus is this child on" must
+  /// have exactly one answer at half past three.
+  @@index([routeId])
+  @@index([studentId])
+  @@index([stopId])
+  @@index([endedOn])
 }
