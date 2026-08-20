@@ -8,6 +8,8 @@ import { cn } from "@/lib/utils";
 
 import { saveScores, type ScoreEntry } from "../actions";
 
+import { DeleteAssessment } from "./delete-assessment";
+
 export type SheetAssessment = {
   id: string;
   title: string;
@@ -229,6 +231,15 @@ export function MarkSheet({
                     /{assessment.maxScore} · {assessment.weight}%
                   </span>
                   {assessment.isExam ? <Badge tone="violet">Exam</Badge> : null}
+                  {/*
+                    A column created by mistake was permanent: the action to
+                    remove one existed, complete and guarded, and no screen
+                    called it. Only an unpublished, unlocked one — a published
+                    assessment is on report cards.
+                  */}
+                  {!readOnly && !assessment.isPublished && !assessment.isLocked ? (
+                    <DeleteAssessment id={assessment.id} title={assessment.title} />
+                  ) : null}
                 </th>
               ))}
               <th

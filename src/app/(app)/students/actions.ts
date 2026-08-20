@@ -6,7 +6,7 @@ import { authorize } from "@/lib/auth";
 import { db } from "@/lib/db";
 
 import { LIFECYCLE_TRANSITIONS } from "./lifecycle";
-import { hashPassword } from "@/lib/crypto";
+import { generateCode, hashPassword } from "@/lib/crypto";
 import { parseAttachedDocuments } from "@/lib/person-documents";
 import { studentOutOfScope } from "@/lib/scope";
 import { normalisePhone, slugify } from "@/lib/utils";
@@ -303,11 +303,37 @@ export async function createGuardianLinkAction(formData: FormData) {
 }
 
 /** Creates a portal login for a student who does not have one. */
-export async function createStudentLoginAction(formData: FormData) {
-  const user = await authorize("user.manage");
+export type LoginState = {
+  ok?: boolean;
+  error?: string;
+  username?: string;
+  /** Shown once, on the screen that created it. Never stored in the clear. */
+  temporaryPassword?: string;
+};
+
+/**
+ * Gives a pupil a way to sign in.
+ *
+ * This is the only code in the system that creates a STUDENT-portal account —
+ * inviteUserAction makes a User and cannot attach it to a Student record, so
+ * every portal page would answer "not linked". It had no caller. Outside the
+ * demo seed, that meant no child at any real school could sign in at all, and
+ * the entire student portal — results, timetable, assignments, fees, their
+ * library books, their bus — was unreachable.
+ */
+export async function createStudentLoginAction(
+  _previous: LoginState,
+  formData: FormData,
+): Promise<LoginState> {
+  let user;
+  try {
+    user = await authorize("user.manage");
+  } catch (error) {
+    return { error: (error as Error).message };
+  }
 
   const studentId = text(formData, "studentId");
-  if (!studentId) return;
+  if (!studentId) return { error: "No pupil given." };
 
   const student = await db.student.findUnique({
     where: { id: studentId },
@@ -321,14 +347,37 @@ export async function createStudentLoginAction(formData: FormData) {
       email: true,
     },
   });
-  if (!student || student.userId) return;
+  if (!student) return { error: "That pupil was not found." };
+  if (student.userId) return { error: "They already have a login." };
 
   const role = await db.role.findUnique({ where: { key: "student" } });
+  if (!role) {
+    return { error: "There is no Student role to assign. Create one first." };
+  }
 
-  const username = slugify(
+  const base = slugify(
     `${student.firstName}.${student.lastName}.${student.admissionNo.slice(-4)}`,
   );
-  const temporary = student.admissionNo.replace(/\W/g, "");
+
+  // Two children can share a name and the last four of an admission number is
+  // not much of a discriminator, so the username is checked rather than
+  // assumed. A collision would otherwise throw a unique-constraint error at
+  // the person creating the account, naming a database column.
+  let username = base;
+  for (let attempt = 2; attempt < 50; attempt += 1) {
+    const taken = await db.user.findUnique({ where: { username }, select: { id: true } });
+    if (!taken) break;
+    username = `${base}${attempt}`;
+  }
+
+  // Random, not the admission number.
+  //
+  // The admission number was on every class list, every report card and every
+  // invoice in the school. As a first password it meant anyone holding one of
+  // those could sign in as that child up until the child first signed in
+  // themselves — and children do not sign in promptly. mustChangePassword is
+  // set either way, so this costs nothing but a line the office reads out.
+  const temporary = `${generateCode(4)}-${generateCode(4)}`;
 
   const account = await db.user.create({
     data: {
@@ -350,7 +399,21 @@ export async function createStudentLoginAction(formData: FormData) {
     data: { userId: account.id },
   });
 
+  await db.auditLog.create({
+    data: {
+      userId: user.id,
+      actorLabel: user.fullName,
+      action: "user.create",
+      entity: "Student",
+      entityId: studentId,
+      summary: `Created a portal login for ${student.firstName} ${student.lastName}`,
+    },
+  });
+
   revalidatePath(`/students/${studentId}`);
+  revalidatePath("/users");
+
+  return { ok: true, username, temporaryPassword: temporary };
 }
 
 // -----------------------------------------------------------------------------

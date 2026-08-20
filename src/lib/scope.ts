@@ -52,7 +52,12 @@ export async function ownSectionIdsFor(staffId: string | null | undefined): Prom
       distinct: ["classSectionId"],
     }),
     db.classSection.findMany({
-      where: { formTeacherId: staffId },
+      // The assistant form teacher holds the register too. The field existed
+      // from the beginning and nothing read it, so the person who covers the
+      // class every other week could not see it.
+      where: {
+        OR: [{ formTeacherId: staffId }, { assistantTeacherId: staffId }],
+      },
       select: { id: true },
     }),
   ]);
@@ -158,7 +163,7 @@ export async function offeringOutOfScope(
     select: {
       teacherId: true,
       coTeacherIds: true,
-      classSection: { select: { formTeacherId: true } },
+      classSection: { select: { formTeacherId: true, assistantTeacherId: true } },
     },
   });
   if (!offering) return "That subject does not exist.";
@@ -166,7 +171,8 @@ export async function offeringOutOfScope(
   const mine =
     offering.teacherId === user.staffId ||
     offering.coTeacherIds.includes(user.staffId) ||
-    offering.classSection.formTeacherId === user.staffId;
+    offering.classSection.formTeacherId === user.staffId ||
+    offering.classSection.assistantTeacherId === user.staffId;
 
   return mine ? null : "That subject is taught by someone else.";
 }

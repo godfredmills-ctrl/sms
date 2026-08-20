@@ -8,6 +8,8 @@ import { SearchableSelect, type SelectOption } from "@/components/select-search"
 import { Alert, Avatar, Badge, Button, StatusBadge } from "@/components/ui";
 import { formatDate, relativeTime } from "@/lib/utils";
 
+import { RevokeSessions } from "./revoke-sessions";
+
 import {
   resetPasswordAction,
   setUserRolesAction,
@@ -111,6 +113,24 @@ export function UsersTable({
       id: "sessions",
       header: "Sessions",
       accessor: (row) => row.activeSessions,
+      // The number was the whole of it — a count of live sessions with
+      // nothing to do about them. The control sits in the cell because that
+      // is where the number someone reacted to is.
+      cell: (row) =>
+        row.activeSessions ? (
+          <span className="inline-flex items-center justify-end gap-2">
+            <span className="numeric">{row.activeSessions}</span>
+            {canManage ? (
+              <RevokeSessions
+                userId={row.id}
+                name={row.name.split(" ")[0]}
+                count={row.activeSessions}
+              />
+            ) : null}
+          </span>
+        ) : (
+          <span className="text-[var(--text-subtle)]">0</span>
+        ),
       align: "right",
       priority: 3,
     },

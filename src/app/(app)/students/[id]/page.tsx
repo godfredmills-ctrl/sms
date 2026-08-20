@@ -40,6 +40,9 @@ import { requirePermission, userCan } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { daysOverdue } from "@/lib/library";
 import { directionLabel } from "@/lib/transport";
+
+import { AddGuardian } from "./add-guardian";
+import { PortalLogin } from "./portal-login";
 import { getStudentStatement } from "@/lib/finance";
 import { studentOutOfScope } from "@/lib/scope";
 import { CONDUCT_STATUS_TONES } from "../discipline/fields";
@@ -192,6 +195,12 @@ export default async function StudentProfilePage({
   // guardian portal — which lists both — showed the parent something else.
   const liveTransport = student.transport.filter((entry) => !entry.endedOn);
   const primaryTransport = liveTransport[0] ?? null;
+
+  // Creating an account is a user-administration act, not a student one, so it
+  // takes the permission the action takes rather than the one that opened this
+  // page.
+  const canCreateLogin = userCan(user, "user.manage");
+  const canManageGuardians = userCan(user, "student.guardian.manage");
 
   // The list already narrows a form teacher to their own classes, but the
   // list is not the way in — /students/<id> is. Without this, a teacher who
@@ -554,6 +563,22 @@ export default async function StudentProfilePage({
                 />
               </CardBody>
             </Card>
+
+            {canCreateLogin ? (
+              <Card>
+                <CardHeader
+                  title="Student portal"
+                  description="How this pupil signs in."
+                />
+                <CardBody>
+                  <PortalLogin
+                    studentId={student.id}
+                    hasLogin={Boolean(student.userId)}
+                    firstName={student.firstName}
+                  />
+                </CardBody>
+              </Card>
+            ) : null}
 
             <Card>
               <CardHeader title="Primary contact" />
@@ -977,6 +1002,11 @@ export default async function StudentProfilePage({
                 description="Link at least one guardian so the school can contact someone."
               />
             )}
+            {canManageGuardians ? (
+              <CardBody className="border-t border-[var(--border)]">
+                <AddGuardian studentId={student.id} firstName={student.firstName} />
+              </CardBody>
+            ) : null}
           </Card>
         </div>
       ) : null}

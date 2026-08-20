@@ -19,7 +19,10 @@ function text(formData: FormData, key: string): string {
 // Authoring
 // -----------------------------------------------------------------------------
 
-export async function createQuizAction(
+// Not exported: the only caller is createQuizFormAction below. In a
+// "use server" module every export is a callable endpoint, and a second door
+// into the same write is a second door to keep locked.
+async function createQuizAction(
   _previous: QuizState,
   formData: FormData,
 ): Promise<QuizState> {

@@ -226,8 +226,3 @@ export async function decideLeaveAction(
   return { ok: true, message: `${decision === "APPROVED" ? "Approved" : "Rejected"}.` };
 }
 
-/** Whether the current user can decide requests — for the page's layout. */
-export async function canManageLeave(): Promise<boolean> {
-  const user = await requireUser();
-  return userCan(user, "staff.leave.manage");
-}

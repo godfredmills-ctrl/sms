@@ -327,25 +327,53 @@ export async function setRolePermissionsAction(formData: FormData) {
   revalidatePath("/users/roles");
 }
 
-export async function revokeSessionAction(formData: FormData) {
-  const actor = await authorize("user.manage");
-  const sessionId = text(formData, "sessionId");
-  if (!sessionId) return;
+/**
+ * Signs an account out of every device.
+ *
+ * Keyed on the person rather than on one session id: the users page counts
+ * sessions and never lists them, so a session id was something no caller
+ * could produce — which is part of why this had no caller for so long.
+ */
+export async function revokeSessionsAction(
+  formData: FormData,
+): Promise<{ ok?: boolean; error?: string }> {
+  let actor;
+  try {
+    actor = await authorize("user.manage");
+  } catch (error) {
+    return { error: (error as Error).message };
+  }
 
-  await db.session.update({
-    where: { id: sessionId },
+  const userId = text(formData, "userId");
+  if (!userId) return { error: "Which account?" };
+
+  const target = await db.user.findUnique({
+    where: { id: userId },
+    select: { firstName: true, lastName: true },
+  });
+  if (!target) return { error: "That account was not found." };
+
+  // Deliberately no last-administrator guard. The one that protects
+  // super_admin accounts elsewhere is about ending access — and signing
+  // somebody out does not end it, they simply sign in again. Guarding this
+  // the same way would mean the account most likely to be compromised is the
+  // one that cannot be signed out. It is audited instead.
+  const { count } = await db.session.updateMany({
+    where: { userId, revokedAt: null },
     data: { revokedAt: new Date() },
   });
 
   await db.auditLog.create({
     data: {
       userId: actor.id,
+      actorLabel: actor.fullName,
       action: "user.session.revoke",
-      entity: "Session",
-      entityId: sessionId,
-      summary: "Revoked a session",
+      entity: "User",
+      entityId: userId,
+      summary: `Signed ${target.firstName} ${target.lastName} out of ${count} session(s)`,
     },
   });
 
   revalidatePath("/users");
+  return { ok: true };
 }

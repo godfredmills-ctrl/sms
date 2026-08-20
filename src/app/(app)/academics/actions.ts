@@ -98,28 +98,12 @@ export async function createSectionAction(
       capacity: Number.isFinite(capacity) && capacity > 0 ? capacity : 30,
       roomName: text(formData, "roomName") || null,
       formTeacherId: text(formData, "formTeacherId") || null,
-    },
-  });
-
-  revalidatePath("/academics/classes");
-  return { ok: true, message: `Created ${name}.` };
-}
-
-export async function assignFormTeacherAction(formData: FormData) {
-  await authorize("academic.structure.manage");
-
-  const sectionId = text(formData, "sectionId");
-  if (!sectionId) return;
-
-  await db.classSection.update({
-    where: { id: sectionId },
-    data: {
-      formTeacherId: text(formData, "formTeacherId") || null,
       assistantTeacherId: text(formData, "assistantTeacherId") || null,
     },
   });
 
   revalidatePath("/academics/classes");
+  return { ok: true, message: `Created ${name}.` };
 }
 
 // -----------------------------------------------------------------------------

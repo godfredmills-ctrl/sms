@@ -111,6 +111,17 @@ export function SectionForm({
         <Field label="Form teacher" htmlFor="formTeacherId">
           <SearchableSelect id="formTeacherId" name="formTeacherId" options={teachers} />
         </Field>
+        <Field
+          label="Assistant form teacher"
+          htmlFor="assistantTeacherId"
+          hint="They see this class too."
+        >
+          <SearchableSelect
+            id="assistantTeacherId"
+            name="assistantTeacherId"
+            options={teachers}
+          />
+        </Field>
         <Submit label="Create class" />
       </CardBody>
     </form>

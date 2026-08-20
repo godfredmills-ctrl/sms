@@ -271,7 +271,9 @@ export async function createPayrollRunAction(
  * unless they hold both permissions deliberately, and neither step can run
  * backwards — a paid payroll is history.
  */
-export async function advancePayrollRunAction(
+// Not exported — see createQuizAction. It authorises itself, so this was
+// not a hole; it was a second entrance nobody used.
+async function advancePayrollRunAction(
   _previous: PayrollState,
   formData: FormData,
 ): Promise<PayrollState> {
