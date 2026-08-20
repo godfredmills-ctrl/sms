@@ -172,6 +172,7 @@ export async function GET(request: Request) {
       columns,
       rows,
       summary,
+      summarySampleOf: { shown, total },
       narrative: run.aiNarrative
         ? { heading: "Analysis", body: run.aiNarrative }
         : null,

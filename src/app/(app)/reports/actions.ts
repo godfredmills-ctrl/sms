@@ -124,6 +124,22 @@ export async function runReportAction(
         select: { id: true },
       });
       insightId = stored?.id;
+
+      // Also onto the run itself. src/app/api/reports/pdf/route.ts prints its
+      // "Analysis" section from run.aiNarrative, and nothing wrote that
+      // column — so ticking "include AI insights" produced a narrative on
+      // screen and a PDF with the section silently missing.
+      await db.reportRun.update({
+        where: { id: run.id },
+        data: {
+          aiNarrative: [
+            insight.narrative,
+            ...insight.findings.map((finding) => `${finding.label}: ${finding.detail}`),
+          ]
+            .filter(Boolean)
+            .join("\n\n"),
+        },
+      });
     }
   }
 

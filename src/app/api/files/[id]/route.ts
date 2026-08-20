@@ -85,9 +85,17 @@ export async function GET(
     headers: {
       "Content-Type": file.mimeType,
       "Content-Length": String(file.sizeBytes),
-      "Content-Disposition": `${asDownload ? "attachment" : "inline"}; filename="${encodeURIComponent(
-        file.originalName,
-      )}"`,
+      // RFC 6266: the quoted `filename` is a fallback and must not itself
+      // be percent-encoded — browsers show it literally, so "Term 1 Report.pdf"
+      // arrived as "Term%201%20Report.pdf". The encoded form belongs in
+      // `filename*`, which every current browser prefers. The fallback is
+      // stripped of quotes and control characters instead: a newline in a
+      // stored filename would otherwise end the header early and let the rest
+      // be read as headers of its own.
+      "Content-Disposition":
+        `${asDownload ? "attachment" : "inline"}; ` +
+        `filename="${file.originalName.replace(/[\r\n"\\]/g, "")}"; ` +
+        `filename*=UTF-8''${encodeURIComponent(file.originalName)}`,
       // Private: a shared cache must never hold a student's medical record.
       "Cache-Control": "private, max-age=300",
       "X-Content-Type-Options": "nosniff",

@@ -81,7 +81,15 @@ export default async function AttendancePage({
   // --- Overview of who has and has not submitted today ---------------------
   const dayStart = toDateOnly(date);
   const submitted = await db.attendanceSession.findMany({
-    where: { date: dayStart, type: "DAILY" },
+    // The same classes the list below shows. The denominator of "Registers
+    // submitted" is sections.length — the viewer's classes — so counting
+    // every session in the school gave a numerator from one population and a
+    // denominator from another.
+    where: {
+      date: dayStart,
+      type: "DAILY",
+      classSectionId: { in: sections.map((section) => section.id) },
+    },
     select: {
       classSectionId: true,
       takenAt: true,

@@ -97,6 +97,8 @@ export default async function TimetablePage({
       select: {
         dayOfWeek: true,
         periodIndex: true,
+        startTime: true,
+        endTime: true,
         offering: { select: { teacherId: true, coTeacherIds: true } },
         classSection: {
           select: { name: true, classLevel: { select: { name: true } } },
@@ -139,6 +141,30 @@ export default async function TimetablePage({
     ]),
   );
 
+  // Compared on the clock, not by period number. periodIndex counts within
+  // one class's own day, and two classes need not ring the same bells — JHS 1
+  // period 2 can sit across JHS 2 period 3 while never sharing an index. The
+  // my-timetable page had already worked this out and compared times; this
+  // page was still matching numbers, so it announced clashes that were not
+  // and stayed silent on the ones that were.
+  const minutes = (time: string): number | null => {
+    const match = /^(\d{1,2}):(\d{2})$/.exec(time);
+    return match ? Number(match[1]) * 60 + Number(match[2]) : null;
+  };
+
+  const overlaps = (
+    a: { startTime: string; endTime: string },
+    b: { startTime: string; endTime: string },
+  ): boolean => {
+    const aStart = minutes(a.startTime);
+    const aEnd = minutes(a.endTime);
+    const bStart = minutes(b.startTime);
+    const bEnd = minutes(b.endTime);
+    // An unparseable time is not evidence of a clash.
+    if (aStart === null || aEnd === null || bStart === null || bEnd === null) return false;
+    return aStart < bEnd && bStart < aEnd;
+  };
+
   for (const slot of slots) {
     if (!slot.offeringId) continue;
     const staffIds = staffByOffering.get(slot.offeringId);
@@ -147,7 +173,7 @@ export default async function TimetablePage({
     const conflict = otherSlots.find(
       (other) =>
         other.dayOfWeek === slot.dayOfWeek &&
-        other.periodIndex === slot.periodIndex &&
+        overlaps(slot, other) &&
         other.offering !== null &&
         [other.offering.teacherId, ...other.offering.coTeacherIds].some(
           (id) => id !== null && staffIds.includes(id),

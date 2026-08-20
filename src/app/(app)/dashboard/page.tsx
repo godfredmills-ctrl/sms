@@ -90,7 +90,12 @@ export default async function DashboardPage() {
     canSeeFinance
       ? db.invoice.aggregate({
           where: {
-            academicYearId: year?.id,
+            // `academicYearId: undefined` is not a filter — Prisma drops the
+            // key — so with no year flagged current the billing tiles quietly
+            // widened from this year to every year the school has ever
+            // invoiced, under headings that still said the term. An id that
+            // matches nothing is the honest answer when there is no year.
+            academicYearId: year?.id ?? "__no_current_year__",
             status: { notIn: ["DRAFT", "CANCELLED"] },
           },
           _sum: { totalMinor: true, paidMinor: true, balanceMinor: true },
@@ -570,7 +575,14 @@ async function enrolmentByLevel() {
     select: {
       name: true,
       sections: {
-        select: { _count: { select: { enrollments: true } } },
+        // ACTIVE only — the same reason as the gradebook. Enrolment rows are
+        // kept, not deleted: a leaver is flipped to WITHDRAWN and a promotion
+        // writes a new row for the new year. Counted raw, "Enrolment by class
+        // level" grew every September whether or not the school did, and the
+        // bars stopped matching the headcount tile beside them.
+        select: {
+          _count: { select: { enrollments: { where: { status: "ACTIVE" } } } },
+        },
       },
     },
   });

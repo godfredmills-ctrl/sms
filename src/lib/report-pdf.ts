@@ -54,6 +54,16 @@ export type ReportDocument = {
   rows: Array<Record<string, string>>;
   /** Key figures, breakdowns and gaps, derived from the rows. */
   summary?: ReportSummary | null;
+  /**
+   * How many rows the summary was actually computed over, when that is fewer
+   * than the report returned.
+   *
+   * A ReportRun stores the first 500 rows, not all of them, so a mean printed
+   * under a subtitle reading "3,200 rows" is a mean of 500 of them. The
+   * subtitle already says the TABLE is truncated; the figures needed to say
+   * it too, because a board reads a mean as a fact about the whole thing.
+   */
+  summarySampleOf?: { shown: number; total: number } | null;
   /** The AI narrative, when the report was run with one. */
   narrative?: { heading: string; body: string; findings?: string[] } | null;
   /** Printed at the foot of every page. */
@@ -188,7 +198,12 @@ export async function renderReportPdf(input: {
   };
 
   if (summary?.numerics.length) {
-    sectionHeading("Key figures");
+    const sample = report.summarySampleOf;
+    sectionHeading(
+      sample && sample.shown < sample.total
+        ? `Key figures — first ${sample.shown.toLocaleString()} of ${sample.total.toLocaleString()} rows`
+        : "Key figures",
+    );
 
     // One tile per numeric column: the total is the headline, with the
     // spread underneath — a mean without a range hides the outlier that is

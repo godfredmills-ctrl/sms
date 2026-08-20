@@ -441,6 +441,9 @@ async function main() {
           attendanceRate: row.attendanceRate + "%",
         })),
         summary: reportSummary,
+        // The stored run holds a sample, so the figures above it are a
+        // sample too — the heading has to say so.
+        summarySampleOf: { shown: 40, total: 412 },
         narrative: {
           heading: "Analysis",
           body: "Arrears in JHS 2 Amber are concentrated in a small group: eleven families account for just over sixty per cent of the outstanding balance, and nine of those eleven have made no payment since the second week of term. Attendance among that group is four points below the class average, which is the pattern the at-risk scan usually picks up a term later.",

@@ -119,6 +119,11 @@ export async function changePasswordAction(
     },
   });
 
+  // Without this the page keeps rendering the devices this call just ended
+  // and the "you must change your password" banner it just satisfied — so the
+  // success message and the screen under it disagree.
+  revalidatePath("/account");
+
   return {
     ok: true,
     message:

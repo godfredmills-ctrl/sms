@@ -51,6 +51,20 @@ export async function buildWorkbook(input: {
     width: column.width ?? Math.max(12, column.header.length + 4),
   }));
 
+  // `title` was in the signature and nowhere in the body. Callers passed one
+  // — the bank schedule passes "… (DRAFT)" — and the sheet came out with no
+  // sign of it, which on a payroll schedule is the difference between a
+  // working document and an instruction to a bank.
+  //
+  // It goes in the document properties rather than a merged banner row: a
+  // banner shifts every cell down by one and quietly breaks any consumer that
+  // expects the header on row 1.
+  if (input.title) {
+    workbook.title = input.title;
+    workbook.description = input.title;
+    sheet.headerFooter = { oddHeader: `&L&B${input.title}`, oddFooter: "&R&P / &N" };
+  }
+
   for (const row of input.rows) {
     sheet.addRow(
       Object.fromEntries(

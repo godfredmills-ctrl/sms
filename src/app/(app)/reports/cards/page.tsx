@@ -17,11 +17,36 @@ import { GeneratePanel } from "./generate-panel";
 export const metadata: Metadata = { title: "Report Cards" };
 export const dynamic = "force-dynamic";
 
-export default async function ReportCardsPage() {
+export default async function ReportCardsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ student?: string }>;
+}) {
   const user = await requirePermission([
     "assessment.report.generate",
     "assessment.read",
   ]);
+
+  // The button on a pupil's profile links here with ?student=<id>. Nothing
+  // read it, so "Report card" landed on an unfiltered list and the person who
+  // pressed it had to find the child again by hand. Resolved to the class the
+  // child is in, because that is the unit this page actually works in.
+  const { student: focusStudentId } = await searchParams;
+  const focus = focusStudentId
+    ? await db.student.findUnique({
+        where: { id: focusStudentId },
+        select: {
+          firstName: true,
+          lastName: true,
+          enrollments: {
+            where: { status: "ACTIVE" },
+            take: 1,
+            select: { classSectionId: true },
+          },
+        },
+      })
+    : null;
+  const focusSectionId = focus?.enrollments[0]?.classSectionId ?? null;
 
   const canGenerate = userCan(user, "assessment.report.generate");
   const canApprove = userCan(user, "assessment.report.approve");
@@ -195,10 +220,19 @@ export default async function ReportCardsPage() {
                 <label className="block text-xs font-medium text-[var(--text-muted)]">
                   Class
                 </label>
+                {focus && focusSectionId ? (
+                  // Says why the class is already chosen. A field that fills
+                  // itself in without explanation reads as a stale selection.
+                  <p className="text-xs text-[var(--text-subtle)]">
+                    Preselected for {focus.firstName} {focus.lastName} — report cards
+                    are generated a class at a time.
+                  </p>
+                ) : null}
                 <SearchableSelect
                   name="classSectionId"
                   required
                   placeholder="Choose a class…"
+                  defaultValue={focusSectionId ?? undefined}
                   options={sections.map((section) => ({
                     value: section.id,
                     label: `${section.classLevel.name} ${section.name}`,
