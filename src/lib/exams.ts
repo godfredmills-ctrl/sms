@@ -231,7 +231,7 @@ export type Clash = {
   paperIds: string[];
 };
 
-type PaperForClash = {
+export type PaperForClash = {
   id: string;
   title: string | null;
   startsAt: Date;
@@ -265,7 +265,8 @@ function label(paper: PaperForClash): string {
  * warning it can dismiss is worth more than a rule it has to work around.
  */
 export async function clashesIn(sessionId: string): Promise<Clash[]> {
-  const papers = (await db.examPaper.findMany({
+  return findClashes(
+    (await db.examPaper.findMany({
     where: { sessionId },
     orderBy: { startsAt: "asc" },
     select: {
@@ -282,8 +283,20 @@ export async function clashesIn(sessionId: string): Promise<Clash[]> {
         select: { venueId: true, venue: { select: { name: true, capacity: true } } },
       },
     },
-  })) as PaperForClash[];
+    })) as PaperForClash[],
+  );
+}
 
+/**
+ * The clash rules themselves, over papers already loaded.
+ *
+ * Split from the query so they can be tested. Clash detection is the safety
+ * net for the whole module — it is what stands between a mistake on a Tuesday
+ * and a year group arriving at a hall that is already full on the Thursday —
+ * and it was the one part of it that nothing could exercise without a
+ * database.
+ */
+export function findClashes(papers: PaperForClash[]): Clash[] {
   const clashes: Clash[] = [];
 
   for (let i = 0; i < papers.length; i += 1) {

@@ -1,17 +1,29 @@
 /**
- * The seating allocator, checked against the thing it exists to prevent.
+ * The two parts of running an examination that nobody can check by looking.
  *
  *   npm run exams:check
  *
- * Seating is the one part of running an examination that cannot be checked by
- * looking at it: a hall plan looks equally correct whether or not the pupil in
+ * **Seating.** A hall plan looks equally correct whether or not the pupil in
  * seat 14 spent all term beside the pupil in seat 15. So the property is
  * asserted instead — how many adjacent pairs share a class — over the shapes a
  * school actually presents: three even sections, one section twice the size of
  * the others, a single section with nowhere to interleave, and halls that
  * happen to start with the same letter.
+ *
+ * **Clashes.** This is what stands between a mistake made on the Tuesday and a
+ * year group arriving at a full hall on the Thursday, and until findClashes was
+ * split from its query nothing could exercise it without a database. The cases
+ * below are the ones a real timetable produces: back-to-back papers that are
+ * tight but legal, two year groups at the same hour that are fine, a hall
+ * shared by two papers that fit, and the same hall shared by two that do not.
  */
-import { hallLetters, planSeats, type Hall } from "../src/lib/exams";
+import {
+  findClashes,
+  hallLetters,
+  planSeats,
+  type Hall,
+  type PaperForClash,
+} from "../src/lib/exams";
 
 let failures = 0;
 
@@ -164,6 +176,167 @@ console.log("\nHall prefixes\n");
   check("a candidate with no class is seated", plan.length, 7);
   check("with nobody left over", unseated, 0);
 }
+
+
+console.log("\nClashes\n");
+
+/**
+ * A paper, in the shape the clash rules read.
+ *
+ * Built by hand rather than loaded, which is the point of findClashes being
+ * separate from the query: this is the safety net between a mistake made on a
+ * Tuesday and a year group arriving at a full hall on the Thursday, and
+ * nothing could exercise it without a database.
+ */
+function paper(input: {
+  id: string;
+  hour: number;
+  mins?: number;
+  level?: string;
+  subject?: string;
+  invigilators?: string[];
+  hall?: { id: string; name: string; capacity: number; seated: number };
+}): PaperForClash {
+  const startsAt = new Date(2026, 2, 16, input.hour, 0, 0, 0);
+  return {
+    id: input.id,
+    title: null,
+    startsAt,
+    durationMins: input.mins ?? 60,
+    subject: { name: input.subject ?? "Mathematics" },
+    classLevel: { id: input.level ?? "jhs3", name: (input.level ?? "jhs3").toUpperCase() },
+    invigilators: (input.invigilators ?? []).map((staffId) => ({
+      staffId,
+      staff: { firstName: "Ama", lastName: staffId },
+    })),
+    seats: input.hall
+      ? Array.from({ length: input.hall.seated }, () => ({
+          venueId: input.hall!.id,
+          venue: { name: input.hall!.name, capacity: input.hall!.capacity },
+        }))
+      : [],
+  };
+}
+
+const kinds = (papers: PaperForClash[]) =>
+  findClashes(papers).map((clash) => `${clash.kind}:${clash.severity}`);
+
+// The same year group cannot be in two halls at once.
+check(
+  "one year group, two overlapping papers",
+  kinds([paper({ id: "a", hour: 9 }), paper({ id: "b", hour: 9, subject: "English" })]),
+  ["candidate:blocking"],
+);
+
+// Back to back is a tight morning, not a clash: a paper ending at 10:00 and
+// one starting at 10:00 do not overlap.
+check(
+  "back to back is not a clash",
+  kinds([
+    paper({ id: "a", hour: 9, mins: 60 }),
+    paper({ id: "b", hour: 10, subject: "English" }),
+  ]),
+  [],
+);
+
+// Different year groups at the same hour is the normal arrangement.
+check(
+  "two year groups at the same hour",
+  kinds([
+    paper({ id: "a", hour: 9, level: "jhs3" }),
+    paper({ id: "b", hour: 9, level: "jhs2", subject: "English" }),
+  ]),
+  [],
+);
+
+// An invigilator cannot be in two halls either.
+check(
+  "an invigilator booked twice",
+  kinds([
+    paper({ id: "a", hour: 9, level: "jhs3", invigilators: ["kofi"] }),
+    paper({ id: "b", hour: 9, level: "jhs2", subject: "English", invigilators: ["kofi"] }),
+  ]),
+  ["invigilator:blocking"],
+);
+
+check(
+  "different invigilators at the same hour",
+  kinds([
+    paper({ id: "a", hour: 9, level: "jhs3", invigilators: ["kofi"] }),
+    paper({ id: "b", hour: 9, level: "jhs2", subject: "English", invigilators: ["ama"] }),
+  ]),
+  [],
+);
+
+// Two papers sharing a hall is a real arrangement when they fit — a warning,
+// so a school that means it can go ahead.
+const inHall = (seated: number, capacity = 100) => ({
+  id: "h1",
+  name: "Assembly Hall",
+  capacity,
+  seated,
+});
+
+check(
+  "two papers sharing a hall that holds them both",
+  kinds([
+    paper({ id: "a", hour: 9, level: "jhs3", hall: inHall(30) }),
+    paper({ id: "b", hour: 9, level: "jhs2", subject: "English", hall: inHall(30) }),
+  ]),
+  ["venue:warning"],
+);
+
+// Over capacity is not a judgement call.
+check(
+  "two papers sharing a hall that cannot hold them",
+  kinds([
+    paper({ id: "a", hour: 9, level: "jhs3", hall: inHall(60, 100) }),
+    paper({ id: "b", hour: 9, level: "jhs2", subject: "English", hall: inHall(60, 100) }),
+  ]),
+  ["venue:blocking"],
+);
+
+check(
+  "the same hall at different hours",
+  kinds([
+    paper({ id: "a", hour: 9, level: "jhs3", hall: inHall(60) }),
+    paper({ id: "b", hour: 11, level: "jhs2", subject: "English", hall: inHall(60) }),
+  ]),
+  [],
+);
+
+// A partial overlap still counts: the second paper starts while the first is
+// still being written.
+check(
+  "a partial overlap is an overlap",
+  kinds([
+    paper({ id: "a", hour: 9, mins: 120 }),
+    paper({ id: "b", hour: 10, subject: "English" }),
+  ]),
+  ["candidate:blocking"],
+);
+
+// Everything at once, on one pair — each rule reports separately so the
+// person fixing it can see all of what is wrong rather than the first thing.
+check(
+  "one pair can break several rules at once",
+  kinds([
+    paper({ id: "a", hour: 9, level: "jhs3", invigilators: ["kofi"], hall: inHall(60, 100) }),
+    paper({
+      id: "b",
+      hour: 9,
+      level: "jhs3",
+      subject: "English",
+      invigilators: ["kofi"],
+      hall: inHall(60, 100),
+    }),
+  ]),
+  ["candidate:blocking", "invigilator:blocking", "venue:blocking"],
+);
+
+// A timetable with nothing in it has nothing wrong with it.
+check("an empty timetable is clean", kinds([]), []);
+check("one paper cannot clash with itself", kinds([paper({ id: "a", hour: 9 })]), []);
 
 console.log(
   failures ? `\n  ${failures} FAILURE(S)\n` : "\n  Every case behaves as written.\n",
