@@ -92,6 +92,28 @@ check(
   ["list", "paragraph"],
 );
 
+// An item that runs onto a second line kept its text and lost its formatting:
+// the first line was parsed, then the joined item was parsed again, by which
+// point the markers had been consumed. Silently, in a letter.
+const continued = parseMarkdown("- **Important:** bring the form\n  and a passport photo");
+check(
+  "a continued item keeps the bold from its first line",
+  continued[0].type === "list" &&
+    continued[0].items[0].some((run) => run.bold && run.text.includes("Important")),
+  true,
+);
+check(
+  "a continued item keeps the text from its second line",
+  continued[0].type === "list" &&
+    continued[0].items[0].map((run) => run.text).join("").includes("passport photo"),
+  true,
+);
+check(
+  "a continued item is still one item",
+  continued[0].type === "list" && continued[0].items.length,
+  1,
+);
+
 const table = parseMarkdown("| Item | Cost |\n| --- | --- |\n| Books | 40 |\n| Bus | 450 |")[0];
 check("table header", table.type === "table" && table.header.length, 2);
 check("table rows", table.type === "table" && table.rows.length, 2);

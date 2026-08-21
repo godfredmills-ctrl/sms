@@ -242,7 +242,13 @@ export function parseMarkdown(source: string): Block[] {
     if (bullet || numbered) {
       flushParagraph();
       const ordered = Boolean(numbered);
-      const items: Inline[][] = [];
+
+      // The raw source of each item is collected first and parsed once at the
+      // end. Parsing each line as it arrives and then re-parsing a joined item
+      // loses the formatting on the first line: by then the markers have been
+      // consumed, so "- **Important:** bring the form" with a second line
+      // under it came out with the bold gone — silently, in a letter.
+      const sources: string[] = [];
 
       while (index < lines.length) {
         const entry = lines[index].trim();
@@ -251,24 +257,25 @@ export function parseMarkdown(source: string): Block[] {
         const matches = ordered ? nextNumbered : nextBullet;
 
         if (matches) {
-          items.push(parseInline(ordered ? nextNumbered![2] : nextBullet![1]));
+          sources.push(ordered ? nextNumbered![2] : nextBullet![1]);
           index += 1;
           continue;
         }
 
         // An indented continuation belongs to the item above it.
-        if (entry && /^\s{2,}/.test(lines[index]) && items.length) {
-          const last = items[items.length - 1];
-          items[items.length - 1] = parseInline(
-            `${last.map((run) => run.text).join("")} ${entry}`,
-          );
+        if (entry && /^\s{2,}/.test(lines[index]) && sources.length) {
+          sources[sources.length - 1] += ` ${entry}`;
           index += 1;
           continue;
         }
         break;
       }
 
-      blocks.push({ type: "list", ordered, items });
+      blocks.push({
+        type: "list",
+        ordered,
+        items: sources.map((entry) => parseInline(entry)),
+      });
       continue;
     }
 

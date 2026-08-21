@@ -85,8 +85,46 @@ function wordsOf(runs: Inline[], faces: Faces, size: number): Word[] {
   return words;
 }
 
+/**
+ * Splits a word that cannot fit a line of its own, at whatever character it
+ * reaches the edge on.
+ *
+ * A greedy wrapper has no answer for a single token wider than the column: it
+ * puts it on an empty line, the "does it fit" test passes because there is
+ * nothing to compare against, and the word runs off the right edge of the
+ * paper. In an HR letter that token is a URL, a bank account, or a reference
+ * like GCS/HR/2026/014-REVISED-SECOND-DRAFT — and the part that falls off is
+ * the part somebody needed.
+ *
+ * Broken rather than truncated: this is a document somebody signs, and losing
+ * the end of an account number quietly is worse than an ugly break.
+ */
+function breakWord(word: Word, maxWidth: number): Word[] {
+  if (word.font.widthOfTextAtSize(word.text, word.size) <= maxWidth) return [word];
+
+  const pieces: Word[] = [];
+  let current = "";
+  for (const char of word.text) {
+    const candidate = current + char;
+    if (current && word.font.widthOfTextAtSize(candidate, word.size) > maxWidth) {
+      pieces.push({ ...word, text: current });
+      current = char;
+    } else {
+      current = candidate;
+    }
+  }
+  if (current) pieces.push({ ...word, text: current });
+  return pieces;
+}
+
 /** Greedy wrap, measuring each word in its own face. */
-function layout(words: Word[], maxWidth: number): Word[][] {
+function layout(input: Word[], maxWidth: number): Word[][] {
+  // A column too narrow to hold anything would make breakWord produce one
+  // piece per character for ever; nothing is drawn at that size anyway.
+  if (maxWidth < 8) return [[]];
+
+  const words = input.flatMap((word) => breakWord(word, maxWidth));
+
   const lines: Word[][] = [];
   let line: Word[] = [];
   let width = 0;
