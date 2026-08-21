@@ -31,12 +31,18 @@ export async function saveScores(
   offeringId: string,
   entries: ScoreEntry[],
 ): Promise<SaveScoresResult> {
-  const user = await authorize("assessment.grade");
+  let user;
+  try {
+    user = await authorize("assessment.grade");
+  } catch (error) {
+    return { ok: false, error: (error as Error).message };
+  }
 
   const offering = await db.subjectOffering.findUnique({
     where: { id: offeringId },
     select: {
       teacherId: true,
+      classSectionId: true,
       term: { select: { isLocked: true } },
       assessments: { select: { id: true, maxScore: true, isLocked: true, title: true } },
     },
@@ -56,6 +62,39 @@ export async function saveScores(
     return { ok: false, error: outOfScope };
   }
 
+  // Only pupils on this class's register can be marked in it — the same rule
+  // attendance has applied since it was written, and the same reason. Without
+  // it, a crafted submission writes a mark against a child who does not take
+  // the subject, and it does not stay quietly in a table: computeSubjectResults
+  // builds each pupil's subject list from who has a score, so the mark invents
+  // a whole subject on that child's report card.
+  const enrolled = await db.enrollment.findMany({
+    where: {
+      classSectionId: offering.classSectionId,
+      status: "ACTIVE",
+      studentId: { in: [...new Set(entries.map((entry) => entry.studentId))] },
+    },
+    select: {
+      studentId: true,
+      student: { select: { firstName: true, lastName: true } },
+    },
+  });
+  const onRoll = new Set(enrolled.map((entry) => entry.studentId));
+  const nameOf = new Map(
+    enrolled.map((entry) => [
+      entry.studentId,
+      `${entry.student.firstName} ${entry.student.lastName}`,
+    ]),
+  );
+  const strays = entries.filter((entry) => !onRoll.has(entry.studentId));
+  if (strays.length) {
+    const names = [...new Set(strays.map((entry) => entry.studentId))].length;
+    return {
+      ok: false,
+      error: `${names} of those pupils ${names === 1 ? "is" : "are"} not on this class's register.`,
+    };
+  }
+
   const byId = new Map(offering.assessments.map((entry) => [entry.id, entry]));
 
   // Validate everything before writing anything.
@@ -70,9 +109,11 @@ export async function saveScores(
     if (entry.score !== null) {
       const max = Number(assessment.maxScore);
       if (!Number.isFinite(entry.score) || entry.score < 0 || entry.score > max) {
+        // Named, because a mark sheet is saved with thirty cells dirty and
+        // "a mark is out of range" is not something anybody can act on.
         return {
           ok: false,
-          error: `A mark of ${entry.score} is outside the range 0–${max} for "${assessment.title}".`,
+          error: `${nameOf.get(entry.studentId) ?? "A pupil"} has ${entry.score} in "${assessment.title}", which is outside 0–${max}.`,
         };
       }
     }
@@ -220,7 +261,12 @@ export async function createAssessment(
  * could push another class's marks live and notify every family.
  */
 export async function publishAssessment(assessmentId: string) {
-  const user = await authorize("assessment.grade");
+  let user;
+  try {
+    user = await authorize("assessment.grade");
+  } catch (error) {
+    return { error: (error as Error).message };
+  }
 
   const outOfScope = await assessmentOutOfScope(user, assessmentId);
   if (outOfScope) return { error: outOfScope };
@@ -296,8 +342,67 @@ export async function publishAssessment(assessmentId: string) {
   return { ok: true as const, notified: recipients.size };
 }
 
+/**
+ * Takes a published assessment back out of the portals.
+ *
+ * It exists because deleteAssessment below tells people to "Unpublish it
+ * first" and there was no way to — a dead end at the end of an error message,
+ * which is worse than no message.
+ *
+ * The families who were notified are not un-notified; that cannot be undone
+ * and pretending otherwise would be the lie. What this does is stop the mark
+ * being shown, which is what somebody who published the wrong sheet needs
+ * within the minute. It takes the publish permission, like publishing.
+ */
+export async function unpublishAssessment(assessmentId: string) {
+  let user;
+  try {
+    user = await authorize("assessment.grade");
+  } catch (error) {
+    return { error: (error as Error).message };
+  }
+
+  const outOfScope = await assessmentOutOfScope(user, assessmentId);
+  if (outOfScope) return { error: outOfScope };
+
+  if (!user.permissions.has("assessment.publish")) {
+    return { error: "Withdrawing published results needs the exams officer or the head." };
+  }
+
+  const assessment = await db.assessment.findUnique({
+    where: { id: assessmentId },
+    select: { title: true, offeringId: true, isPublished: true },
+  });
+  if (!assessment) return { error: "Assessment not found." };
+  if (!assessment.isPublished) return { ok: true as const };
+
+  await db.assessment.update({
+    where: { id: assessmentId },
+    data: { isPublished: false, publishedAt: null },
+  });
+
+  await db.auditLog.create({
+    data: {
+      userId: user.id,
+      actorLabel: user.fullName,
+      action: "assessment.unpublish",
+      entity: "Assessment",
+      entityId: assessmentId,
+      summary: `Withdrew "${assessment.title}" from the portals`,
+    },
+  });
+
+  revalidatePath(`/gradebook/${assessment.offeringId}`);
+  return { ok: true as const };
+}
+
 export async function deleteAssessment(assessmentId: string) {
-  const user = await authorize("assessment.create");
+  let user;
+  try {
+    user = await authorize("assessment.create");
+  } catch (error) {
+    return { ok: false as const, error: (error as Error).message };
+  }
 
   // Deleting an assessment takes its marks with it.
   const outOfScope = await assessmentOutOfScope(user, assessmentId);

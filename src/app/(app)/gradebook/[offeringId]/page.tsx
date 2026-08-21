@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Send } from "lucide-react";
+import { Send, Undo2 } from "lucide-react";
 
 import {
   Badge,
@@ -17,7 +17,7 @@ import { db } from "@/lib/db";
 import { offeringOutOfScope } from "@/lib/scope";
 import { toNumber } from "@/lib/utils";
 
-import { publishAssessment } from "../actions";
+import { publishAssessment, unpublishAssessment } from "../actions";
 import { AssessmentForm } from "./assessment-form";
 import { MarkSheet, type SheetMarks } from "./mark-sheet";
 
@@ -225,20 +225,33 @@ export default async function MarkSheetPage({
                       )}
                     </div>
 
-                    {!assessment.isPublished &&
-                    userCan(user, "assessment.publish") &&
-                    !readOnly ? (
+                    {userCan(user, "assessment.publish") && !readOnly ? (
                       <form
                         action={async () => {
                           "use server";
-                          await publishAssessment(assessment.id);
+                          if (assessment.isPublished) {
+                            await unpublishAssessment(assessment.id);
+                          } else {
+                            await publishAssessment(assessment.id);
+                          }
                         }}
                         className="mt-2"
                       >
-                        <Button type="submit" variant="outline" size="sm">
-                          <Send className="size-3.5" />
-                          Publish results
-                        </Button>
+                        {assessment.isPublished ? (
+                          // The way back. Deleting a published assessment
+                          // refuses with "Unpublish it first", and until now
+                          // there was nothing to press — an error message
+                          // pointing at a door that did not exist.
+                          <Button type="submit" variant="ghost" size="sm">
+                            <Undo2 className="size-3.5" />
+                            Withdraw from portals
+                          </Button>
+                        ) : (
+                          <Button type="submit" variant="outline" size="sm">
+                            <Send className="size-3.5" />
+                            Publish results
+                          </Button>
+                        )}
                       </form>
                     ) : null}
                   </li>
