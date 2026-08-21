@@ -16,7 +16,7 @@ import {
 import { requirePermission, userCan } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { clashesIn } from "@/lib/exams";
-import { formatDate } from "@/lib/utils";
+import { formatDate, toNumber } from "@/lib/utils";
 
 import { EnterCandidates, PublishSession } from "./enter-candidates";
 import { DeletePaper, EditPaper, PaperEditor, type Option } from "./paper-editor";
@@ -93,6 +93,7 @@ export default async function ExamSessionPage({
         startsAt: true,
         durationMins: true,
         maxMarks: true,
+        weight: true,
         materials: true,
         notes: true,
         subjectId: true,
@@ -343,6 +344,10 @@ export default async function ExamSessionPage({
                                     startsAt: localInput(paper.startsAt),
                                     durationMins: paper.durationMins,
                                     maxMarks: paper.maxMarks ? String(paper.maxMarks) : "",
+                                    weight:
+                                      toNumber(paper.weight) !== null
+                                        ? String(toNumber(paper.weight))
+                                        : "",
                                     materials: paper.materials ?? "",
                                     notes: paper.notes ?? "",
                                   }}

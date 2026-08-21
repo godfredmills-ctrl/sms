@@ -1613,14 +1613,32 @@ model Assessment {
   publishedAt  DateTime?
   isLocked     Boolean            @default(false)
 
+  /// The sitting these marks came from, when they came from one.
+  ///
+  /// Nullable because ordinary class tests have no sitting. A paper covers a
+  /// year group and an assessment covers one class, so one paper owns one of
+  /// these per section — which is what the unique constraint below says, and
+  /// what stops a second "Generate mark sheets" press creating a second
+  /// column beside the first.
+  ///
+  /// SetNull, not Cascade, unlike every other relation in the examinations
+  /// module: the mark outlives the sitting. Cascading here would delete a
+  /// term's marks when somebody tidied a timetable.
+  examPaperId String?
+  examPaper   ExamPaper? @relation(fields: [examPaperId], references: [id], onDelete: SetNull)
+
   createdById String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   scores AssessmentScore[]
 
+  /// One column per sitting per class. Postgres allows unlimited rows where
+  /// examPaperId is null, which is exactly what the ordinary class tests need.
+  @@unique([examPaperId, offeringId])
   @@index([offeringId])
   @@index([termId])
+  @@index([examPaperId])
 }
 
 model AssessmentScore {
@@ -4045,6 +4063,13 @@ model ExamPaper {
   materials    String?
   notes        String?
 
+  /// The share of the subject mark this sitting carries. Nullable, and
+  /// generation refuses without it — an assessment weighted zero is entered
+  /// and then silently ignored by the report card, which is worse than being
+  /// asked for a number.
+  weight Decimal? @db.Decimal(5, 2)
+
+  assessments  Assessment[]
   invigilators ExamInvigilator[]
   seats        ExamSeat[]
 

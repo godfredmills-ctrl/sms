@@ -382,7 +382,20 @@ export async function createOfferingAction(
   });
   if (!year) return { error: "Set a current academic year first." };
 
+  // A term, or nothing. Defaulting to null when the year has no current term
+  // made a row that is perfectly visible to the gradebook and invisible to
+  // examinations, which filter on the session's term — a paper reporting "no
+  // candidates are entered" when the whole year group was entered. The unique
+  // constraint on (year, term, subject, section) does not constrain such rows
+  // either, because Postgres reads NULLs as distinct, so they could also be
+  // created twice over.
   const termId = text(formData, "termId") || year.terms[0]?.id || null;
+  if (!termId) {
+    return {
+      error:
+        "There is no current term, and a subject has to be taught in one. Set the term on the academic year first.",
+    };
+  }
 
   const teacherId = text(formData, "teacherId") || null;
 

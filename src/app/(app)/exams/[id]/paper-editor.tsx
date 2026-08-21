@@ -17,6 +17,7 @@ export type PaperDraft = {
   startsAt: string;
   durationMins: number;
   maxMarks: string;
+  weight: string;
   materials: string;
   notes: string;
 };
@@ -151,6 +152,22 @@ export function PaperForm({
             inputMode="numeric"
             defaultValue={draft?.maxMarks}
             placeholder="100"
+          />
+        </Field>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Field
+          label="Weight (%)"
+          htmlFor="pp-weight"
+          hint="Its share of the subject mark. Needed before marks can be entered."
+        >
+          <Input
+            id="pp-weight"
+            name="weight"
+            inputMode="decimal"
+            defaultValue={draft?.weight}
+            placeholder="70"
           />
         </Field>
       </div>

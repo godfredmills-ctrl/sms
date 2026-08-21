@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 
 import { authorize, userCan } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { paperMarkSheet, syncPaperAssessments } from "@/lib/exam-marks";
 import {
   candidatePrefix,
   candidatesForPaper,
@@ -13,6 +14,7 @@ import {
   planSeats,
   type Hall,
 } from "@/lib/exams";
+import { offeringOutOfScope } from "@/lib/scope";
 
 export type ExamState = {
   ok?: boolean;
@@ -316,6 +318,12 @@ export async function savePaperAction(
   const maxMarks = maxMarksRaw ? number(formData, "maxMarks", 0) : null;
   if (maxMarks !== null && maxMarks <= 0) return { error: "Marks out of what?" };
 
+  const weightRaw = text(formData, "weight");
+  const weight = weightRaw ? Number.parseFloat(weightRaw) : null;
+  if (weight !== null && (!Number.isFinite(weight) || weight <= 0 || weight > 100)) {
+    return { error: "The weight is a share of the subject mark, between 0 and 100." };
+  }
+
   const data = {
     sessionId,
     subjectId,
@@ -324,6 +332,7 @@ export async function savePaperAction(
     startsAt,
     durationMins,
     maxMarks,
+    weight,
     materials: text(formData, "materials") || null,
     notes: text(formData, "notes") || null,
   };
@@ -367,9 +376,17 @@ export async function deletePaperAction(formData: FormData): Promise<ExamState> 
       subject: { select: { name: true } },
       session: { select: { status: true } },
       seats: { where: { status: { not: "EXPECTED" } }, take: 1, select: { id: true } },
+      assessments: { select: { id: true, _count: { select: { scores: true } } } },
     },
   });
   if (!paper) return { error: "That paper was not found." };
+
+  const entered = paper.assessments.reduce((sum, one) => sum + one._count.scores, 0);
+  if (entered) {
+    return {
+      error: `${entered} mark${entered === 1 ? " has" : "s have"} been entered against this paper. Deleting it would leave them in the gradebook belonging to nothing.`,
+    };
+  }
 
   // A register has been marked against it: somebody sat this. Deleting it
   // would take the record of who was present with it.
@@ -380,7 +397,13 @@ export async function deletePaperAction(formData: FormData): Promise<ExamState> 
     };
   }
 
-  await db.examPaper.delete({ where: { id } });
+  await db.$transaction([
+    // The generated columns are empty — that was just checked — so they go
+    // with the paper rather than staying behind in the gradebook with nothing
+    // to explain them.
+    db.assessment.deleteMany({ where: { examPaperId: id } }),
+    db.examPaper.delete({ where: { id } }),
+  ]);
 
   await db.auditLog.create({
     data: {
@@ -423,9 +446,21 @@ export async function allocateSeatsAction(formData: FormData): Promise<ExamState
     select: {
       sessionId: true,
       seats: { where: { status: { not: "EXPECTED" } }, take: 1, select: { id: true } },
+      assessments: { select: { _count: { select: { scores: true } } } },
     },
   });
   if (!paper) return { error: "That paper was not found." };
+
+  // Marks are the harder floor. The register check above can be undone — the
+  // hall toggle writes a seat back to EXPECTED on a second tap — but a mark
+  // entered against a seat is a script somebody read.
+  const marked = paper.assessments.reduce((sum, one) => sum + one._count.scores, 0);
+  if (marked) {
+    return {
+      error: `${marked} mark${marked === 1 ? " has" : "s have"} already been entered for this paper. Re-seating would renumber the scripts they came from.`,
+    };
+  }
+
   if (paper.seats.length) {
     return {
       error:
@@ -666,4 +701,252 @@ export async function saveVenueAction(
 
   revalidatePath("/exams/venues");
   return { ok: true, message: id ? "Saved." : "Hall added." };
+}
+
+/**
+ * Creates the mark sheet column for every class sitting this paper.
+ *
+ * The exams office's job, not a teacher's: it writes into several teachers'
+ * gradebooks at once. It is deliberately gated on exam.manage rather than on
+ * assessment.create — granting the exams office assessment.create to make this
+ * work would let them invent arbitrary columns in anybody's mark sheet, where
+ * this can only ever create the one row the paper describes.
+ */
+export async function generatePaperMarkSheetsAction(
+  formData: FormData,
+): Promise<ExamState> {
+  let user;
+  try {
+    user = await authorize("assessment.exam.manage");
+  } catch (error) {
+    return { error: (error as Error).message };
+  }
+
+  const paperId = text(formData, "paperId");
+  if (!paperId) return { error: "Which paper?" };
+
+  const result = await syncPaperAssessments(paperId);
+  if (!result.ok) return { error: result.error };
+
+  const paper = await db.examPaper.findUnique({
+    where: { id: paperId },
+    select: { sessionId: true, subject: { select: { name: true } } },
+  });
+
+  await db.auditLog.create({
+    data: {
+      userId: user.id,
+      actorLabel: user.fullName,
+      action: "assessment.exam.generate",
+      entity: "ExamPaper",
+      entityId: paperId,
+      summary: `Mark sheets for ${paper?.subject.name ?? "a paper"}: ${result.created} created, ${result.updated} refreshed`,
+    },
+  });
+
+  if (paper) {
+    revalidatePath(`/exams/${paper.sessionId}/papers/${paperId}`);
+    revalidatePath(`/exams/${paper.sessionId}/papers/${paperId}/marks`);
+  }
+  revalidatePath("/gradebook");
+
+  return {
+    ok: true,
+    message:
+      result.created && result.updated
+        ? `${result.created} mark sheet${result.created === 1 ? "" : "s"} created, ${result.updated} refreshed: ${result.sections.join(", ")}.`
+        : result.created
+          ? `Mark sheets ready for ${result.sections.join(", ")}.`
+          : `Refreshed the mark sheets for ${result.sections.join(", ")}.`,
+  };
+}
+
+export type ScriptMark = { candidateId: string; score: number | null };
+
+/**
+ * Saves a paper's marks, keyed on the index number rather than on a pupil.
+ *
+ * The marker is holding a pile of scripts sorted by seat, each carrying an
+ * index number and no name. Keying on candidateId is not a convenience — it is
+ * the only identifier physically present on the thing being marked.
+ *
+ * **Absence is not in the payload.** It is read from the hall register, which
+ * the invigilator marked. Two independent absent flags — one set in the hall,
+ * one set by whoever types the marks — is precisely the disagreement this
+ * feature exists to remove, and the register is the one with somebody's
+ * signature under it.
+ */
+export async function saveExamPaperMarks(
+  paperId: string,
+  entries: ScriptMark[],
+): Promise<ExamState> {
+  let user;
+  try {
+    user = await authorize(["assessment.grade", "assessment.exam.marks"]);
+  } catch (error) {
+    return { error: (error as Error).message };
+  }
+
+  const paper = await db.examPaper.findUnique({
+    where: { id: paperId },
+    select: {
+      sessionId: true,
+      maxMarks: true,
+      subject: { select: { name: true } },
+      session: { select: { term: { select: { isLocked: true } } } },
+    },
+  });
+  if (!paper) return { error: "That paper was not found." };
+  if (paper.session.term?.isLocked) {
+    return { error: "This term is locked. Ask an administrator to reopen it." };
+  }
+
+  const rows = await paperMarkSheet(paperId);
+  const byCandidate = new Map(rows.map((row) => [row.candidateId, row]));
+
+  // A holder of exam.marks marks the whole paper across every class. Anyone
+  // else marks only the classes that are theirs — and a marker holding half
+  // the pile needs to be told which half, so the refusal names the section.
+  const wholePaper = userCan(user, "assessment.exam.marks");
+  const mine = new Set<string>();
+  if (!wholePaper) {
+    const offerings = [...new Set(rows.map((row) => row.offeringId).filter(Boolean))];
+    for (const offeringId of offerings as string[]) {
+      if (!(await offeringOutOfScope(user, offeringId))) mine.add(offeringId);
+    }
+  }
+
+  const max = paper.maxMarks ?? 100;
+  type Write = { assessmentId: string; studentId: string; score: number | null; isAbsent: boolean };
+  const writes: Write[] = [];
+
+  for (const entry of entries) {
+    const row = byCandidate.get(entry.candidateId);
+    if (!row) return { error: "A mark was submitted for a candidate not on this paper." };
+    if (row.blockedReason) {
+      return { error: `${row.candidateNo} cannot be marked: ${row.blockedReason}` };
+    }
+    if (!row.assessmentId || !row.offeringId) {
+      return { error: `${row.candidateNo} has no mark sheet to write to.` };
+    }
+    if (!wholePaper && !mine.has(row.offeringId)) {
+      return {
+        error: `${row.marksSection ?? "That class"} is not yours to mark. Ask the exams office, or whoever teaches it.`,
+      };
+    }
+
+    // The register decides. A candidate the invigilator wrote down as absent
+    // gets an absence, whatever was typed against them.
+    const isAbsent = row.seatStatus === "ABSENT";
+    if (!isAbsent && entry.score !== null) {
+      if (!Number.isFinite(entry.score) || entry.score < 0 || entry.score > max) {
+        return {
+          error: `${row.candidateNo} has ${entry.score}, which is outside 0–${max} for ${paper.subject.name}.`,
+        };
+      }
+    }
+
+    writes.push({
+      assessmentId: row.assessmentId,
+      studentId: row.studentId,
+      score: isAbsent ? null : entry.score,
+      isAbsent,
+    });
+  }
+
+  const toWrite = writes.filter((row) => row.score !== null || row.isAbsent);
+  const toClear = writes.filter((row) => row.score === null && !row.isAbsent);
+
+  await db.$transaction([
+    ...toWrite.map((row) =>
+      db.assessmentScore.upsert({
+        where: {
+          assessmentId_studentId: { assessmentId: row.assessmentId, studentId: row.studentId },
+        },
+        create: { ...row, gradedById: user.staffId },
+        update: { score: row.score, isAbsent: row.isAbsent, gradedById: user.staffId },
+      }),
+    ),
+    // A blanked cell is "not marked yet", which the report card treats as a
+    // component that does not exist rather than as a zero.
+    ...toClear.map((row) =>
+      db.assessmentScore.deleteMany({
+        where: { assessmentId: row.assessmentId, studentId: row.studentId },
+      }),
+    ),
+  ]);
+
+  await db.auditLog.create({
+    data: {
+      userId: user.id,
+      actorLabel: user.fullName,
+      action: "assessment.exam.marks",
+      entity: "ExamPaper",
+      entityId: paperId,
+      summary: `Entered ${toWrite.length} mark${toWrite.length === 1 ? "" : "s"} for ${paper.subject.name}`,
+    },
+  });
+
+  revalidatePath(`/exams/${paper.sessionId}/papers/${paperId}/marks`);
+  // The gradebook is where these land, and nothing revalidated it after a
+  // mark save before now.
+  revalidatePath("/gradebook");
+  for (const offeringId of new Set(rows.map((row) => row.offeringId).filter(Boolean))) {
+    revalidatePath(`/gradebook/${offeringId}`);
+  }
+
+  return {
+    ok: true,
+    message: `${toWrite.length} mark${toWrite.length === 1 ? "" : "s"} saved.`,
+  };
+}
+
+/**
+ * Sets only what a paper needs before its marks can go anywhere.
+ *
+ * Its own action rather than a partial savePaperAction: that one requires a
+ * subject and a year group, and a small form asking for two numbers has no
+ * business resubmitting the whole paper — a missing hidden field would have
+ * silently rewritten the timetable slot.
+ */
+export async function setPaperMarkingAction(formData: FormData): Promise<ExamState> {
+  let user;
+  try {
+    user = await authorize("assessment.exam.manage");
+  } catch (error) {
+    return { error: (error as Error).message };
+  }
+
+  const paperId = text(formData, "paperId");
+  if (!paperId) return { error: "Which paper?" };
+
+  const maxMarks = number(formData, "maxMarks", 0);
+  if (maxMarks <= 0) return { error: "What is the paper marked out of?" };
+
+  const weight = Number.parseFloat(text(formData, "weight"));
+  if (!Number.isFinite(weight) || weight <= 0 || weight > 100) {
+    return { error: "The weight is a share of the subject mark, between 0 and 100." };
+  }
+
+  const paper = await db.examPaper.findUnique({
+    where: { id: paperId },
+    select: { sessionId: true },
+  });
+  if (!paper) return { error: "That paper was not found." };
+
+  await db.examPaper.update({ where: { id: paperId }, data: { maxMarks, weight } });
+
+  await db.auditLog.create({
+    data: {
+      userId: user.id,
+      actorLabel: user.fullName,
+      action: "exam.paper.marking",
+      entity: "ExamPaper",
+      entityId: paperId,
+      summary: `Marked out of ${maxMarks}, carrying ${weight}% of the subject`,
+    },
+  });
+
+  revalidatePath(`/exams/${paper.sessionId}/papers/${paperId}`);
+  return { ok: true, message: "Saved." };
 }

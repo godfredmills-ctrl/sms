@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Printer } from "lucide-react";
+import { PenLine, Printer } from "lucide-react";
 
 import {
   Alert,
@@ -16,8 +16,9 @@ import {
 import { requirePermission, userCan } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { candidatesForPaper, invigilates } from "@/lib/exams";
-import { formatDate, fullName, listName } from "@/lib/utils";
+import { formatDate, fullName, listName, toNumber } from "@/lib/utils";
 
+import { GenerateSheets } from "./generate-sheets";
 import { Allocate, Invigilators, Register, type SeatRow } from "./seating";
 
 export const dynamic = "force-dynamic";
@@ -68,11 +69,18 @@ export default async function PaperPage({
       startsAt: true,
       durationMins: true,
       maxMarks: true,
+      weight: true,
       materials: true,
       notes: true,
       subject: { select: { name: true } },
       classLevel: { select: { name: true } },
       session: { select: { id: true, name: true, status: true } },
+      assessments: {
+        select: {
+          offering: { select: { classSection: { select: { name: true } } } },
+          _count: { select: { scores: true } },
+        },
+      },
       invigilators: {
         orderBy: { role: "asc" },
         select: {
@@ -166,17 +174,30 @@ export default async function PaperPage({
           </>
         }
         action={
-          rows.length ? (
-            <LinkButton
-              href={`/api/exams/papers/${paper.id}/hall-list`}
-              target="_blank"
-              size="sm"
-              variant="secondary"
-            >
-              <Printer className="size-4" />
-              Hall list
-            </LinkButton>
-          ) : null
+          <>
+            {paper.assessments.length &&
+            (userCan(user, "assessment.grade") ||
+              userCan(user, "assessment.exam.marks")) ? (
+              <LinkButton
+                href={`/exams/${paper.session.id}/papers/${paper.id}/marks`}
+                size="sm"
+              >
+                <PenLine className="size-4" />
+                Enter marks
+              </LinkButton>
+            ) : null}
+            {rows.length ? (
+              <LinkButton
+                href={`/api/exams/papers/${paper.id}/hall-list`}
+                target="_blank"
+                size="sm"
+                variant="secondary"
+              >
+                <Printer className="size-4" />
+                Hall list
+              </LinkButton>
+            ) : null}
+          </>
         }
       />
 
@@ -262,6 +283,27 @@ export default async function PaperPage({
               />
             </CardBody>
           </Card>
+
+          {canManage ? (
+            <Card>
+              <CardHeader
+                title="Mark sheets"
+                description="Where this paper's marks go — one column per class, in their own gradebooks."
+              />
+              <CardBody>
+                <GenerateSheets
+                  paperId={paper.id}
+                  sessionId={paper.session.id}
+                  weight={toNumber(paper.weight)}
+                  maxMarks={paper.maxMarks}
+                  sheets={paper.assessments.length}
+                  sections={paper.assessments.map(
+                    (entry) => entry.offering.classSection.name,
+                  )}
+                />
+              </CardBody>
+            </Card>
+          ) : null}
 
           {canManage ? (
             <Card>

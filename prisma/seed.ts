@@ -12,6 +12,7 @@ import sharp from "sharp";
 
 import { hashPassword } from "../src/lib/crypto";
 import { generateClassReportCards } from "../src/lib/grading";
+import { paperMarkSheet, syncPaperAssessments } from "../src/lib/exam-marks";
 import { planSeats } from "../src/lib/exams";
 import { writtenBody } from "../src/lib/markdown";
 import { computePayslip, parseAllowances } from "../src/lib/payroll";
@@ -155,13 +156,16 @@ async function main() {
   await seedLibrary(subjects, students, staff);
   await seedTransport(students, staff);
   await seedWrittenDocuments(staff, roles);
+  // Before the report cards: the examination marks are part of what a card is
+  // made of, and a card generated first would be a card with the exam column
+  // empty — which is exactly the state this release stopped scoring as zero.
+  await seedExaminations(terms, year.id, levels, subjects, staff, roles);
   await seedReportCards(terms, sections, demoStudentSectionId);
   await seedWebsite(school);
   await seedPayroll(staff);
   // After payroll: the statement adds the two together, and a demo with one
   // and not the other reads as a school that spends nothing but salaries.
   await seedExpenditure(terms, year.id, roles);
-  await seedExaminations(terms, year.id, levels, subjects, staff, roles);
 
   console.log("\nDone.\n");
   await printCredentials();
@@ -4597,6 +4601,9 @@ async function seedExaminations(
           startsAt,
           durationMins: 90,
           maxMarks: 100,
+          // The terminal paper carries most of the subject mark; the class
+          // tests seeded elsewhere carry the rest.
+          weight: 70,
           materials:
             subject.name.toLowerCase().includes("math") ||
             subject.name.toLowerCase().includes("science")
@@ -4680,5 +4687,54 @@ async function seedExaminations(
         },
       });
     }
+  }
+
+  // --- Mark sheets, and the marks themselves ---------------------------------
+  //
+  // Through syncPaperAssessments, the same function the "Generate mark sheets"
+  // button calls, so the seeded columns are ones the school could have made by
+  // pressing it. The two papers already sat are then marked — and a candidate
+  // the invigilator wrote down as absent gets an absence rather than a zero,
+  // which is the whole point of the two halves being joined.
+  for (const paper of sat) {
+    const result = await syncPaperAssessments(paper.id);
+    if (!result.ok) {
+      console.log(`    (mark sheets skipped: ${result.error})`);
+      continue;
+    }
+
+    const sheet = await paperMarkSheet(paper.id);
+    const writes = sheet
+      .filter((row) => !row.blockedReason && row.assessmentId)
+      .map((row, index) => ({
+        assessmentId: row.assessmentId!,
+        studentId: row.studentId,
+        isAbsent: row.seatStatus === "ABSENT",
+        // A believable spread: mostly forties to eighties, a few at each end.
+        score:
+          row.seatStatus === "ABSENT"
+            ? null
+            : 38 + ((index * 17) % 52) + (index % 5 === 0 ? 6 : 0),
+      }));
+
+    for (const write of writes) {
+      await db.assessmentScore.upsert({
+        where: {
+          assessmentId_studentId: {
+            assessmentId: write.assessmentId,
+            studentId: write.studentId,
+          },
+        },
+        create: write,
+        update: { score: write.score, isAbsent: write.isAbsent },
+      });
+    }
+
+    // Published, so the marks reach the report cards the seed generates next
+    // and the pupil portal has something to show.
+    await db.assessment.updateMany({
+      where: { examPaperId: paper.id },
+      data: { isPublished: true, publishedAt: new Date() },
+    });
   }
 }

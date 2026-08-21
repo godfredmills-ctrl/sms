@@ -1,6 +1,7 @@
 import "server-only";
 
 import { db } from "./db";
+import { offeringsForPaper } from "./exam-marks";
 
 /**
  * Running an examination.
@@ -62,37 +63,26 @@ export async function invigilates(
 export async function candidatesForPaper(paperId: string) {
   const paper = await db.examPaper.findUnique({
     where: { id: paperId },
-    select: {
-      id: true,
-      subjectId: true,
-      classLevelId: true,
-      session: { select: { id: true, termId: true, academicYearId: true } },
-    },
+    select: { sessionId: true },
   });
   if (!paper) return [];
 
-  const sections = await db.subjectOffering.findMany({
-    where: {
-      subjectId: paper.subjectId,
-      isActive: true,
-      academicYearId: paper.session.academicYearId,
-      ...(paper.session.termId ? { termId: paper.session.termId } : {}),
-      classSection: { classLevelId: paper.classLevelId },
-    },
-    select: { classSectionId: true },
-  });
-
-  const sectionIds = [...new Set(sections.map((offering) => offering.classSectionId))];
+  // Through offeringsForPaper, which is the one answer to "which classes sit
+  // this paper". The query used to be written out here as well, selecting only
+  // the section ids and discarding the offerings — and the marking sheet needs
+  // those offerings, so a second copy would have been the version that drifted.
+  const offerings = await offeringsForPaper(paperId);
+  const sectionIds = [...new Set(offerings.map((offering) => offering.classSectionId))];
   if (sectionIds.length === 0) return [];
 
   return db.examCandidate.findMany({
-    where: { sessionId: paper.session.id, classSectionId: { in: sectionIds } },
+    where: { sessionId: paper.sessionId, classSectionId: { in: sectionIds } },
     orderBy: [{ classSectionId: "asc" }, { candidateNo: "asc" }],
     select: {
       id: true,
       candidateNo: true,
       classSectionId: true,
-      student: { select: { firstName: true, lastName: true, otherNames: true } },
+      student: { select: { id: true, firstName: true, lastName: true, otherNames: true } },
     },
   });
 }

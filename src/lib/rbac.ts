@@ -88,6 +88,7 @@ export const PERMISSIONS: PermissionDef[] = [
     ["exam.read", "read", "View examination timetables and hall lists"],
     ["exam.manage", "update", "Set up examinations, seating and invigilation"],
     ["exam.attendance", "update", "Mark candidates present or absent in the hall"],
+    ["exam.marks", "update", "Enter a whole paper's marks, across every class"],
     ["transcript.generate", "create", "Generate transcripts"],
     ["certificate.issue", "create", "Issue certificates"],
     ["template.manage", "update", "Manage transcript and certificate templates"],
@@ -365,6 +366,10 @@ export const ROLE_PRESETS: RolePreset[] = [
       "assessment.exam.read",
       "assessment.exam.manage",
       "assessment.exam.attendance",
+      // The exams office marks a whole paper across every class, which is what
+      // a pile of anonymous scripts sorted by seat actually requires. A class
+      // teacher marks their own classes through the same sheet.
+      "assessment.exam.marks",
       ...expand("document"),
       // Admissions runs the enquiry inbox: an enquiry is a prospective
       // student, which is the registrar's work before it is anyone else's.
