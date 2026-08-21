@@ -1,10 +1,11 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 
-import { authorize } from "@/lib/auth";
+import { authorize, type AuthUser } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { markdownToText } from "@/lib/markdown";
+import { markdownToText, writtenBody } from "@/lib/markdown";
 
 import { DOCUMENT_KINDS } from "./kinds";
 
@@ -20,6 +21,35 @@ function text(formData: FormData, key: string): string {
 }
 
 /**
+ * The status change itself, so saving-and-finalising is one act.
+ *
+ * Not exported: a "use server" module may only export server actions, and
+ * this is called by two of them.
+ */
+async function applyStatus(
+  user: AuthUser,
+  id: string,
+  status: "DRAFT" | "FINAL",
+  title: string,
+) {
+  await db.writtenDocument.update({
+    where: { id },
+    data: { status, finalisedAt: status === "FINAL" ? new Date() : null },
+  });
+
+  await db.auditLog.create({
+    data: {
+      userId: user.id,
+      actorLabel: user.fullName,
+      action: status === "FINAL" ? "letter.finalise" : "letter.reopen",
+      entity: "WrittenDocument",
+      entityId: id,
+      summary: `${status === "FINAL" ? "Finalised" : "Reopened"}: ${title.slice(0, 60)}`,
+    },
+  });
+}
+
+/**
  * Saves a document, new or existing.
  *
  * The body arrives as Markdown from the editor and is stored as typed. It is
@@ -28,6 +58,14 @@ function text(formData: FormData, key: string): string {
  * page, in a PDF, and one day in an email. Markdown is text, and the one
  * parser in lib/markdown.ts is what gives it meaning — the same parser for
  * the preview and for the paper.
+ *
+ * "Mark final" arrives here as an intent on the same submission rather than as
+ * a second button doing its own thing. Finalising on its own froze whatever
+ * was last stored: somebody who edited the text and pressed Mark final —
+ * which is the obvious order, the text being finished — issued the version
+ * before their edits, and then could not correct it without reopening,
+ * because a final document is read-only. The screen showed the new wording
+ * and the file held the old one.
  */
 export async function saveDocumentAction(
   _previous: WritingState,
@@ -87,7 +125,8 @@ export async function saveDocumentAction(
     kind,
     reference,
     title,
-    body,
+    // body and its searchable copy, written together — see writtenBody.
+    ...writtenBody(body),
     recipient: text(formData, "recipient")
       .split("\n")
       .map((line) => line.trim())
@@ -100,6 +139,22 @@ export async function saveDocumentAction(
     aboutStaffId: text(formData, "aboutStaffId") || null,
     aboutStudentId: text(formData, "aboutStudentId") || null,
   };
+
+  // Everything finalising needs is checked before anything is written, so a
+  // refusal leaves the writer where they were rather than with a saved draft
+  // and an error about a different thing.
+  const finalising = text(formData, "intent") === "final";
+  if (finalising) {
+    try {
+      await authorize("letter.finalise");
+    } catch (error) {
+      return { error: (error as Error).message };
+    }
+    // A letter that goes out unsigned is a letter somebody has to chase.
+    if (!data.signatoryName) {
+      return { error: "Add who signs it before marking it final." };
+    }
+  }
 
   const saved = id
     ? await db.writtenDocument.update({ where: { id }, data, select: { id: true } })
@@ -119,9 +174,22 @@ export async function saveDocumentAction(
     },
   });
 
+  if (finalising) await applyStatus(user, saved.id, "FINAL", title);
+
   revalidatePath("/letters");
   revalidatePath(`/letters/${saved.id}`);
-  return { ok: true, id: saved.id, message: id ? "Saved." : "Created." };
+
+  // A new document moves to its own page. The compose form has no id in it,
+  // so it went on creating: pressing Save twice — or once after an error was
+  // corrected — left two copies of the same letter in the register, both
+  // claiming to be the original.
+  if (!id) redirect(`/letters/${saved.id}`);
+
+  return {
+    ok: true,
+    id: saved.id,
+    message: finalising ? "Saved and marked final." : "Saved.",
+  };
 }
 
 /**
@@ -159,24 +227,7 @@ export async function setDocumentStatusAction(
     return { error: "Add who signs it before marking it final." };
   }
 
-  await db.writtenDocument.update({
-    where: { id },
-    data: {
-      status,
-      finalisedAt: status === "FINAL" ? new Date() : null,
-    },
-  });
-
-  await db.auditLog.create({
-    data: {
-      userId: user.id,
-      actorLabel: user.fullName,
-      action: status === "FINAL" ? "letter.finalise" : "letter.reopen",
-      entity: "WrittenDocument",
-      entityId: id,
-      summary: `${status === "FINAL" ? "Finalised" : "Reopened"}: ${document.title.slice(0, 60)}`,
-    },
-  });
+  await applyStatus(user, id, status as "DRAFT" | "FINAL", document.title);
 
   revalidatePath("/letters");
   revalidatePath(`/letters/${id}`);

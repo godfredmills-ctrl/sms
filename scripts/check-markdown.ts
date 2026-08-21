@@ -52,6 +52,16 @@ check("underscore inside a word", shape("file_name_here.pdf"), ["file_name_here.
 check("underscore emphasis around words", shape("_quietly_"), ["quietly|i"]);
 check("bold inside a sentence", shape("the **head** said"), ["the ", "head|b", " said"]);
 check("markers inside code are literal", shape("`a**b`"), ["a**b|c"]);
+// ...and a marker outside one must not pair with a marker inside it.
+check("an asterisk does not pair into a later code span", shape("2 * 4 and `a * b`"), [
+  "2 * 4 and ",
+  "a * b|c",
+]);
+check("an asterisk does not pair past a code span", shape("2 * 4 and `x` then"), [
+  "2 * 4 and ",
+  "x|c",
+  " then",
+]);
 check("empty", shape(""), [""]);
 
 console.log("\nBlocks\n");
@@ -122,6 +132,69 @@ check(
   kinds("Monday | Tuesday | Wednesday"),
   ["paragraph"],
 );
+
+// A line with pipes, then a divider, is a line and a divider. It became a
+// one-row table that ate the divider, because the separator test never
+// required the separator to have a pipe in it.
+check(
+  "a pipe line above a divider is not a table",
+  kinds("Monday | Tuesday | Wednesday\n---\nAfterwards."),
+  ["paragraph", "rule", "paragraph"],
+);
+
+// Rows are squared to the header in the parser, so the preview and the PDF
+// receive the same shape. Un-squared, the browser grew a column and showed
+// the text while the PDF drew it off the edge of the paper.
+const wide = parseMarkdown("| A | B |\n| --- | --- |\n| one | two | three |");
+check(
+  "a long row is squared to the header",
+  wide[0].type === "table" && wide[0].rows[0].length,
+  2,
+);
+check(
+  "the overflow is folded in, not dropped",
+  wide[0].type === "table" &&
+    wide[0].rows[0][1].map((run) => run.text).join("").includes("three"),
+  true,
+);
+const short = parseMarkdown("| A | B | C |\n| --- | --- | --- |\n| only |");
+check(
+  "a short row is padded to the header",
+  short[0].type === "table" && short[0].rows[0].length,
+  3,
+);
+
+// An escaped pipe is a pipe, not a cell boundary.
+const escaped = parseMarkdown("| Slot | Note |\n| --- | --- |\n| AM | morning \\| evening |");
+check(
+  "an escaped pipe stays inside its cell",
+  escaped[0].type === "table" && escaped[0].rows[0].length,
+  2,
+);
+check(
+  "an escaped pipe keeps its character and loses its backslash",
+  escaped[0].type === "table" &&
+    escaped[0].rows[0][1].map((run) => run.text).join(""),
+  "morning | evening",
+);
+
+// Footnote asterisks are not emphasis: they have a space after them.
+check(
+  "two footnote asterisks stay literal",
+  shape("Fees marked * are provisional; items marked * are optional."),
+  ["Fees marked * are provisional; items marked * are optional."],
+);
+check("emphasis still works beside them", shape("marked * and *this*"), [
+  "marked * and ",
+  "this|i",
+]);
+
+// The separator test used to be quadratic — 4.6 seconds at 51,000 characters.
+const dashes = "- ".repeat(30_000) + "x";
+const dashStart = Date.now();
+parseMarkdown(dashes);
+const dashElapsed = Date.now() - dashStart;
+check(`a 60,000-character dash line parses quickly (${dashElapsed}ms)`, dashElapsed < 500, true);
 
 console.log("\nWhole documents\n");
 

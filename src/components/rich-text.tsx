@@ -13,7 +13,7 @@ import {
   Table as TableIcon,
 } from "lucide-react";
 
-import { parseMarkdown, type Block, type Inline } from "@/lib/markdown";
+import { parseMarkdown, wordCount, type Block, type Inline } from "@/lib/markdown";
 import { cn } from "@/lib/utils";
 
 /**
@@ -79,6 +79,9 @@ export function RichText({
   const box = useRef<HTMLTextAreaElement>(null);
 
   const blocks = useMemo(() => parseMarkdown(value), [value]);
+  // Counted from the parsed text, so the markers that arrange the words are
+  // not counted as words themselves.
+  const words = useMemo(() => wordCount(value), [value]);
 
   /** Applies a tool to the selection, keeping the cursor where a typist expects. */
   function apply(tool: Tool) {
@@ -94,11 +97,31 @@ export function RichText({
     let caretTo = end;
 
     if (tool.kind === "wrap") {
-      const inner = selected || tool.sample;
-      next = value.slice(0, start) + tool.marker + inner + tool.marker + value.slice(end);
-      // With nothing selected the sample lands selected, so typing replaces it.
-      caretFrom = start + tool.marker.length;
-      caretTo = caretFrom + inner.length;
+      if (selected && /\n\s*\n/.test(selected)) {
+        // A marker pair cannot reach across a blank line. The parser ends the
+        // paragraph there, so the opening ** never meets its closing one and
+        // the reader gets four asterisks and no bold — from a button press
+        // that looked like it worked. Each paragraph is wrapped on its own.
+        const wrapped = selected
+          .split(/(\n\s*\n)/)
+          .map((part) => {
+            if (!part.trim()) return part;
+            const lead = /^\s*/.exec(part)![0];
+            const trail = /\s*$/.exec(part)![0];
+            const body = part.slice(lead.length, part.length - trail.length);
+            return `${lead}${tool.marker}${body}${tool.marker}${trail}`;
+          })
+          .join("");
+        next = value.slice(0, start) + wrapped + value.slice(end);
+        caretFrom = start;
+        caretTo = start + wrapped.length;
+      } else {
+        const inner = selected || tool.sample;
+        next = value.slice(0, start) + tool.marker + inner + tool.marker + value.slice(end);
+        // With nothing selected the sample lands selected, so typing replaces it.
+        caretFrom = start + tool.marker.length;
+        caretTo = caretFrom + inner.length;
+      }
     }
 
     if (tool.kind === "line") {
@@ -107,18 +130,40 @@ export function RichText({
       const lineStart = value.lastIndexOf("\n", start - 1) + 1;
       const lineEnd = end === start ? value.indexOf("\n", start) : end;
       const stop = lineEnd === -1 ? value.length : lineEnd;
-      const chunk = value.slice(lineStart, stop) || tool.sample;
+      const existing = value.slice(lineStart, stop);
+      const usingSample = existing.trim() === "";
+      const chunk = usingSample ? tool.sample : existing;
+
+      // A numbered list carries on from the one above it. Numbering from the
+      // top of the selection instead meant that adding three more points to a
+      // list of two produced 1, 2, 1, 2, 3.
+      let counter = 0;
+      if (tool.prefix === "1. " && lineStart > 0) {
+        const before = value.slice(0, lineStart - 1);
+        const above = before.slice(before.lastIndexOf("\n") + 1);
+        const numbered = /^\s*(\d+)[.)]\s/.exec(above);
+        if (numbered) counter = Number(numbered[1]);
+      }
 
       const prefixed = chunk
         .split("\n")
-        .map((line, index) =>
-          tool.prefix === "1. " ? `${index + 1}. ${line}` : `${tool.prefix}${line}`,
-        )
+        .map((line) => {
+          // A blank line inside the selection is left blank. Prefixed, it
+          // became an empty bullet, an empty quotation, or — in a numbered
+          // list — an empty point that took a number with it and pushed
+          // every following point one out.
+          if (!line.trim()) return line;
+          counter += 1;
+          return tool.prefix === "1. " ? `${counter}. ${line}` : `${tool.prefix}${line}`;
+        })
         .join("\n");
 
       next = value.slice(0, lineStart) + prefixed + value.slice(stop);
-      caretFrom = lineStart + prefixed.length;
-      caretTo = caretFrom;
+      caretTo = lineStart + prefixed.length;
+      // The sample lands selected, the same as it does for bold, so typing
+      // replaces it. Left with the caret after it, the word "Heading" stayed
+      // in the letter until somebody noticed and deleted it.
+      caretFrom = usingSample ? caretTo - tool.sample.length : caretTo;
     }
 
     if (tool.kind === "block") {
@@ -156,7 +201,7 @@ export function RichText({
         ))}
         <span className="ml-auto flex items-center gap-2 pr-1">
           <span className="numeric text-[11px] text-[var(--text-subtle)]">
-            {value.trim() ? value.trim().split(/\s+/).length : 0} words
+            {words} {words === 1 ? "word" : "words"}
           </span>
           <button
             type="button"
@@ -244,10 +289,16 @@ export function MarkdownPreview({ blocks }: { blocks: Block[] }) {
                 : block.level === 2
                   ? "text-base font-semibold"
                   : "text-sm font-semibold";
+            // A real heading element, not a paragraph in a heavier weight.
+            // The preview is how somebody checks the shape of what they have
+            // written, and to a screen reader a styled <p> has no shape at
+            // all — the document read as one flat run of text. Levels start
+            // at h2 because the page around this already has its h1.
+            const Tag = (["h2", "h3", "h4"] as const)[block.level - 1];
             return (
-              <p key={index} className={cn(size, "mt-4")}>
+              <Tag key={index} className={cn(size, "mt-4")}>
                 <Runs runs={block.runs} />
-              </p>
+              </Tag>
             );
           }
 

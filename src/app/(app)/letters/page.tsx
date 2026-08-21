@@ -53,7 +53,10 @@ export default async function LettersPage({
           OR: [
             { title: { contains: query, mode: "insensitive" as const } },
             { reference: { contains: query, mode: "insensitive" as const } },
-            { body: { contains: query, mode: "insensitive" as const } },
+            // The plain-text copy, not the Markdown. Searching the source
+            // missed a phrase whenever a word inside it was emphasised: "the
+            // **head** teacher" does not contain "head teacher".
+            { plainText: { contains: query, mode: "insensitive" as const } },
           ],
         }
       : {}),

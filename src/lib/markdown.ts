@@ -71,8 +71,35 @@ export function parseInline(source: string): Inline[] {
     text = "";
   };
 
-  /** Whether a closing marker exists later, so an unmatched one stays literal. */
-  const closes = (from: number, marker: string) => source.indexOf(marker, from) !== -1;
+  /**
+   * Whether a closing marker exists later, so an unmatched one stays literal.
+   *
+   * Code spans and escapes are stepped over, because a marker inside one is
+   * not a marker — the scanner below will not treat it as a closing marker
+   * when it gets there, so neither may this. A plain search did, and
+   * "Rooms 2 * 4 and `a * b`" found its partner inside the code span, opened
+   * an emphasis that could never be closed, and printed the rest of the line
+   * in italic.
+   */
+  const closes = (from: number, marker: string) => {
+    let at = from;
+    while (at < source.length) {
+      if (source[at] === "\\") {
+        at += 2;
+        continue;
+      }
+      // Tested before the backtick is stepped over, so looking for the end of
+      // a code span still finds the very next backtick.
+      if (source.startsWith(marker, at)) return true;
+      if (source[at] === "`") {
+        const end = source.indexOf("`", at + 1);
+        at = end === -1 ? at + 1 : end + 1;
+        continue;
+      }
+      at += 1;
+    }
+    return false;
+  };
 
   let index = 0;
   while (index < source.length) {
@@ -129,7 +156,20 @@ export function parseInline(source: string): Inline[] {
         index > 0 &&
         /\w/.test(source[index - 1] ?? "") &&
         /\w/.test(source[index + 1] ?? "");
-      if (!double && !triple && !insideWord && (italic || closes(index + 1, char))) {
+      // An opening marker needs a word after it, and a closing one a word
+      // before it. Without that, the two footnote asterisks in "Fees marked *
+      // are provisional; items marked * are optional." pair up: both vanish
+      // and the clause between them prints italic. A school letter is full of
+      // lone asterisks used as footnote marks, and none of them is emphasis.
+      const opensHere = /\S/.test(source[index + 1] ?? "");
+      const closesHere = italic && /\S/.test(source[index - 1] ?? "");
+
+      if (
+        !double &&
+        !triple &&
+        !insideWord &&
+        (closesHere || (!italic && opensHere && closes(index + 1, char)))
+      ) {
         flush();
         italic = !italic;
         index += 1;
@@ -145,16 +185,56 @@ export function parseInline(source: string): Inline[] {
   return runs.length ? runs : [{ text: "" }];
 }
 
-/** A table row: `| a | b |` split into its cells. */
+/**
+ * A table row, split on its unescaped pipes.
+ *
+ * With a plain split, a pipe escaped to mean a literal pipe still cut the
+ * cell in two and left the backslash behind — so "morning \| evening" in a
+ * timetable became two cells, one ending in a stray slash, and the row then
+ * had more cells than the header.
+ */
 function tableCells(line: string): string[] {
-  return line
-    .replace(/^\s*\|/, "")
-    .replace(/\|\s*$/, "")
-    .split("|")
-    .map((cell) => cell.trim());
+  const trimmed = line.replace(/^\s*\|/, "").replace(/\|\s*$/, "");
+  const cells: string[] = [];
+  let current = "";
+
+  for (let index = 0; index < trimmed.length; index += 1) {
+    const char = trimmed[index];
+    if (char === "\\" && trimmed[index + 1] === "|") {
+      current += "|";
+      index += 1;
+      continue;
+    }
+    if (char === "|") {
+      cells.push(current.trim());
+      current = "";
+      continue;
+    }
+    current += char;
+  }
+
+  cells.push(current.trim());
+  return cells;
 }
 
-const TABLE_SEPARATOR = /^\s*\|?[\s:-]*-[\s:|-]*\|?\s*$/;
+/**
+ * A separator row: pipes, dashes, colons and spaces, with at least one dash.
+ *
+ * Written as a character test rather than a pattern. The obvious regex —
+ * `^\s*\|?[\s:-]*-[\s:|-]*\|?\s*$` — has two overlapping runs that both
+ * accept dashes and spaces, so a long line of dashes that fails at the end
+ * makes the engine try every split: measured at 4.6 seconds for 51,000
+ * characters, quadratic, and reachable by pasting a rule out of a Word
+ * document. This is linear and cannot backtrack.
+ */
+function isTableSeparator(line: string): boolean {
+  let sawDash = false;
+  for (const char of line) {
+    if (char === "-") sawDash = true;
+    else if (char !== "|" && char !== ":" && char !== " " && char !== "\t") return false;
+  }
+  return sawDash;
+}
 
 /**
  * Markdown into blocks.
@@ -217,19 +297,41 @@ export function parseMarkdown(source: string): Block[] {
       continue;
     }
 
-    // A table needs its separator row, or it is just text with pipes in it.
+    // A table needs a separator row, and a separator row has pipes in it.
+    // Without that last test, "Monday | Tuesday | Wednesday" with a "---"
+    // divider under it became a one-row table and swallowed the divider —
+    // two ordinary lines turning into something neither of them was.
     if (
       trimmed.includes("|") &&
       index + 1 < lines.length &&
-      TABLE_SEPARATOR.test(lines[index + 1]) &&
-      lines[index + 1].includes("-")
+      lines[index + 1].includes("|") &&
+      lines[index + 1].includes("-") &&
+      isTableSeparator(lines[index + 1])
     ) {
       flushParagraph();
-      const header = tableCells(trimmed).map(parseInline);
+      const headerCells = tableCells(trimmed);
+      const width = Math.max(headerCells.length, 1);
+      const header = headerCells.map((cell) => parseInline(cell));
       index += 2;
       const rows: Inline[][][] = [];
       while (index < lines.length && lines[index].includes("|") && lines[index].trim()) {
-        rows.push(tableCells(lines[index]).map(parseInline));
+        const cells = tableCells(lines[index]);
+
+        // Every row is squared to the header here, once, so the preview and
+        // the PDF are handed the same shape and cannot disagree about it.
+        // They did: the browser grew a third column and showed the text,
+        // while the PDF drew that cell at x=545 on a 595-point page and the
+        // words ran off the paper. A short row is padded; a long one has its
+        // overflow folded into the last column, because a cell somebody typed
+        // should appear somewhere rather than nowhere.
+        const squared =
+          cells.length === width
+            ? cells
+            : cells.length < width
+              ? [...cells, ...Array(width - cells.length).fill("")]
+              : [...cells.slice(0, width - 1), cells.slice(width - 1).join("  ")];
+
+        rows.push(squared.map((cell) => parseInline(cell)));
         index += 1;
       }
       blocks.push({ type: "table", header, rows });
@@ -285,6 +387,62 @@ export function parseMarkdown(source: string): Block[] {
 
   flushParagraph();
   return blocks;
+}
+
+/**
+ * Every run of text in a document, block by block.
+ *
+ * The two callers below both want the words and not the punctuation that
+ * arranges them, and getting that wrong in either place shows: a word count
+ * that counts "##" and "---", or a search that matches "**" and misses the
+ * word it wraps.
+ */
+function textRuns(blocks: Block[]): Inline[][] {
+  return blocks.flatMap((block) => {
+    switch (block.type) {
+      case "rule":
+        return [];
+      case "list":
+        return block.items;
+      case "table":
+        return [...block.header, ...block.rows.flat()];
+      default:
+        return [block.runs];
+    }
+  });
+}
+
+/**
+ * Words, as the person who wrote them would count.
+ *
+ * Counting the raw source instead made "## Background" two words and a table
+ * separator row four, so a one-page letter reported a length nobody could
+ * reconcile with what was on the page.
+ */
+export function wordCount(source: string): number {
+  let words = 0;
+  for (const runs of textRuns(parseMarkdown(source))) {
+    const text = runs
+      .map((run) => run.text)
+      .join("")
+      .trim();
+    if (text) words += text.split(/\s+/).length;
+  }
+  return words;
+}
+
+/**
+ * The two columns a written document's text lives in, written together.
+ *
+ * plainText exists only so the register can be searched for words rather than
+ * for Markdown, which means it is right exactly as long as it is written from
+ * the same body every time. Handing that to each caller is how one of them
+ * ends up not doing it — the seed, which writes three documents and would
+ * have left all three unfindable, with nothing to show for it but a search
+ * that quietly returns nothing.
+ */
+export function writtenBody(body: string): { body: string; plainText: string } {
+  return { body, plainText: markdownToText(body) };
 }
 
 /** The document as plain text — for a search index, or an SMS of a notice. */

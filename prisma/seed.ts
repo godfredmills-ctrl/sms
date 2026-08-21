@@ -12,6 +12,7 @@ import sharp from "sharp";
 
 import { hashPassword } from "../src/lib/crypto";
 import { generateClassReportCards } from "../src/lib/grading";
+import { writtenBody } from "../src/lib/markdown";
 import { computePayslip, parseAllowances } from "../src/lib/payroll";
 import { PERMISSIONS, ROLE_PRESETS } from "../src/lib/rbac";
 import { storeFile } from "../src/lib/storage";
@@ -2929,7 +2930,7 @@ async function seedWrittenDocuments(staff: StaffRow[], roles: Record<string, str
       status: "FINAL",
       finalisedAt: new Date(today.getTime() - 12 * day),
       authorId: head?.id ?? null,
-      body: `Following the Board's request of 14 March, this paper sets out a proposal for staff development in the coming academic year, with costs.
+      ...writtenBody(`Following the Board's request of 14 March, this paper sets out a proposal for staff development in the coming academic year, with costs.
 
 ## Background
 
@@ -2958,7 +2959,7 @@ The mentoring scheme costs nothing beyond time. The training days and the texts 
 
 ---
 
-The Head Teacher recommends this to the Board for approval at the meeting of 5 September.`,
+The Head Teacher recommends this to the Board for approval at the meeting of 5 September.`),
     },
   });
 
@@ -2978,7 +2979,7 @@ The Head Teacher recommends this to the Board for approval at the meeting of 5 S
         finalisedAt: new Date(today.getTime() - 3 * day),
         authorId: head?.id ?? null,
         aboutStaffId: leaver.id,
-        body: `I write in support of **${leaver.firstName} ${leaver.lastName}**, who has taught at this school and is known to me personally.
+        ...writtenBody(`I write in support of **${leaver.firstName} ${leaver.lastName}**, who has taught at this school and is known to me personally.
 
 ${leaver.firstName} is punctual, well prepared, and trusted with a form group. Colleagues describe them as generous with their time; parents ask for them by name.
 
@@ -2988,7 +2989,7 @@ In particular:
 - Two years as a form teacher, with no complaint from any family
 - Willing to cover at short notice, repeatedly
 
-I recommend ${leaver.firstName} without reservation, and would take them back.`,
+I recommend ${leaver.firstName} without reservation, and would take them back.`),
       },
     });
   }
@@ -3004,7 +3005,7 @@ I recommend ${leaver.firstName} without reservation, and would take them back.`,
       signatoryTitle: "Head Teacher",
       status: "DRAFT",
       authorId: head?.id ?? null,
-      body: `From the first Monday of next term the school will close at **2:45pm** on Fridays, half an hour earlier than at present.
+      ...writtenBody(`From the first Monday of next term the school will close at **2:45pm** on Fridays, half an hour earlier than at present.
 
 The change follows two terms of traffic on the Spintex Road holding buses past five o'clock. Bringing Friday forward lets every route finish before the worst of it.
 
@@ -3017,7 +3018,7 @@ The change follows two terms of traffic on the Spintex Road holding buses past f
 
 Bus times move with it; the stop times on your child's portal page will update automatically.
 
-> If Friday afternoon collection is difficult for your family, please speak to the office before the end of this term.`,
+> If Friday afternoon collection is difficult for your family, please speak to the office before the end of this term.`),
     },
   });
 

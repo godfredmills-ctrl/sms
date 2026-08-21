@@ -76,13 +76,20 @@ export function DocumentEditor({
 
   const isFinal = draft?.status === "FINAL";
 
-  async function changeStatus(status: "DRAFT" | "FINAL") {
+  /**
+   * Puts a final document back into draft.
+   *
+   * The other direction is a submission rather than a call, because it has to
+   * carry the text on the screen with it. Reopening carries nothing: the
+   * document is read-only at that point, so there is nothing unsaved to lose.
+   */
+  async function reopen() {
     if (!draft) return;
-    setBusy(status);
+    setBusy("DRAFT");
     setProblem(null);
     const data = new FormData();
     data.append("id", draft.id);
-    data.append("status", status);
+    data.append("status", "DRAFT");
     const result = await setDocumentStatusAction(data);
     setBusy(null);
     if (result.error) setProblem(result.error);
@@ -114,7 +121,7 @@ export function DocumentEditor({
           <Button
             variant="secondary"
             disabled={busy !== null}
-            onClick={() => changeStatus("DRAFT")}
+            onClick={reopen}
           >
             <RotateCcw className="size-4" />
             {busy === "DRAFT" ? "Reopening…" : "Reopen as a draft"}
@@ -272,16 +279,13 @@ export function DocumentEditor({
 
         <div className="flex flex-wrap gap-2">
           <SaveButton isNew={!draft} />
-          {draft && canFinalise ? (
-            <Button
-              type="button"
-              variant="secondary"
-              disabled={busy !== null}
-              onClick={() => changeStatus("FINAL")}
-            >
-              <CheckCircle2 className="size-4" />
-              {busy === "FINAL" ? "Finalising…" : "Mark final"}
-            </Button>
+          {canFinalise ? (
+            // A submit, not a separate call. Finalising on its own issued
+            // whatever was last stored, so edits made and not yet saved were
+            // dropped — and the document was read-only afterwards, so the
+            // writer could not simply put them back. This saves what is on
+            // the screen and finalises that.
+            <FinaliseButton />
           ) : null}
           {draft ? (
             <Button
@@ -303,9 +307,31 @@ export function DocumentEditor({
 function SaveButton({ isNew }: { isNew: boolean }) {
   const { pending } = useFormStatus();
   return (
-    <Button type="submit" disabled={pending}>
+    <Button type="submit" name="intent" value="save" disabled={pending}>
       <Save className="size-4" />
       {pending ? "Saving…" : isNew ? "Create" : "Save"}
+    </Button>
+  );
+}
+
+/**
+ * Save and issue, in one submission.
+ *
+ * The value rides on the button, so the server knows which of the two was
+ * pressed and the same validation runs either way.
+ */
+function FinaliseButton() {
+  const { pending } = useFormStatus();
+  return (
+    <Button
+      type="submit"
+      name="intent"
+      value="final"
+      variant="secondary"
+      disabled={pending}
+    >
+      <CheckCircle2 className="size-4" />
+      Save and mark final
     </Button>
   );
 }

@@ -3687,6 +3687,14 @@ model WrittenDocument {
   /// The document, as Markdown. See lib/markdown.ts for the subset.
   body String
 
+  /// The same words with the markers taken out, kept only so the register can
+  /// be searched. Searching the Markdown itself missed a phrase whenever
+  /// anything in it was emphasised — "the **head** teacher" does not contain
+  /// "head teacher" — and matched on asterisks and pipes that nobody typed as
+  /// words. Written from body by markdownToText on every save, in the one
+  /// place that saves, so the two cannot drift apart.
+  plainText String @default("")
+
   /// Addressee block, one line per entry. Empty for a report.
   recipient  String[] @default([])
   salutation String?

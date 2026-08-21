@@ -42,10 +42,14 @@ type Faces = {
   italic: PDFFont;
   boldItalic: PDFFont;
   mono: PDFFont;
+  monoBold: PDFFont;
 };
 
 function faceFor(run: Inline, faces: Faces): PDFFont {
-  if (run.code) return faces.mono;
+  // Code carries weight too. Returning the plain Courier for every code run
+  // meant a reference inside a heading printed lighter than the words either
+  // side of it, which reads as a mistake rather than as a style.
+  if (run.code) return run.bold ? faces.monoBold : faces.mono;
   if (run.bold && run.italic) return faces.boldItalic;
   if (run.bold) return faces.bold;
   if (run.italic) return faces.italic;
@@ -72,14 +76,20 @@ function wordsOf(runs: Inline[], faces: Faces, size: number): Word[] {
     const font = faceFor(run, faces);
     // Split on spaces but keep the run's own leading/trailing space as a gap,
     // so "the **head**" does not become "thehead".
-    const pieces = sanitisePdfText(run.text, font).split(/(\s+)/);
-    for (const piece of pieces) {
+    //
+    // The split comes before the cleaning, not after. A tab is outside WinAnsi
+    // just as a newline is, so cleaning first deleted it rather than turning
+    // it into a gap: a line typed "Textbooks<tab>4,500" printed as
+    // "Textbooks4,500", two columns of a hand-aligned list run together into
+    // one number. The same sequencing lesson as the body, one level down.
+    for (const piece of run.text.split(/(\s+)/)) {
       if (piece === "") continue;
       if (/^\s+$/.test(piece)) {
         words.push({ text: " ", font, size });
         continue;
       }
-      words.push({ text: piece, font, size });
+      const cleaned = sanitisePdfText(piece, font);
+      if (cleaned !== "") words.push({ text: cleaned, font, size });
     }
   }
   return words;
@@ -188,12 +198,18 @@ export async function renderDocumentPdf(input: {
     italic: await pdf.embedFont(StandardFonts.HelveticaOblique),
     boldItalic: await pdf.embedFont(StandardFonts.HelveticaBoldOblique),
     mono: await pdf.embedFont(StandardFonts.Courier),
+    monoBold: await pdf.embedFont(StandardFonts.CourierBold),
   };
 
   // Every string meets the encoder once, here. pdf-lib throws from
   // widthOfTextAtSize as well as drawText, and this file measures before it
   // wraps — so a Twi name would take the render down before any ink.
-  const clean = (value: string) => sanitisePdfText(value, faces.regular);
+  // The whitespace is flattened first. These fields are drawn as single lines,
+  // and a tab or a stray newline pasted into a title is not encodable, so
+  // cleaning it without flattening it deleted the gap and joined the words
+  // either side of it.
+  const clean = (value: string) =>
+    sanitisePdfText(value.replace(/\s+/g, " ").trim(), faces.regular);
   const doc: WrittenDocument = {
     // body is deliberately absent from this list — see wordsOf.
     ...input.document,
@@ -269,12 +285,33 @@ export async function renderDocumentPdf(input: {
 
   function drawLines(
     lines: Word[][],
-    options: { indent?: number; leading?: number; colour?: ReturnType<typeof rgb> },
+    options: {
+      indent?: number;
+      leading?: number;
+      colour?: ReturnType<typeof rgb>;
+      /** A margin bar beside every line — the quotation rule. */
+      bar?: ReturnType<typeof rgb>;
+    },
   ) {
     const indent = options.indent ?? 0;
     const leading = options.leading ?? LINE;
     for (const line of lines) {
       room(leading);
+      if (options.bar) {
+        // A segment per line, drawn on whichever page the line landed on.
+        // Measuring the bar from the y before to the y after assumes both are
+        // on the same sheet: when a quotation crossed a page the second y was
+        // near the top of the new one, the height came out negative, and the
+        // guard against drawing it upside down dropped the bar altogether —
+        // so the longest quotations were the ones that lost their mark.
+        page.drawRectangle({
+          x: MARGIN,
+          y: y - 3,
+          width: 2,
+          height: leading,
+          color: options.bar,
+        });
+      }
       let x = MARGIN + indent;
       for (const word of line) {
         page.drawText(word.text, {
@@ -364,7 +401,14 @@ export async function renderDocumentPdf(input: {
         // A heading with nothing under it belongs on the next page with its
         // text, not stranded at the foot of this one.
         room(size + LINE + 6);
-        drawLines(layout(wordsOf(block.runs, faces, size).map((word) => ({ ...word, font: word.font === faces.regular ? faces.bold : word.font })), USABLE), {
+        // Promoted at the run, not at the word. Swapping the face afterwards
+        // only caught words that came out in the regular face, so a heading
+        // like "## The *provisional* figures" printed its italic word in plain
+        // oblique beside bold ones — the one word being emphasised was the one
+        // word that lost the weight of the heading. Asking for the bold form
+        // of each run gets the bold-italic and the bold monospace too.
+        const runs = block.runs.map((run) => ({ ...run, bold: true }));
+        drawLines(layout(wordsOf(runs, faces, size), USABLE), {
           leading: size + 5,
         });
         y -= 4;
@@ -380,21 +424,7 @@ export async function renderDocumentPdf(input: {
       case "quote": {
         const indent = 16;
         const lines = layout(wordsOf(block.runs, faces, BODY_SIZE), USABLE - indent);
-        const top = y + 10;
-        drawLines(lines, { indent, colour: MUTED });
-        // Drawn after the text so the bar spans exactly what was written —
-        // and only when the quote did not cross a page, where a bar from the
-        // top of the previous sheet would run off the bottom of this one.
-        const bottom = y + 10;
-        if (bottom < top) {
-          page.drawRectangle({
-            x: MARGIN,
-            y: bottom,
-            width: 2,
-            height: top - bottom,
-            color: QUOTE_BAR,
-          });
-        }
+        drawLines(lines, { indent, colour: MUTED, bar: QUOTE_BAR });
         y -= 6;
         return;
       }
@@ -427,6 +457,9 @@ export async function renderDocumentPdf(input: {
         const columnWidth = USABLE / columns;
         const cellSize = 9.5;
 
+        // The most lines of a cell that fit on a sheet of their own.
+        const perPage = Math.max(1, Math.floor((PAGE_H - MARGIN * 2 - 60) / 13));
+
         const drawRow = (cells: Inline[][], bold: boolean) => {
           const wrapped = cells.map((cell) =>
             layout(
@@ -438,38 +471,50 @@ export async function renderDocumentPdf(input: {
               columnWidth - 12,
             ),
           );
-          const height = Math.max(...wrapped.map((lines) => lines.length), 1) * 13 + 6;
-          room(height);
+          const tallest = Math.max(...wrapped.map((lines) => lines.length), 1);
 
-          if (bold) {
-            page.drawRectangle({
-              x: MARGIN,
-              y: y - height + 11,
-              width: USABLE,
-              height,
-              color: rgb(0.96, 0.97, 0.98),
-            });
-          }
+          // A row is drawn in bands, each short enough for a page. room()
+          // breaks the page once and then draws whatever it was given, so a
+          // row taller than a whole sheet — a pasted paragraph in one cell of
+          // a policy table — carried on down past the footer and off the
+          // paper. Every column advances to the next band together, so the
+          // cells stay in their columns across the break.
+          for (let start = 0; start < tallest; start += perPage) {
+            const band = wrapped.map((lines) => lines.slice(start, start + perPage));
+            const height = Math.max(...band.map((lines) => lines.length), 1) * 13 + 6;
+            room(height);
 
-          for (const [index, lines] of wrapped.entries()) {
-            let lineY = y;
-            for (const line of lines) {
-              let x = MARGIN + index * columnWidth + 6;
-              for (const word of line) {
-                page.drawText(word.text, {
-                  x,
-                  y: lineY,
-                  size: word.size,
-                  font: word.font,
-                  color: INK,
-                });
-                x += word.font.widthOfTextAtSize(word.text, word.size);
-              }
-              lineY -= 13;
+            if (bold) {
+              page.drawRectangle({
+                x: MARGIN,
+                y: y - height + 11,
+                width: USABLE,
+                height,
+                color: rgb(0.96, 0.97, 0.98),
+              });
             }
+
+            for (const [index, lines] of band.entries()) {
+              let lineY = y;
+              for (const line of lines) {
+                let x = MARGIN + index * columnWidth + 6;
+                for (const word of line) {
+                  page.drawText(word.text, {
+                    x,
+                    y: lineY,
+                    size: word.size,
+                    font: word.font,
+                    color: INK,
+                  });
+                  x += word.font.widthOfTextAtSize(word.text, word.size);
+                }
+                lineY -= 13;
+              }
+            }
+
+            y -= height;
           }
 
-          y -= height;
           page.drawLine({
             start: { x: MARGIN, y: y + 9 },
             end: { x: MARGIN + USABLE, y: y + 9 },

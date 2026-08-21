@@ -25,3 +25,6 @@ coverage/
 
 # Scratch probes written while investigating — never part of the project.
 scripts/_*
+
+# Sample PDFs from `npm run pdf:preview`, written to look at and then discard.
+/*.pdf

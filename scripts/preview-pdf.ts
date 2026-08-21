@@ -372,6 +372,19 @@ async function main() {
           "| --- | --- | --- | --- |",
           "| External facilitator | GH₵4,500 | GH₵4,500 | GH₵4,500 |",
           "| Materials and refreshments | 900 | 900 | 900 |",
+          // A row with a cell more than the header: squared by the parser, so
+          // the overflow folds into the last column instead of printing off
+          // the right edge of the paper. And an escaped pipe, which is a pipe.
+          "| Cover for the INSET day | 0 | 0 | 600 | plus \\| travel |",
+          "",
+          // A hand-aligned line: the tab is a gap, not a deletion.
+          "Deposit paid to date\t GH₵1,200, against the Term 1 figure above.",
+          "",
+          // Emphasis inside a heading keeps the weight of the heading.
+          "### Costs *provisional* until `GCS/FIN/2026` closes",
+          "",
+          // Lone asterisks used as footnote marks are not emphasis.
+          "Figures marked * are indicative; items marked * exclude VAT.",
           "",
           "> The Board asked that any proposal show what it would displace. Nothing",
           "> is displaced: this comes from the training line already in the budget.",
