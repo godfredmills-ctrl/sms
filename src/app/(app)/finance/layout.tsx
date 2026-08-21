@@ -4,12 +4,27 @@ import { TabNav, type Tab } from "@/components/tab-nav";
 import { requirePermission, userCan } from "@/lib/auth";
 
 export default async function FinanceLayout({ children }: { children: ReactNode }) {
-  const user = await requirePermission("finance.read");
+  // Any of the three, because the module now holds two different jobs. Gated
+  // on finance.read alone, a procurement role with only the expenditure
+  // permissions would be turned away by the layout before its own pages could
+  // let it in — every tab it was given, refused at the door.
+  const user = await requirePermission([
+    "finance.read",
+    "finance.expense.read",
+    "finance.report",
+  ]);
 
   const tabs: Tab[] = [
-    { href: "/finance", label: "Overview" },
-    { href: "/finance/invoices", label: "Invoices" },
-    { href: "/finance/payments", label: "Payments" },
+    // Gated like the rest. Left unconditional, the three fee tabs appeared for
+    // anybody the layout let in — including a role with only the expenditure
+    // permissions, for whom all three led straight to a refusal.
+    ...(userCan(user, "finance.read")
+      ? [
+          { href: "/finance", label: "Overview" },
+          { href: "/finance/invoices", label: "Invoices" },
+          { href: "/finance/payments", label: "Payments" },
+        ]
+      : []),
     // The other half of the ledger. Money out sits beside money in rather
     // than in a module of its own, because the statement at the end needs
     // both and nobody thinks of them as separate jobs.

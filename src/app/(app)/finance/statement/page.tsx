@@ -103,13 +103,16 @@ export default async function StatementPage({
           hint={surplus ? "The period paid for itself" : "More went out than came in"}
           tone={surplus ? "success" : "danger"}
         />
+        {/* Both figures are scoped to this period, like everything else on
+            the page. Labelled as a plain total they would read as everything
+            the school owes, which is a different and larger number. */}
         <StatCard
-          label="Owed and not yet paid"
+          label="Owed from this period"
           value={formatMoney(statement.committedMinor)}
           hint={
             statement.pendingMinor
-              ? `${formatMoney(statement.pendingMinor)} more awaits approval`
-              : "Approved bills still to settle"
+              ? `${formatMoney(statement.pendingMinor)} more still awaits approval`
+              : "Approved here, not yet settled"
           }
           tone={statement.committedMinor > 0 ? "warning" : "neutral"}
         />

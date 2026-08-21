@@ -51,9 +51,15 @@ export type Statement = {
   expenditureMinor: number;
   /** Positive is a surplus, negative a deficit. */
   resultMinor: number;
-  /** Approved but unpaid at the end of the period — owed, not yet gone. */
+  /**
+   * Incurred in this period, approved, and not yet paid — owed, not gone.
+   *
+   * Scoped to the period like every other figure here, which is not the same
+   * as everything the school owes: a bill from last term that is still
+   * unsettled is not in this. Anything showing it has to say so.
+   */
   committedMinor: number;
-  /** Awaiting approval, so not in the figures above at all. */
+  /** Incurred here and awaiting approval, so not in the figures above at all. */
   pendingMinor: number;
 };
 
@@ -358,12 +364,12 @@ export function statementMarkdown(statement: Statement): string {
     lines.push("### Not in the figures above", "");
     if (statement.committedMinor) {
       lines.push(
-        `- ${money(statement.committedMinor)} approved and not yet paid. The school owes this; the money has not left the account.`,
+        `- ${money(statement.committedMinor)} incurred in this period, approved and not yet paid. The school owes it; the money has not left the account. Bills from earlier periods may still be outstanding too.`,
       );
     }
     if (statement.pendingMinor) {
       lines.push(
-        `- ${money(statement.pendingMinor)} recorded and awaiting approval. Until it is approved it is not counted as spending at all.`,
+        `- ${money(statement.pendingMinor)} incurred in this period and still awaiting approval. Until it is approved it is not counted as spending at all, so the surplus above is the best case.`,
       );
     }
     lines.push("");
