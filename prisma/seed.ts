@@ -152,6 +152,7 @@ async function main() {
   await seedQuestionBank(subjects);
   await seedLibrary(subjects, students, staff);
   await seedTransport(students, staff);
+  await seedWrittenDocuments(staff, roles);
   await seedReportCards(terms, sections, demoStudentSectionId);
   await seedWebsite(school);
   await seedPayroll(staff);
@@ -227,6 +228,8 @@ async function reset() {
     "educationHistory", "familyRelation", "studentGuardian",
     "documentAccessLog", "documentVersion", "document", "documentFolder",
     "siteFormSubmission", "sitePost", "siteMedia", "siteMenu", "sitePage", "site",
+    // Before the staff, pupils and users a document may be about or by.
+    "writtenDocument",
     "reportRun", "reportDefinition", "aiInsight", "dataJob",
     "customFieldValue", "customFieldDef", "optionItem", "optionSet",
     "gradeBand", "gradeScale", "calendarEvent",
@@ -2891,6 +2894,136 @@ async function seedPayroll(staff: StaffRow[]) {
  * something to warn about, and one route is deliberately left a seat short of
  * comfortable so the capacity arithmetic is visible rather than theoretical.
  */
+/**
+ * Three documents of the kind a school actually writes.
+ *
+ * One proposal to the Board with a costs table, one reference for a teacher
+ * who is moving on, and one notice to parents — a final, a final, and a draft,
+ * so the register shows both states and the watermark has something to mark.
+ * They use the formatting the editor offers, so the demo shows what the
+ * feature is for rather than three paragraphs of plain text.
+ */
+async function seedWrittenDocuments(staff: StaffRow[], roles: Record<string, string>) {
+  console.log("  Letters and reports…");
+
+  const head = await db.user.findFirst({
+    where: { roles: { some: { roleId: roles.head_teacher } } },
+    select: { id: true, firstName: true, lastName: true },
+  });
+
+  const leaver = staff.find((person) => person.id !== staff[0]?.id) ?? staff[0];
+  const day = 86_400_000;
+  const today = new Date();
+
+  await db.writtenDocument.create({
+    data: {
+      kind: "PROPOSAL",
+      reference: "GCS/HR/2026/014",
+      title: "Staff Development Proposal 2026/2027",
+      recipient: ["The Board of Governors", "Golden Crest International School", "Accra"],
+      salutation: "Members of the Board,",
+      closing: "Yours faithfully,",
+      signatoryName: head ? `${head.firstName} ${head.lastName}` : "The Head Teacher",
+      signatoryTitle: "Head Teacher",
+      footnote: "Circulated to the Board and the Head Teacher. Not for wider distribution.",
+      status: "FINAL",
+      finalisedAt: new Date(today.getTime() - 12 * day),
+      authorId: head?.id ?? null,
+      body: `Following the Board's request of 14 March, this paper sets out a proposal for staff development in the coming academic year, with costs.
+
+## Background
+
+Teaching staff have had **no structured training** since 2023. Three new teachers joined in September with no formal induction, and two of last year's leavers cited *lack of development* in their exit interviews.
+
+## What is proposed
+
+1. A termly training day, facilitated externally
+2. A mentoring scheme pairing each new teacher with a senior colleague
+3. A small library of subject texts, held in the staff room
+
+The mentoring scheme costs nothing beyond time. The training days and the texts are costed below.
+
+| Item | Term 1 | Term 2 | Term 3 |
+| --- | --- | --- | --- |
+| External facilitator | 4,500 | 4,500 | 4,500 |
+| Materials and refreshments | 900 | 900 | 900 |
+| Subject texts | 3,200 | — | — |
+
+> The Board asked particularly that any proposal show what it would displace. Nothing is displaced: this comes from the training line already in the budget.
+
+### Risks
+
+- A training day costs a teaching day. Proposed for the INSET day already in the calendar, so no lessons are lost.
+- Facilitator availability in Term 3 is not yet confirmed.
+
+---
+
+The Head Teacher recommends this to the Board for approval at the meeting of 5 September.`,
+    },
+  });
+
+  if (leaver) {
+    await db.writtenDocument.create({
+      data: {
+        kind: "LETTER",
+        reference: "GCS/HR/2026/021",
+        title: `Reference for ${leaver.firstName} ${leaver.lastName}`,
+        recipient: ["To whom it may concern"],
+        salutation: "Dear Sir or Madam,",
+        closing: "Yours faithfully,",
+        signatoryName: head ? `${head.firstName} ${head.lastName}` : "The Head Teacher",
+        signatoryTitle: "Head Teacher",
+        footnote: "This reference is valid for six months from the date above.",
+        status: "FINAL",
+        finalisedAt: new Date(today.getTime() - 3 * day),
+        authorId: head?.id ?? null,
+        aboutStaffId: leaver.id,
+        body: `I write in support of **${leaver.firstName} ${leaver.lastName}**, who has taught at this school and is known to me personally.
+
+${leaver.firstName} is punctual, well prepared, and trusted with a form group. Colleagues describe them as generous with their time; parents ask for them by name.
+
+In particular:
+
+- Marking returned within the week, every week
+- Two years as a form teacher, with no complaint from any family
+- Willing to cover at short notice, repeatedly
+
+I recommend ${leaver.firstName} without reservation, and would take them back.`,
+      },
+    });
+  }
+
+  await db.writtenDocument.create({
+    data: {
+      kind: "NOTICE",
+      title: "Notice to parents — revised closing time",
+      recipient: ["Parents and Guardians"],
+      salutation: "Dear Parents and Guardians,",
+      closing: "Yours sincerely,",
+      signatoryName: head ? `${head.firstName} ${head.lastName}` : "The Head Teacher",
+      signatoryTitle: "Head Teacher",
+      status: "DRAFT",
+      authorId: head?.id ?? null,
+      body: `From the first Monday of next term the school will close at **2:45pm** on Fridays, half an hour earlier than at present.
+
+The change follows two terms of traffic on the Spintex Road holding buses past five o'clock. Bringing Friday forward lets every route finish before the worst of it.
+
+### What this means
+
+| | Now | From next term |
+| --- | --- | --- |
+| Monday to Thursday | 3:15pm | 3:15pm |
+| Friday | 3:15pm | 2:45pm |
+
+Bus times move with it; the stop times on your child's portal page will update automatically.
+
+> If Friday afternoon collection is difficult for your family, please speak to the office before the end of this term.`,
+    },
+  });
+
+  console.log("    3 documents");
+}
+
 async function seedTransport(students: StudentRow[], staff: StaffRow[]) {
   console.log("  Transport…");
 

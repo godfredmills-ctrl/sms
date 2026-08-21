@@ -25,6 +25,7 @@ import { renderReportPdf } from "../src/lib/report-pdf";
 import { summariseReport } from "../src/lib/report-stats";
 import { datasetFor } from "../src/lib/reporting";
 import { renderTimetablePdf } from "../src/lib/timetable-pdf";
+import { renderDocumentPdf } from "../src/lib/document-pdf";
 import { renderManifestPdf } from "../src/lib/manifest-pdf";
 import { renderVisitorPassesPdf } from "../src/lib/visitor-pass-pdf";
 import { renderReportCardPdf, renderTablePdf, renderTemplatePdf } from "../src/lib/pdf";
@@ -318,6 +319,75 @@ async function main() {
           guardianPhone: "+233 24 555 0311",
         },
       ],
+    }),
+  );
+
+  // A written document: every block the markdown parser supports, a Twi name
+  // in the body, and a cedi amount — the two things that have taken a
+  // renderer down before. Drafted, so the watermark is exercised.
+  writeFileSync(
+    `${out}/written-document.pdf`,
+    await renderDocumentPdf({
+      letterhead: {
+        image: null,
+        school: {
+          name: "Golden Crest International School",
+          motto: "Knowledge, Character, Service",
+          address: "P.O. Box 4821, 12 Independence Avenue, Accra",
+          phone: "+233 30 212 3456",
+          email: "info@goldencrest.edu.gh",
+          website: "goldencrest.edu.gh",
+          registrationNo: "GES/PS/2011/0473",
+        },
+        crest,
+        brandHex: "#2C66CE",
+      },
+      document: {
+        title: "Staff Development Proposal 2026/2027",
+        reference: "GCS/HR/2026/014",
+        date: "21 August 2026",
+        addressee: ["The Board of Governors", "Golden Crest International School", "Accra"],
+        salutation: "Members of the Board,",
+        closing: "Yours faithfully,",
+        signatory: { name: "Grace Asante", title: "Head of Human Resources" },
+        footnote: "Circulated to the Board and the Head Teacher. Not for wider distribution.",
+        watermark: "Draft",
+        body: [
+          "Following the Board's request of 14 March, this paper sets out a proposal",
+          "for staff development in the coming academic year, with costs.",
+          "",
+          "## Background",
+          "",
+          "Teaching staff have had **no structured training** since 2023. Three new",
+          "teachers joined in September with no formal induction, and two of last",
+          "year's leavers cited *lack of development* in their exit interviews.",
+          "",
+          "## What is proposed",
+          "",
+          "1. A termly training day, facilitated externally",
+          "2. A mentoring scheme pairing each new teacher with a senior colleague",
+          "3. A small library of subject texts, held in the staff room",
+          "",
+          "| Item | Term 1 | Term 2 | Term 3 |",
+          "| --- | --- | --- | --- |",
+          "| External facilitator | GH₵4,500 | GH₵4,500 | GH₵4,500 |",
+          "| Materials and refreshments | 900 | 900 | 900 |",
+          "",
+          "> The Board asked that any proposal show what it would displace. Nothing",
+          "> is displaced: this comes from the training line already in the budget.",
+          "",
+          "### Risks",
+          "",
+          "- A training day costs a teaching day. Proposed for the INSET day already",
+          "  in the calendar, so no lessons are lost.",
+          "- Facilitator availability in Term 3 is not confirmed. Kwabɛna Asantɛ is",
+          "  approaching two others.",
+          "",
+          "---",
+          "",
+          "The Head Teacher recommends this to the Board for approval.",
+        ].join("\n"),
+      },
     }),
   );
 

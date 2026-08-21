@@ -597,6 +597,7 @@ model User {
 
   roles             UserRole[]
   sessions          Session[]
+  written           WrittenDocument[]        @relation("WrittenBy")
   staff             Staff?
   student           Student?
   guardian          Guardian?
@@ -801,6 +802,7 @@ model Staff {
   visitors         Visitor[]
   libraryLoans     LibraryLoan[]
   busesDriven      TransportVehicle[]  @relation("BusDriver")
+  writtenAbout     WrittenDocument[]   @relation("WrittenAbout")
   documents        StaffDocument[]
 
   @@index([status])
@@ -989,6 +991,7 @@ model Student {
   visitors         Visitor[]
   libraryLoans     LibraryLoan[]
   transport        TransportAssignment[]
+  writtenAbout     WrittenDocument[]     @relation("WrittenAbout")
   promotions       PromotionRecord[]
   transcripts      Transcript[]
   certificates     IssuedCertificate[]
@@ -3665,4 +3668,54 @@ model TransportAssignment {
   @@index([studentId])
   @@index([stopId])
   @@index([endedOn])
+}
+
+/// A document somebody at the school wrote — a letter, a report, a proposal.
+///
+/// Distinct from Document, which is a file somebody uploaded, and from the
+/// generated letters in /api/letters, whose wording is fixed. This is the one
+/// the school composes: stored as Markdown, printed on the letterhead.
+model WrittenDocument {
+  id String @id @default(cuid())
+
+  /// LETTER | REPORT | PROPOSAL | NOTICE | MINUTES
+  kind      String  @default("LETTER")
+  /// "GCS/HR/2026/014", quoted in any reply.
+  reference String?
+  title     String
+
+  /// The document, as Markdown. See lib/markdown.ts for the subset.
+  body String
+
+  /// Addressee block, one line per entry. Empty for a report.
+  recipient  String[] @default([])
+  salutation String?
+  closing    String?
+
+  signatoryName  String?
+  signatoryTitle String?
+  footnote       String?
+
+  /// DRAFT | FINAL. A draft prints with a watermark across every page.
+  status      String    @default("DRAFT")
+  finalisedAt DateTime?
+
+  /// Who it concerns, when it concerns somebody — a reference for a teacher,
+  /// a letter about a pupil. Both optional; a proposal is about neither.
+  aboutStaffId   String?
+  aboutStaff     Staff?   @relation("WrittenAbout", fields: [aboutStaffId], references: [id], onDelete: SetNull)
+  aboutStudentId String?
+  aboutStudent   Student? @relation("WrittenAbout", fields: [aboutStudentId], references: [id], onDelete: SetNull)
+
+  authorId String?
+  author   User?   @relation("WrittenBy", fields: [authorId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([kind])
+  @@index([aboutStaffId])
+  @@index([aboutStudentId])
+  @@index([updatedAt])
 }

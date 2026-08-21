@@ -350,6 +350,12 @@ export const STAFF_NAVIGATION: NavGroup[] = [
         permissions: ["transport.read"],
       },
       {
+        label: "Letters & Reports",
+        href: "/letters",
+        icon: "PenLine",
+        permissions: ["letter.read"],
+      },
+      {
         label: "Documents",
         href: "/documents",
         icon: "FolderOpen",

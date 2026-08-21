@@ -168,6 +168,12 @@ export const PERMISSIONS: PermissionDef[] = [
     ["manage", "update", "Sign visitors in and out, and issue passes"],
   ]),
 
+  ...define("letter", [
+    ["read", "read", "Read the register of letters and reports"],
+    ["write", "update", "Write and edit letters, reports and proposals"],
+    ["finalise", "approve", "Mark a document final, or reopen it"],
+  ]),
+
   ...define("transport", [
     ["read", "read", "View bus routes and who is on them"],
     ["manage", "update", "Set up routes, stops and vehicles, and assign children"],
@@ -259,6 +265,7 @@ export const ROLE_PRESETS: RolePreset[] = [
         "visitor",
         "library",
         "transport",
+        "letter",
       ),
       "finance.read",
       "finance.report",
@@ -283,6 +290,11 @@ export const ROLE_PRESETS: RolePreset[] = [
       ...expand("communication", "document", "election", "report"),
       "website.enquiry.manage",
       "visitor.read",
+      // The assistant head drafts most of what goes out over the head
+      // teacher's signature, and signs some of it.
+      "letter.read",
+      "letter.write",
+      "letter.finalise",
       "ai.insight.view",
       "ai.insight.generate",
       "staff.read",
@@ -341,6 +353,9 @@ export const ROLE_PRESETS: RolePreset[] = [
       // at admission rather than by the office in October.
       "transport.read",
       "transport.manage",
+      // Admissions writes offer letters and references all year.
+      "letter.read",
+      "letter.write",
       "communication.announcement.read",
       "communication.email.send",
       "communication.sms.send",
