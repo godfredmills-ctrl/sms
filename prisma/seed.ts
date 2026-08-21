@@ -12,6 +12,7 @@ import sharp from "sharp";
 
 import { hashPassword } from "../src/lib/crypto";
 import { generateClassReportCards } from "../src/lib/grading";
+import { planSeats } from "../src/lib/exams";
 import { writtenBody } from "../src/lib/markdown";
 import { computePayslip, parseAllowances } from "../src/lib/payroll";
 import { PERMISSIONS, ROLE_PRESETS } from "../src/lib/rbac";
@@ -160,6 +161,7 @@ async function main() {
   // After payroll: the statement adds the two together, and a demo with one
   // and not the other reads as a school that spends nothing but salaries.
   await seedExpenditure(terms, year.id, roles);
+  await seedExaminations(terms, year.id, levels, subjects, staff, roles);
 
   console.log("\nDone.\n");
   await printCredentials();
@@ -237,6 +239,9 @@ async function reset() {
     "reportRun", "reportDefinition", "aiInsight", "dataJob",
     "customFieldValue", "customFieldDef", "optionItem", "optionSet",
     "gradeBand", "gradeScale", "calendarEvent",
+    // Examinations: seats point at papers, candidates and halls, so they go
+    // first; the session holds papers and candidates, so it goes last.
+    "examSeat", "examInvigilator", "examPaper", "examCandidate", "examVenue", "examSession",
     "payslip", "payrollRun",
     // Expenditure: the bills first, then what they point at. A budget line
     // points at a category too, so both go before it.
@@ -4463,5 +4468,217 @@ async function seedExpenditure(
     await db.budgetLine.create({
       data: { academicYearId, categoryId: categoryId(name), amountMinor },
     });
+  }
+}
+
+/**
+ * A run of examinations, seated and half-sat.
+ *
+ * Seeded rather than left empty because the interesting parts of this module
+ * are only visible with data in them: the clash report has nothing to report
+ * on an empty timetable, and a seating plan with nobody in it does not show
+ * that neighbours are from different classes — which is the whole point of it.
+ *
+ * The first two papers are marked as sat, with a couple of absences, so the
+ * register and the chase-the-missing-script figures are not zero.
+ */
+async function seedExaminations(
+  terms: TermRow[],
+  academicYearId: string,
+  levels: LevelRow[],
+  subjects: SubjectRow[],
+  staff: StaffRow[],
+  roles: Record<string, string>,
+) {
+  console.log("  Examinations…");
+
+  const term = terms.find((entry) => entry.sequence === 1) ?? terms[0];
+  if (!term || levels.length === 0 || subjects.length === 0) return;
+
+  const registrar = await db.user.findFirst({
+    where: { roles: { some: { roleId: roles.registrar } } },
+    select: { id: true },
+  });
+
+  const DAY = 86_400_000;
+  // The last fortnight of the term, which is when a school examines.
+  const startsOn = new Date(term.endDate.getTime() - 13 * DAY);
+  const endsOn = new Date(term.endDate.getTime() - 3 * DAY);
+
+  const session = await db.examSession.create({
+    data: {
+      name: `End of ${term.name} Examinations`,
+      termId: term.id,
+      academicYearId,
+      startsOn,
+      endsOn,
+      status: "PUBLISHED",
+      instructions:
+        "No mobile phones in the hall. Be seated fifteen minutes before the paper begins. Bring your own pen, pencil and mathematical set — nothing may be borrowed once the paper has started. Write your index number on every sheet.",
+      createdById: registrar?.id ?? null,
+    },
+    select: { id: true },
+  });
+
+  const venues = await Promise.all(
+    [
+      { name: "Assembly Hall", capacity: 120, notes: "Ceiling fans on the east wall only. Two doors." },
+      { name: "Art Room", capacity: 40, notes: "Long benches — two candidates each, spaced." },
+      { name: "Dining Hall", capacity: 90, notes: "Tables cleared by 08:00." },
+    ].map((venue) => db.examVenue.create({ data: venue, select: { id: true, name: true, capacity: true } })),
+  );
+
+  // The upper year groups, which is who a school examines formally.
+  const examined = levels.slice(-3);
+  if (examined.length === 0) return;
+
+  // --- Candidates ------------------------------------------------------------
+  let numbered = 0;
+  const year = startsOn.getFullYear();
+
+  for (const level of examined) {
+    const students = await db.student.findMany({
+      where: {
+        status: "ENROLLED",
+        enrollments: {
+          some: { status: "ACTIVE", academicYearId, classSection: { classLevelId: level.id } },
+        },
+      },
+      orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
+      select: {
+        id: true,
+        enrollments: {
+          where: { status: "ACTIVE", academicYearId },
+          take: 1,
+          select: { classSectionId: true },
+        },
+      },
+    });
+
+    if (students.length === 0) continue;
+
+    await db.examCandidate.createMany({
+      data: students.map((student) => {
+        numbered += 1;
+        return {
+          sessionId: session.id,
+          studentId: student.id,
+          candidateNo: `${year}-${String(numbered).padStart(4, "0")}`,
+          classSectionId: student.enrollments[0]?.classSectionId ?? null,
+        };
+      }),
+      skipDuplicates: true,
+    });
+  }
+
+  // --- Papers ----------------------------------------------------------------
+  const core = subjects.slice(0, 5);
+  const invigilators = staff.slice(0, 8);
+
+  // Two sittings a day: 09:00 and 11:30. A year group sits one paper a slot,
+  // and the three year groups are staggered across the halls.
+  const papers: Array<{ id: string; levelId: string; startsAt: Date }> = [];
+
+  let slot = 0;
+  for (const subject of core) {
+    for (const [levelIndex, level] of examined.entries()) {
+      const dayOffset = Math.floor(slot / 2);
+      const hour = slot % 2 === 0 ? 9 : 11;
+      const minute = slot % 2 === 0 ? 0 : 30;
+
+      const startsAt = new Date(startsOn.getTime() + dayOffset * DAY);
+      startsAt.setHours(hour, minute, 0, 0);
+
+      const paper = await db.examPaper.create({
+        data: {
+          sessionId: session.id,
+          subjectId: subject.id,
+          classLevelId: level.id,
+          startsAt,
+          durationMins: 90,
+          maxMarks: 100,
+          materials:
+            subject.name.toLowerCase().includes("math") ||
+            subject.name.toLowerCase().includes("science")
+              ? "Calculator, mathematical set"
+              : null,
+        },
+        select: { id: true },
+      });
+
+      papers.push({ id: paper.id, levelId: level.id, startsAt });
+
+      // A chief and an assistant on each, taken in rotation so nobody is on
+      // two papers at the same hour — which is the clash the report looks for.
+      const chief = invigilators[(slot + levelIndex) % invigilators.length];
+      const assistant = invigilators[(slot + levelIndex + 3) % invigilators.length];
+      if (chief) {
+        await db.examInvigilator.create({
+          data: { paperId: paper.id, staffId: chief.id, role: "CHIEF" },
+        });
+      }
+      if (assistant && assistant.id !== chief?.id) {
+        await db.examInvigilator.create({
+          data: { paperId: paper.id, staffId: assistant.id, role: "ASSISTANT" },
+        });
+      }
+
+      slot += 1;
+    }
+  }
+
+  // --- Seating ---------------------------------------------------------------
+  // Through the same planner the interface uses, so the seeded plan is one the
+  // school could have produced by pressing the button — demo data that could
+  // not have been made through the interface teaches the wrong thing.
+  const halls = venues.map((venue) => ({
+    id: venue.id,
+    name: venue.name,
+    capacity: venue.capacity,
+  }));
+
+  for (const paper of papers) {
+    const candidates = await db.examCandidate.findMany({
+      where: { sessionId: session.id, classSection: { classLevelId: paper.levelId } },
+      orderBy: { candidateNo: "asc" },
+      select: { id: true, classSectionId: true },
+    });
+    if (candidates.length === 0) continue;
+
+    // One hall each unless the year group needs two.
+    const needed = candidates.length > halls[0].capacity ? halls.slice(0, 2) : [halls[0]];
+    const { plan } = planSeats(candidates, needed);
+
+    await db.examSeat.createMany({
+      data: plan.map((seat) => ({
+        paperId: paper.id,
+        candidateId: seat.candidateId,
+        venueId: seat.venueId,
+        seatNo: seat.seatNo,
+      })),
+      skipDuplicates: true,
+    });
+  }
+
+  // --- The two papers already sat --------------------------------------------
+  const sat = papers.slice(0, 2);
+  for (const paper of sat) {
+    const seats = await db.examSeat.findMany({
+      where: { paperId: paper.id },
+      orderBy: { seatNo: "asc" },
+      select: { id: true },
+    });
+
+    for (const [index, seat] of seats.entries()) {
+      // Roughly one in thirty away, which is what a school actually sees.
+      const away = index % 31 === 7;
+      await db.examSeat.update({
+        where: { id: seat.id },
+        data: {
+          status: away ? "ABSENT" : "PRESENT",
+          remark: away ? "Reported unwell to the office that morning." : null,
+        },
+      });
+    }
   }
 }

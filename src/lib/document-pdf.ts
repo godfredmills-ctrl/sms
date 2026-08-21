@@ -175,6 +175,16 @@ export type WrittenDocument = {
   salutation?: string | null;
   /** The document itself, as Markdown. */
   body: string;
+  /**
+   * Bodies that each start a fresh page, used instead of `body` when present.
+   *
+   * For a run of small documents that are one job — a class's worth of
+   * candidate slips, an appendix that must not begin halfway down a sheet.
+   * Rendering them as separate PDFs and merging would embed the fonts and the
+   * crest once per slip, which for a year group is the same picture stored
+   * sixty times.
+   */
+  sections?: string[];
   closing?: string | null;
   signatory?: { name: string; title: string } | null;
   /** Printed small under the signature — a validity note, a distribution list. */
@@ -377,8 +387,17 @@ export async function renderDocumentPdf(input: {
   }
 
   // --- The document ----------------------------------------------------------
-  for (const block of parseMarkdown(doc.body)) {
-    drawBlock(block);
+  // Sections when there are any, and the body otherwise. An empty section is
+  // skipped rather than given a blank page of its own.
+  const bodies = (doc.sections?.length ? doc.sections : [doc.body]).filter((part) =>
+    part.trim(),
+  );
+
+  for (const [at, part] of bodies.entries()) {
+    if (at > 0) nextPage();
+    for (const block of parseMarkdown(part)) {
+      drawBlock(block);
+    }
   }
 
   function drawBlock(block: Block) {

@@ -27,6 +27,11 @@ import { datasetFor } from "../src/lib/reporting";
 import { renderTimetablePdf } from "../src/lib/timetable-pdf";
 import { renderDocumentPdf } from "../src/lib/document-pdf";
 import { statementMarkdown } from "../src/lib/expenses";
+import {
+  candidateSlipMarkdown,
+  hallListMarkdown,
+  timetableMarkdown,
+} from "../src/lib/exam-print";
 import { renderManifestPdf } from "../src/lib/manifest-pdf";
 import { renderVisitorPassesPdf } from "../src/lib/visitor-pass-pdf";
 import { renderReportCardPdf, renderTablePdf, renderTemplatePdf } from "../src/lib/pdf";
@@ -724,7 +729,129 @@ async function main() {
     }),
   );
 
-  console.log(`Wrote ten PDFs to ${out}`);
+
+  // The three examination sheets. All of them are the document renderer again,
+  // so what is being looked at here is the Markdown each produces — and, for
+  // the slips, that `sections` really does start each one on a fresh page.
+  const examLetterhead = {
+    image: null,
+    school: {
+      name: "Golden Crest International School",
+      motto: "Knowledge, Character, Service",
+      address: "P.O. Box 4821, 12 Independence Avenue, Accra",
+      phone: "+233 30 212 3456",
+      email: "info@goldencrest.edu.gh",
+      website: "goldencrest.edu.gh",
+      registrationNo: "GES/PS/2011/0473",
+    },
+    crest,
+    brandHex: "#2C66CE",
+  };
+
+  const examRules =
+    "No mobile phones in the hall. Be seated fifteen minutes before the paper begins. Bring your own pen, pencil and mathematical set — nothing may be borrowed once the paper has started.";
+
+  const at = (day: number, hour: number, minute = 0) =>
+    new Date(2026, 2, 16 + day, hour, minute);
+
+  writeFileSync(
+    `${out}/exam-timetable.pdf`,
+    await renderDocumentPdf({
+      letterhead: examLetterhead,
+      document: {
+        title: "End of Term 1 Examinations",
+        reference: "Term 1, 2026/2027",
+        date: "16 – 26 March 2026",
+        body: timetableMarkdown({
+          instructions: examRules,
+          papers: [
+            { startsAt: at(0, 9), durationMins: 90, subject: "Mathematics", title: null, classLevel: "JHS 3", materials: "Calculator, mathematical set", halls: ["Assembly Hall"] },
+            { startsAt: at(0, 11, 30), durationMins: 90, subject: "English Language", title: "Paper 1", classLevel: "JHS 3", materials: null, halls: ["Assembly Hall"] },
+            { startsAt: at(0, 11, 30), durationMins: 90, subject: "Integrated Science", title: null, classLevel: "JHS 2", materials: "Calculator", halls: ["Dining Hall"] },
+            { startsAt: at(1, 9), durationMins: 120, subject: "Social Studies", title: null, classLevel: "JHS 3", materials: null, halls: ["Assembly Hall", "Art Room"] },
+            { startsAt: at(1, 11, 30), durationMins: 90, subject: "Ghanaian Language (Twi)", title: null, classLevel: "JHS 2", materials: null, halls: ["Dining Hall"] },
+          ],
+        }),
+        footnote: "Printed from the school management system. Check the notice board for any change.",
+      },
+    }),
+  );
+
+  writeFileSync(
+    `${out}/exam-hall-list.pdf`,
+    await renderDocumentPdf({
+      letterhead: examLetterhead,
+      document: {
+        title: "Hall list — Mathematics",
+        reference: "End of Term 1 Examinations",
+        date: "16 March 2026",
+        closing: "Signed,",
+        footnote: "Signed by the chief invigilator and returned to the office with the scripts.",
+        body: hallListMarkdown({
+          instructions: examRules,
+          paper: {
+            subject: "Mathematics",
+            title: null,
+            classLevel: "JHS 3",
+            startsAt: at(0, 9),
+            durationMins: 90,
+            maxMarks: 100,
+            materials: "Calculator, mathematical set",
+          },
+          invigilators: [
+            { name: "Mrs Esi Appiah", role: "CHIEF" },
+            { name: "Mr Kwabɛna Asantɛ", role: "ASSISTANT" },
+          ],
+          seats: Array.from({ length: 34 }, (_, index) => ({
+            seatNo: `A-${String(index + 1).padStart(3, "0")}`,
+            venue: index < 24 ? "Assembly Hall" : "Art Room",
+            candidateNo: `2026-${String(index + 1).padStart(4, "0")}`,
+            name: [
+              "Priscilla Naa Quartey",
+              "Kwabɛna Asantɛ Mensah",
+              "Yaa Serwaa Boateng",
+              "Kofi Owusu-Ansah",
+            ][index % 4],
+            className: `JHS 3 ${"ABC"[index % 3]}`,
+          })),
+        }),
+      },
+    }),
+  );
+
+  // Three slips, which is what tests the page break: each has to begin on a
+  // sheet of its own or they cannot be cut and handed out.
+  writeFileSync(
+    `${out}/exam-slips.pdf`,
+    await renderDocumentPdf({
+      letterhead: examLetterhead,
+      document: {
+        title: "Candidate slips — End of Term 1 Examinations",
+        date: "16 March 2026",
+        body: "",
+        footnote: "One slip per candidate. Cut along the page and hand out.",
+        sections: [
+          { no: "2026-0001", name: "Priscilla Naa Quartey", className: "JHS 3 A" },
+          { no: "2026-0002", name: "Kwabɛna Asantɛ Mensah", className: "JHS 3 B" },
+          { no: "2026-0003", name: "Yaa Serwaa Boateng", className: "JHS 3 A" },
+        ].map((candidate, index) =>
+          candidateSlipMarkdown({
+            instructions: examRules,
+            candidateNo: candidate.no,
+            name: candidate.name,
+            className: candidate.className,
+            papers: [
+              { startsAt: at(0, 9), durationMins: 90, subject: "Mathematics", title: null, seatNo: `A-${String(index * 7 + 1).padStart(3, "0")}`, venue: "Assembly Hall", materials: "Calculator, mathematical set" },
+              { startsAt: at(0, 11, 30), durationMins: 90, subject: "English Language", title: "Paper 1", seatNo: `A-${String(index * 7 + 2).padStart(3, "0")}`, venue: "Assembly Hall", materials: null },
+              { startsAt: at(1, 9), durationMins: 120, subject: "Social Studies", title: null, seatNo: `R-${String(index * 3 + 1).padStart(3, "0")}`, venue: "Art Room", materials: null },
+            ],
+          }),
+        ),
+      },
+    }),
+  );
+
+  console.log(`Wrote thirteen PDFs to ${out}`);
   await checkMastheadClearance();
   await checkBackgroundIsDrawn(layout, backdrop);
   await checkVerificationCode();

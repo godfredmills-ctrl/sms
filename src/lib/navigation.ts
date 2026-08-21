@@ -195,6 +195,25 @@ export const STAFF_NAVIGATION: NavGroup[] = [
         permissions: ["assessment.read", "assessment.grade"],
       },
       {
+        label: "Examinations",
+        href: "/exams",
+        icon: "ClipboardList",
+        permissions: [
+          "assessment.exam.read",
+          "assessment.exam.manage",
+          "assessment.exam.attendance",
+        ],
+        children: [
+          { label: "Sittings", href: "/exams", icon: "CalendarClock" },
+          {
+            label: "Halls",
+            href: "/exams/venues",
+            icon: "DoorOpen",
+            permissions: ["assessment.exam.manage"],
+          },
+        ],
+      },
+      {
         label: "Report Cards",
         href: "/reports/cards",
         icon: "FileText",

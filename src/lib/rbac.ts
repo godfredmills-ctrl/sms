@@ -85,6 +85,9 @@ export const PERMISSIONS: PermissionDef[] = [
     ["scale.manage", "update", "Manage grading scales and bands"],
     ["report.generate", "create", "Generate terminal or semester report cards"],
     ["report.approve", "approve", "Approve and publish report cards"],
+    ["exam.read", "read", "View examination timetables and hall lists"],
+    ["exam.manage", "update", "Set up examinations, seating and invigilation"],
+    ["exam.attendance", "update", "Mark candidates present or absent in the hall"],
     ["transcript.generate", "create", "Generate transcripts"],
     ["certificate.issue", "create", "Issue certificates"],
     ["template.manage", "update", "Manage transcript and certificate templates"],
@@ -356,6 +359,12 @@ export const ROLE_PRESETS: RolePreset[] = [
       "assessment.transcript.generate",
       "assessment.certificate.issue",
       "assessment.template.manage",
+      // In most schools here the registrar is also the exams officer: the
+      // index numbers, the hall lists and the invigilation roster are drawn
+      // up in the same office that admitted the candidates.
+      "assessment.exam.read",
+      "assessment.exam.manage",
+      "assessment.exam.attendance",
       ...expand("document"),
       // Admissions runs the enquiry inbox: an enquiry is a prospective
       // student, which is the registrar's work before it is anyone else's.
@@ -397,6 +406,11 @@ export const ROLE_PRESETS: RolePreset[] = [
       "assessment.create",
       "assessment.grade",
       "assessment.report.generate",
+      // A teacher reads the examination timetable and marks the register in
+      // the hall they are invigilating. Setting the examinations up is the
+      // registrar's job, and assessment.exam.manage is deliberately not here.
+      "assessment.exam.read",
+      "assessment.exam.attendance",
       ...expand("lms"),
       "library.read",
       "communication.announcement.read",

@@ -29,7 +29,8 @@
     "setup": "prisma generate && prisma migrate dev --name init && npm run db:seed",
     "payroll:check": "tsx scripts/check-payroll.ts",
     "db:sync-permissions": "tsx scripts/sync-permissions.ts",
-    "md:check": "tsx scripts/check-markdown.ts"
+    "md:check": "tsx scripts/check-markdown.ts",
+    "exams:check": "tsx --conditions=react-server scripts/check-exams.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

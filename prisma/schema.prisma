@@ -415,6 +415,7 @@ model AcademicYear {
   calendarEvents CalendarEvent[]
   expenses       Expense[]
   budgetLines    BudgetLine[]
+  examSessions   ExamSession[]
 
   @@unique([schoolId, name])
 }
@@ -439,6 +440,7 @@ model Term {
   invoices          Invoice[]
   feeStructures     FeeStructure[]
   expenses          Expense[]
+  examSessions      ExamSession[]
 
   @@unique([academicYearId, sequence])
 }
@@ -621,6 +623,7 @@ model User {
   ballots               Ballot[]
   expensesRequested     Expense[]            @relation("ExpenseRequestedBy")
   expensesApproved      Expense[]            @relation("ExpenseApprovedBy")
+  examSessionsCreated   ExamSession[]        @relation("ExamSessionAuthor")
 
   @@index([status])
   @@index([portal])
@@ -809,6 +812,7 @@ model Staff {
   busesDriven      TransportVehicle[]  @relation("BusDriver")
   writtenAbout     WrittenDocument[]   @relation("WrittenAbout")
   documents        StaffDocument[]
+  examInvigilators ExamInvigilator[]
 
   @@index([status])
   @@index([department])
@@ -1004,6 +1008,7 @@ model Student {
   quizAttempts     QuizAttempt[]
   lessonProgress   LessonProgress[]
   candidacies      Candidate[]
+  examCandidates   ExamCandidate[]
 
   @@index([status])
   @@index([lastName, firstName])
@@ -1337,6 +1342,7 @@ model ClassLevel {
   sections      ClassSection[]
   feeStructures FeeStructure[]
   subjects      LevelSubject[]
+  examPapers    ExamPaper[]
 
   @@index([sequence])
 }
@@ -1366,6 +1372,7 @@ model ClassSection {
   attendanceSessions AttendanceSession[]
   reportCards        ReportCard[]
   timetableSlots     TimetableSlot[]
+  examCandidates     ExamCandidate[]
 
   @@index([classLevelId])
 }
@@ -1395,6 +1402,7 @@ model Subject {
   transcriptLines TranscriptLine[]
   bankQuestions   QuizQuestion[]    @relation("BankQuestions")
   libraryItems    LibraryItem[]
+  examPapers      ExamPaper[]
 
   @@index([department])
 }
@@ -3901,4 +3909,191 @@ model BudgetLine {
 
   @@unique([academicYearId, categoryId])
   @@index([academicYearId])
+}
+
+// ---------------------------------------------------------------------------
+// Examinations
+//
+// Assessment, above, records what a candidate scored. This records the sitting
+// itself: which paper, at what hour, in which hall, in which seat, watched by
+// whom, and who did not turn up.
+//
+// They are separate because they answer different questions and go wrong in
+// different ways. A missing mark is found when the report card is checked. A
+// missing seat is found by a fifteen-year-old standing in a doorway at nine in
+// the morning with nowhere to sit.
+// ---------------------------------------------------------------------------
+
+enum ExamSessionStatus {
+  /// Being built. Nothing is shown to candidates or invigilators.
+  DRAFT
+  /// The timetable is out. Candidates have index numbers and seats.
+  PUBLISHED
+  /// Sat and done.
+  COMPLETED
+}
+
+enum SeatStatus {
+  EXPECTED
+  PRESENT
+  ABSENT
+}
+
+/// A run of examinations — "End of Term 1 Examinations, 2026/2027".
+model ExamSession {
+  id   String @id @default(cuid())
+  name String
+
+  termId         String?
+  term           Term?        @relation(fields: [termId], references: [id], onDelete: SetNull)
+  academicYearId String
+  academicYear   AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
+
+  startsOn DateTime
+  endsOn   DateTime
+
+  status ExamSessionStatus @default(DRAFT)
+
+  /// Printed at the head of every hall list and candidate slip — the rules
+  /// about phones, calculators and late arrival that a school repeats every
+  /// term and that nobody can quote when it matters.
+  instructions String?
+
+  createdById String?
+  createdBy   User?   @relation("ExamSessionAuthor", fields: [createdById], references: [id], onDelete: SetNull)
+
+  candidates ExamCandidate[]
+  papers     ExamPaper[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([academicYearId])
+  @@index([termId])
+  @@index([status])
+}
+
+/// A room the school examines in.
+model ExamVenue {
+  id       String  @id @default(cuid())
+  name     String
+  /// How many candidates it seats with the desks spaced for an examination —
+  /// which is not how many it seats for an assembly.
+  capacity Int
+  notes    String?
+  active   Boolean @default(true)
+
+  seats ExamSeat[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([name])
+  @@index([active])
+}
+
+/// A student entered for a session, with the index number they sit under.
+model ExamCandidate {
+  id        String      @id @default(cuid())
+  sessionId String
+  session   ExamSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  studentId String
+  student   Student     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  /// The index number for this session. Written on every script.
+  candidateNo String
+
+  /// The class they were entered from, kept here rather than looked up. A
+  /// pupil moved between sections mid-term would otherwise change the hall
+  /// list of an examination that has already been sat.
+  classSectionId String?
+  classSection   ClassSection? @relation(fields: [classSectionId], references: [id], onDelete: SetNull)
+
+  seats ExamSeat[]
+
+  createdAt DateTime @default(now())
+
+  @@unique([sessionId, studentId])
+  @@unique([sessionId, candidateNo])
+  @@index([studentId])
+  @@index([classSectionId])
+}
+
+/// One sitting: a subject, for a year group, at an hour.
+model ExamPaper {
+  id        String      @id @default(cuid())
+  sessionId String
+  session   ExamSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  subjectId    String
+  subject      Subject    @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  classLevelId String
+  classLevel   ClassLevel @relation(fields: [classLevelId], references: [id], onDelete: Cascade)
+
+  /// "Paper 1", "Objective". A subject examined in two parts has two rows.
+  title        String?
+  startsAt     DateTime
+  durationMins Int      @default(90)
+  maxMarks     Int?
+  /// "Calculator, mathematical set, plain paper" — printed on the timetable.
+  materials    String?
+  notes        String?
+
+  invigilators ExamInvigilator[]
+  seats        ExamSeat[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([sessionId])
+  @@index([startsAt])
+  @@index([classLevelId])
+  @@index([subjectId])
+}
+
+model ExamInvigilator {
+  id      String    @id @default(cuid())
+  paperId String
+  paper   ExamPaper @relation(fields: [paperId], references: [id], onDelete: Cascade)
+  staffId String
+  staff   Staff     @relation(fields: [staffId], references: [id], onDelete: Cascade)
+
+  /// CHIEF | ASSISTANT. The chief signs the attendance sheet.
+  role String @default("ASSISTANT")
+
+  createdAt DateTime @default(now())
+
+  @@unique([paperId, staffId])
+  @@index([staffId])
+}
+
+/// Where one candidate sits for one paper, and whether they turned up.
+model ExamSeat {
+  id          String        @id @default(cuid())
+  paperId     String
+  paper       ExamPaper     @relation(fields: [paperId], references: [id], onDelete: Cascade)
+  candidateId String
+  candidate   ExamCandidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+
+  venueId String?
+  venue   ExamVenue? @relation(fields: [venueId], references: [id], onDelete: SetNull)
+
+  /// Unique within the paper, and carries the hall in it — "A-014" — because
+  /// a paper split across two halls would otherwise have two seat 14s and a
+  /// constraint that could not tell them apart.
+  seatNo String
+
+  status SeatStatus @default(EXPECTED)
+  /// What the chief invigilator wrote: "arrived 20 minutes late", "left early,
+  /// unwell". The reason a mark is queried three weeks later.
+  remark String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([paperId, candidateId])
+  @@unique([paperId, seatNo])
+  @@index([candidateId])
+  @@index([venueId])
+  @@index([status])
 }
