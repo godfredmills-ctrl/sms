@@ -23,8 +23,8 @@
     "db:verify": "tsx scripts/verify.ts",
     "pdf:preview": "tsx --conditions=react-server scripts/preview-pdf.ts",
     "import:check": "tsx --conditions=react-server scripts/check-import.ts",
-    "db:seed": "tsx prisma/seed.ts",
-    "db:seed:force": "npx --yes tsx prisma/seed.ts",
+    "db:seed": "tsx --conditions=react-server prisma/seed.ts",
+    "db:seed:force": "npx --yes tsx --conditions=react-server prisma/seed.ts",
     "db:studio": "prisma studio",
     "setup": "prisma generate && prisma migrate dev --name init && npm run db:seed",
     "payroll:check": "tsx scripts/check-payroll.ts",
@@ -34,7 +34,7 @@
     "marks:check": "tsx scripts/check-marks.ts"
   },
   "prisma": {
-    "seed": "tsx prisma/seed.ts"
+    "seed": "tsx --conditions=react-server prisma/seed.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.117.1",

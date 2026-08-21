@@ -47,11 +47,47 @@ ALTER TABLE "Assessment" ADD CONSTRAINT "Assessment_examPaper_isExam_check"
 -- terms at all, and a migration that can refuse to apply on live data is not
 -- worth the tidiness. src/app/(app)/academics/actions.ts now refuses to create
 -- an offering without a term, so the population cannot grow.
-UPDATE "SubjectOffering" o
-SET "termId" = (
-  SELECT t."id" FROM "Term" t
-  WHERE t."academicYearId" = o."academicYearId"
-  ORDER BY t."isCurrent" DESC, t."sequence" ASC
-  LIMIT 1
+-- Both guards below are load-bearing, because (year, term, subject, section)
+-- is a plain unique index and Postgres reads two NULL terms as distinct. A
+-- school can therefore already be holding duplicates that the index never
+-- objected to, and a blind backfill would collide and abort the migration
+-- partway through, on live data, at deploy time.
+--
+--   ROW_NUMBER ... = 1  — two null-term rows for the same class and subject
+--                         would otherwise both be given the same term in one
+--                         statement and collide with each other.
+--   NOT EXISTS          — and a null-term row would collide with a real one
+--                         that already holds that term.
+--
+-- Anything that would collide keeps its null term. It is already shadowed by
+-- the row it duplicates, and a migration that leaves a duplicate alone is
+-- worth far more than one that refuses to apply.
+WITH target AS (
+  SELECT
+    o."id" AS offering_id,
+    (
+      SELECT t."id" FROM "Term" t
+      WHERE t."academicYearId" = o."academicYearId"
+      ORDER BY t."isCurrent" DESC, t."sequence" ASC
+      LIMIT 1
+    ) AS term_id,
+    ROW_NUMBER() OVER (
+      PARTITION BY o."academicYearId", o."subjectId", o."classSectionId"
+      ORDER BY o."createdAt" ASC, o."id" ASC
+    ) AS rank_in_group
+  FROM "SubjectOffering" o
+  WHERE o."termId" IS NULL
 )
-WHERE o."termId" IS NULL;
+UPDATE "SubjectOffering" o
+SET "termId" = target.term_id
+FROM target
+WHERE target.offering_id = o."id"
+  AND target.term_id IS NOT NULL
+  AND target.rank_in_group = 1
+  AND NOT EXISTS (
+    SELECT 1 FROM "SubjectOffering" other
+    WHERE other."academicYearId" = o."academicYearId"
+      AND other."termId" = target.term_id
+      AND other."subjectId" = o."subjectId"
+      AND other."classSectionId" = o."classSectionId"
+  );

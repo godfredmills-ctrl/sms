@@ -98,6 +98,7 @@ for (const check of [
   ["PDF text sanitising", "scripts/check-pdf-text.mjs"],
   ["seed coverage", "scripts/check-seed-tables.mjs"],
   ["unreachable actions", "scripts/check-dead-actions.mjs"],
+  ["script conditions", "scripts/check-script-conditions.mjs"],
 ]) {
   run(`Checking ${check[0]}`, check[1], []);
 }

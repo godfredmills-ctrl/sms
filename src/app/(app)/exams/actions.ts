@@ -352,9 +352,19 @@ export async function savePaperAction(
     },
   });
 
+  // Any mark sheets already generated follow the paper. Left alone, the
+  // assessment keeps the maximum and the weight it was given at generation
+  // while the paper shows the new ones — the mark sheet says one thing, the
+  // report card divides by another, and neither errors.
+  const drift = await resyncIfGenerated(saved.id);
+
   revalidatePath(`/exams/${sessionId}`);
   revalidatePath(`/exams/${sessionId}/papers/${saved.id}`);
-  return { ok: true, id: saved.id, message: id ? "Saved." : "Paper added." };
+  return {
+    ok: true,
+    id: saved.id,
+    message: `${id ? "Saved." : "Paper added."}${drift ? ` ${drift}` : ""}`,
+  };
 }
 
 /** Removes a paper, and with it its seating and invigilation. */
@@ -793,10 +803,23 @@ export async function saveExamPaperMarks(
       sessionId: true,
       maxMarks: true,
       subject: { select: { name: true } },
+      assessments: { select: { id: true, maxScore: true } },
       session: { select: { term: { select: { isLocked: true } } } },
     },
   });
   if (!paper) return { error: "That paper was not found." };
+
+  // The denominator is the assessment's, not the paper's.
+  //
+  // The report card divides by Assessment.maxScore, which is a copy taken when
+  // the mark sheets were generated. The paper's own "out of" can be edited
+  // afterwards, and a mark validated against the new figure but divided by the
+  // old one comes out over 100% — which finds no grade band, so the subject
+  // drops silently out of the GPA and the aggregate while the inflated total
+  // still raises the class average and moves everybody's position.
+  const maxFor = new Map(
+    paper.assessments.map((one) => [one.id, Number(one.maxScore)]),
+  );
   if (paper.session.term?.isLocked) {
     return { error: "This term is locked. Ask an administrator to reopen it." };
   }
@@ -816,7 +839,6 @@ export async function saveExamPaperMarks(
     }
   }
 
-  const max = paper.maxMarks ?? 100;
   type Write = { assessmentId: string; studentId: string; score: number | null; isAbsent: boolean };
   const writes: Write[] = [];
 
@@ -838,6 +860,7 @@ export async function saveExamPaperMarks(
     // The register decides. A candidate the invigilator wrote down as absent
     // gets an absence, whatever was typed against them.
     const isAbsent = row.seatStatus === "ABSENT";
+    const max = maxFor.get(row.assessmentId) ?? paper.maxMarks ?? 100;
     if (!isAbsent && entry.score !== null) {
       if (!Number.isFinite(entry.score) || entry.score < 0 || entry.score > max) {
         return {
@@ -935,6 +958,7 @@ export async function setPaperMarkingAction(formData: FormData): Promise<ExamSta
   if (!paper) return { error: "That paper was not found." };
 
   await db.examPaper.update({ where: { id: paperId }, data: { maxMarks, weight } });
+  const drift = await resyncIfGenerated(paperId);
 
   await db.auditLog.create({
     data: {
@@ -948,5 +972,25 @@ export async function setPaperMarkingAction(formData: FormData): Promise<ExamSta
   });
 
   revalidatePath(`/exams/${paper.sessionId}/papers/${paperId}`);
-  return { ok: true, message: "Saved." };
+  return { ok: true, message: `Saved.${drift ? ` ${drift}` : ""}` };
+}
+
+/**
+ * Pushes a changed paper back onto the mark sheets it has already produced.
+ *
+ * Not exported — a "use server" module may only export server actions, and
+ * this is a helper two of them share.
+ *
+ * It returns a sentence rather than throwing, because the paper has already
+ * been saved by the time it runs: the alternative to saying "the sheets could
+ * not be updated, and here is why" is leaving them silently out of step.
+ */
+async function resyncIfGenerated(paperId: string): Promise<string | null> {
+  const existing = await db.assessment.count({ where: { examPaperId: paperId } });
+  if (existing === 0) return null;
+
+  const result = await syncPaperAssessments(paperId);
+  return result.ok
+    ? `The ${existing} mark sheet${existing === 1 ? "" : "s"} already generated were updated to match.`
+    : `The mark sheets could NOT be updated to match: ${result.error}`;
 }

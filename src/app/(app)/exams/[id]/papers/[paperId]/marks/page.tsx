@@ -45,7 +45,9 @@ export default async function PaperMarksPage({
       session: {
         select: { id: true, name: true, term: { select: { isLocked: true } } },
       },
-      assessments: { select: { id: true, isPublished: true, isLocked: true } },
+      assessments: {
+        select: { id: true, maxScore: true, isPublished: true, isLocked: true },
+      },
     },
   });
   if (!paper || paper.sessionId !== id) notFound();
@@ -55,7 +57,7 @@ export default async function PaperMarksPage({
   // Which classes are this person's. A holder of exam.marks marks the whole
   // paper; everybody else marks their own classes, and the rows that are not
   // theirs are shown greyed rather than hidden — a marker holding half the
-  // pile needs to know the other half exists and who has it.
+  // pile needs to know the other half exists.
   const wholePaper = userCan(user, "assessment.exam.marks");
   const mine = new Set<string>();
   if (!wholePaper) {
@@ -66,10 +68,21 @@ export default async function PaperMarksPage({
     }
   }
 
+  // A teacher with no class in this paper has no business on this page at all.
+  // assessment.grade is held by every teacher in the school, so gating on it
+  // alone let any of them open any paper by its id and read a whole year
+  // group's names and index numbers — the same mistake the hall list and the
+  // register were pulled back from, made again one directory along.
+  if (!wholePaper && mine.size === 0) notFound();
+
   const view: ScriptRowView[] = rows.map((row) => ({
     candidateId: row.candidateId,
     candidateNo: row.candidateNo,
-    studentName: row.studentName,
+    // And a name only where the class is theirs. The rest of the sheet is
+    // there so a marker knows how much of the pile is not theirs; it does not
+    // need to say who those candidates are, and "Show names" would reveal them.
+    studentName:
+      wholePaper || (row.offeringId && mine.has(row.offeringId)) ? row.studentName : "",
     seatNo: row.seatNo,
     venueName: row.venueName,
     seatStatus: row.seatStatus,
@@ -151,7 +164,10 @@ export default async function PaperMarksPage({
 
           <MarkScripts
             paperId={paper.id}
-            maxMarks={paper.maxMarks ?? 100}
+            // The assessment's maximum, not the paper's — that is what the
+            // mark is divided by, and the header must promise what the server
+            // will accept.
+            maxMarks={Number(paper.assessments[0]?.maxScore ?? paper.maxMarks ?? 100)}
             rows={view}
             readOnly={locked}
           />
