@@ -157,6 +157,9 @@ async function main() {
   await seedReportCards(terms, sections, demoStudentSectionId);
   await seedWebsite(school);
   await seedPayroll(staff);
+  // After payroll: the statement adds the two together, and a demo with one
+  // and not the other reads as a school that spends nothing but salaries.
+  await seedExpenditure(terms, year.id, roles);
 
   console.log("\nDone.\n");
   await printCredentials();
@@ -235,6 +238,9 @@ async function reset() {
     "customFieldValue", "customFieldDef", "optionItem", "optionSet",
     "gradeBand", "gradeScale", "calendarEvent",
     "payslip", "payrollRun",
+    // Expenditure: the bills first, then what they point at. A budget line
+    // points at a category too, so both go before it.
+    "expense", "budgetLine", "expenseCategory", "vendor",
     "visitor",
     "staffLeave", "student", "guardian", "staff",
     "classSection", "classLevel", "subject",
@@ -4259,3 +4265,203 @@ main()
   .finally(async () => {
     await db.$disconnect();
   });
+
+/**
+ * Expenditure: what the school actually spends.
+ *
+ * Seeded because the income and expenditure statement is meaningless without
+ * it — a demo school that takes fees and pays salaries and buys nothing shows
+ * a surplus no real school has ever had. The figures below are what a
+ * two-hundred-pupil Accra school spends in a term: light bills that arrive
+ * every month, a generator that needs servicing because the light goes off
+ * for hours at a time, WAEC fees, and buses that eat diesel.
+ *
+ * Some are left awaiting approval and one is turned down, because that is
+ * what the pile on a bursar's desk looks like on any given Tuesday.
+ */
+async function seedExpenditure(
+  terms: TermRow[],
+  academicYearId: string,
+  roles: Record<string, string>,
+) {
+  console.log("  Expenditure…");
+
+  const term = terms.find((entry) => entry.sequence === 1) ?? terms[0];
+  if (!term) return;
+
+  const categories = await Promise.all(
+    [
+      { name: "Utilities", code: "5100", kind: "OPERATING", sortOrder: 10 },
+      { name: "Repairs and maintenance", code: "5200", kind: "OPERATING", sortOrder: 20 },
+      { name: "Teaching and learning materials", code: "5300", kind: "OPERATING", sortOrder: 30 },
+      { name: "Transport and fuel", code: "5400", kind: "OPERATING", sortOrder: 40 },
+      { name: "Catering and provisions", code: "5500", kind: "OPERATING", sortOrder: 50 },
+      { name: "Examination fees", code: "5600", kind: "OPERATING", sortOrder: 60 },
+      { name: "Professional services", code: "5700", kind: "OPERATING", sortOrder: 70 },
+      { name: "Staff training", code: "5800", kind: "STAFF", sortOrder: 80 },
+      { name: "Furniture and equipment", code: "6100", kind: "CAPITAL", sortOrder: 90 },
+    ].map((category) =>
+      db.expenseCategory.create({ data: category, select: { id: true, name: true } }),
+    ),
+  );
+
+  const categoryId = (name: string) =>
+    categories.find((entry) => entry.name === name)!.id;
+
+  const vendors = await Promise.all(
+    [
+      {
+        name: "Electricity Company of Ghana",
+        supplies: "Electricity",
+        phone: "0302 611 611",
+        tin: "C0001234567",
+      },
+      {
+        name: "Ghana Water Company",
+        supplies: "Water",
+        phone: "0302 666 781",
+        tin: "C0001234568",
+      },
+      {
+        name: "Kwabena Mensah Engineering",
+        supplies: "Generator servicing and electrical repairs",
+        contactName: "Kwabena Mensah",
+        phone: "024 411 8890",
+        tin: "P0012345678",
+        momoNumber: "024 411 8890",
+      },
+      {
+        name: "Accra Stationery Supplies",
+        supplies: "Exercise books, chalk, printing",
+        contactName: "Adjoa Boateng",
+        phone: "020 778 1234",
+        tin: "C0009876543",
+        bankName: "GCB Bank",
+        bankAccount: "1441000123456",
+      },
+      {
+        name: "Total Energies Spintex",
+        supplies: "Diesel for the school buses",
+        phone: "0302 213 400",
+        tin: "C0004455667",
+      },
+      {
+        name: "West African Examinations Council",
+        supplies: "Examination registration",
+        phone: "0302 222 111",
+      },
+      {
+        name: "Mama Efua Catering",
+        supplies: "Lunch provisions",
+        contactName: "Efua Sarpong",
+        phone: "054 220 7788",
+        momoNumber: "054 220 7788",
+      },
+    ].map((vendor) => db.vendor.create({ data: vendor, select: { id: true, name: true } })),
+  );
+
+  const vendorId = (prefix: string) =>
+    vendors.find((entry) => entry.name.startsWith(prefix))?.id ?? null;
+
+  // The bursar records and the head teacher approves. Nobody may approve their
+  // own expenditure, so the seed respects that too — demo data that could not
+  // have been created through the interface teaches the wrong thing.
+  const [bursar, head] = await Promise.all([
+    db.user.findFirst({
+      where: { roles: { some: { roleId: roles.bursar } } },
+      select: { id: true },
+    }),
+    db.user.findFirst({
+      where: { roles: { some: { roleId: roles.head_teacher } } },
+      select: { id: true },
+    }),
+  ]);
+
+  const DAY = 86_400_000;
+  const start = term.startDate.getTime();
+  const on = (offset: number) => new Date(Math.min(start + offset * DAY, Date.now()));
+
+  type Bill = {
+    description: string;
+    category: string;
+    vendor: string | null;
+    amountMinor: number;
+    taxMinor?: number;
+    day: number;
+    status: "PENDING" | "APPROVED" | "PAID" | "REJECTED";
+    method?: string;
+    paidAfter?: number;
+    note?: string;
+  };
+
+  const bills: Bill[] = [
+    { description: "Electricity — January", category: "Utilities", vendor: "Electricity", amountMinor: 482_000, day: 12, status: "PAID", method: "BANK_TRANSFER", paidAfter: 6 },
+    { description: "Electricity — February", category: "Utilities", vendor: "Electricity", amountMinor: 514_000, day: 43, status: "PAID", method: "BANK_TRANSFER", paidAfter: 5 },
+    { description: "Water — January and February", category: "Utilities", vendor: "Ghana Water", amountMinor: 126_000, day: 45, status: "PAID", method: "BANK_TRANSFER", paidAfter: 8 },
+    { description: "Generator service, oil and two filters", category: "Repairs and maintenance", vendor: "Kwabena Mensah", amountMinor: 235_000, taxMinor: 17_625, day: 19, status: "PAID", method: "MOBILE_MONEY", paidAfter: 2 },
+    { description: "Rewiring the Basic 4 block after the storm", category: "Repairs and maintenance", vendor: "Kwabena Mensah", amountMinor: 390_000, taxMinor: 29_250, day: 51, status: "APPROVED" },
+    { description: "Exercise books and chalk for the term", category: "Teaching and learning materials", vendor: "Accra Stationery", amountMinor: 645_000, day: 4, status: "PAID", method: "CHEQUE", paidAfter: 9 },
+    { description: "Printing end-of-term report card stock", category: "Teaching and learning materials", vendor: "Accra Stationery", amountMinor: 118_000, day: 58, status: "APPROVED" },
+    { description: "Diesel for the buses — January", category: "Transport and fuel", vendor: "Total Energies", amountMinor: 720_000, day: 10, status: "PAID", method: "BANK_TRANSFER", paidAfter: 3 },
+    { description: "Diesel for the buses — February", category: "Transport and fuel", vendor: "Total Energies", amountMinor: 764_000, day: 41, status: "PAID", method: "BANK_TRANSFER", paidAfter: 3 },
+    { description: "Lunch provisions — weeks 1 to 6", category: "Catering and provisions", vendor: "Mama Efua", amountMinor: 980_000, day: 36, status: "PAID", method: "MOBILE_MONEY", paidAfter: 4 },
+    { description: "BECE registration for the JHS 3 candidates", category: "Examination fees", vendor: "West African", amountMinor: 1_140_000, day: 24, status: "PAID", method: "BANK_TRANSFER", paidAfter: 7 },
+    { description: "Annual audit fee", category: "Professional services", vendor: null, amountMinor: 800_000, taxMinor: 60_000, day: 30, status: "APPROVED" },
+    { description: "INSET facilitator for the January training day", category: "Staff training", vendor: null, amountMinor: 450_000, taxMinor: 33_750, day: 7, status: "PAID", method: "MOBILE_MONEY", paidAfter: 1 },
+    { description: "Thirty desks for the new Basic 1 stream", category: "Furniture and equipment", vendor: null, amountMinor: 1_260_000, day: 60, status: "PENDING" },
+    { description: "Replacement projector for the ICT room", category: "Furniture and equipment", vendor: null, amountMinor: 410_000, day: 62, status: "PENDING" },
+    { description: "Staff end-of-term outing", category: "Staff training", vendor: null, amountMinor: 320_000, day: 64, status: "REJECTED", note: "Not a training cost. Bring it back under welfare with a costing." },
+  ];
+
+  for (const [index, bill] of bills.entries()) {
+    const incurredOn = on(bill.day);
+    const decided = bill.status !== "PENDING";
+    const paid = bill.status === "PAID";
+
+    await db.expense.create({
+      data: {
+        reference: `EXP-${incurredOn.getFullYear()}-${String(index + 1).padStart(5, "0")}`,
+        description: bill.description,
+        categoryId: categoryId(bill.category),
+        vendorId: bill.vendor ? vendorId(bill.vendor) : null,
+        amountMinor: bill.amountMinor,
+        taxMinor: bill.taxMinor ?? 0,
+        incurredOn,
+        termId: term.id,
+        academicYearId,
+        status: bill.status,
+        requestedById: bursar?.id ?? null,
+        approvedById: bill.status === "APPROVED" || paid ? (head?.id ?? null) : null,
+        approvedAt: decided ? on(bill.day + 1) : null,
+        decisionNote: bill.note ?? null,
+        paidOn: paid ? on(bill.day + (bill.paidAfter ?? 5)) : null,
+        method: paid ? (bill.method ?? "BANK_TRANSFER") : null,
+        paymentRef: paid
+          ? bill.method === "CHEQUE"
+            ? `CHQ ${100_400 + index}`
+            : `TRF${incurredOn.getFullYear()}${String(index).padStart(4, "0")}`
+          : null,
+      },
+    });
+  }
+
+  // A budget for the year. Two lines are deliberately tight against what the
+  // term has already spent, because a budget everything fits inside shows
+  // nobody what the comparison is for.
+  const budget: Record<string, number> = {
+    Utilities: 3_300_000,
+    "Repairs and maintenance": 1_500_000,
+    "Teaching and learning materials": 2_200_000,
+    "Transport and fuel": 4_400_000,
+    "Catering and provisions": 5_500_000,
+    "Examination fees": 1_100_000,
+    "Professional services": 800_000,
+    "Staff training": 600_000,
+  };
+
+  for (const [name, amountMinor] of Object.entries(budget)) {
+    await db.budgetLine.create({
+      data: { academicYearId, categoryId: categoryId(name), amountMinor },
+    });
+  }
+}

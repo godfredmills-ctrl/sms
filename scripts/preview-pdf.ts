@@ -26,6 +26,7 @@ import { summariseReport } from "../src/lib/report-stats";
 import { datasetFor } from "../src/lib/reporting";
 import { renderTimetablePdf } from "../src/lib/timetable-pdf";
 import { renderDocumentPdf } from "../src/lib/document-pdf";
+import { statementMarkdown } from "../src/lib/expenses";
 import { renderManifestPdf } from "../src/lib/manifest-pdf";
 import { renderVisitorPassesPdf } from "../src/lib/visitor-pass-pdf";
 import { renderReportCardPdf, renderTablePdf, renderTemplatePdf } from "../src/lib/pdf";
@@ -661,7 +662,69 @@ async function main() {
     }),
   );
 
-  console.log(`Wrote nine PDFs to ${out}`);
+
+  // The income and expenditure statement, which is the document renderer
+  // again rather than a renderer of its own — a table on letterhead with a
+  // signature under it. Built from a statement made here rather than from the
+  // database, so the layout can be looked at without one.
+  writeFileSync(
+    `${out}/statement.pdf`,
+    await renderDocumentPdf({
+      letterhead: {
+        image: null,
+        school: {
+          name: "Golden Crest International School",
+          motto: "Knowledge, Character, Service",
+          address: "P.O. Box 4821, 12 Independence Avenue, Accra",
+          phone: "+233 30 212 3456",
+          email: "info@goldencrest.edu.gh",
+          website: "goldencrest.edu.gh",
+          registrationNo: "GES/PS/2011/0473",
+        },
+        crest,
+        brandHex: "#2C66CE",
+      },
+      document: {
+        title: "Income and Expenditure — Term 1, 2026/2027",
+        date: "21 August 2026",
+        closing: "Prepared by,",
+        signatory: { name: "Grace Asante", title: "Bursar" },
+        footnote:
+          "Printed from the school management system. Figures move as bills are approved and paid.",
+        body: statementMarkdown({
+          period: {
+            label: "Term 1, 2026/2027",
+            from: new Date("2026-01-08"),
+            to: new Date("2026-03-28"),
+          },
+          income: [
+            { label: "Fees received", amountMinor: 48_920_000, note: "Money in, on the day it was received." },
+            { label: "Scholarships and sponsorships", amountMinor: 3_400_000, note: "Settled by a sponsor rather than by the family." },
+            { label: "Less refunds", amountMinor: -180_000 },
+          ],
+          incomeMinor: 52_140_000,
+          expenditure: [
+            { label: "Staff costs", amountMinor: 31_600_000, note: "Gross pay and the school's SSNIT contribution." },
+            { label: "Utilities", amountMinor: 1_122_000, budgetMinor: 3_300_000 },
+            { label: "Repairs and maintenance", amountMinor: 625_000, budgetMinor: 1_500_000 },
+            { label: "Teaching and learning materials", amountMinor: 763_000, budgetMinor: 2_200_000 },
+            { label: "Transport and fuel", amountMinor: 1_484_000, budgetMinor: 4_400_000 },
+            { label: "Catering and provisions", amountMinor: 980_000, budgetMinor: 5_500_000 },
+            { label: "Examination fees", amountMinor: 1_140_000, budgetMinor: 1_100_000 },
+            { label: "Professional services", amountMinor: 800_000, budgetMinor: 800_000 },
+            { label: "Staff training", amountMinor: 450_000, budgetMinor: 600_000 },
+            { label: "Payment provider charges", amountMinor: 391_360, note: "The cost of collecting the fees above." },
+          ],
+          expenditureMinor: 39_355_360,
+          resultMinor: 12_784_640,
+          committedMinor: 1_308_000,
+          pendingMinor: 1_670_000,
+        }),
+      },
+    }),
+  );
+
+  console.log(`Wrote ten PDFs to ${out}`);
   await checkMastheadClearance();
   await checkBackgroundIsDrawn(layout, backdrop);
   await checkVerificationCode();

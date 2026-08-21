@@ -285,6 +285,28 @@ export const STAFF_NAVIGATION: NavGroup[] = [
         ],
       },
       {
+        label: "Expenditure",
+        href: "/finance/expenses",
+        icon: "HandCoins",
+        permissions: ["finance.expense.read"],
+        children: [
+          { label: "Bills", href: "/finance/expenses", icon: "ReceiptText" },
+          { label: "Vendors & categories", href: "/finance/vendors", icon: "Store" },
+          {
+            label: "Budget",
+            href: "/finance/budget",
+            icon: "Target",
+            permissions: ["finance.budget.manage"],
+          },
+          {
+            label: "Income & expenditure",
+            href: "/finance/statement",
+            icon: "Scale",
+            permissions: ["finance.report"],
+          },
+        ],
+      },
+      {
         label: "Payroll",
         href: "/payroll",
         icon: "Banknote",

@@ -30,7 +30,7 @@ import { financeSettings } from "./settings";
  * column is the real guard — under concurrency we retry, and fall back to a
  * random suffix rather than block the bursar mid-transaction.
  */
-async function nextDocumentNumber(
+export async function nextDocumentNumber(
   prefix: string,
   countExisting: () => Promise<number>,
   attempt = 0,

@@ -10,6 +10,21 @@ export default async function FinanceLayout({ children }: { children: ReactNode 
     { href: "/finance", label: "Overview" },
     { href: "/finance/invoices", label: "Invoices" },
     { href: "/finance/payments", label: "Payments" },
+    // The other half of the ledger. Money out sits beside money in rather
+    // than in a module of its own, because the statement at the end needs
+    // both and nobody thinks of them as separate jobs.
+    ...(userCan(user, "finance.expense.read")
+      ? [
+          { href: "/finance/expenses", label: "Expenditure" },
+          { href: "/finance/vendors", label: "Vendors" },
+        ]
+      : []),
+    ...(userCan(user, "finance.report")
+      ? [{ href: "/finance/statement", label: "Statement" }]
+      : []),
+    ...(userCan(user, "finance.budget.manage")
+      ? [{ href: "/finance/budget", label: "Budget" }]
+      : []),
     ...(userCan(user, "finance.fee.manage")
       ? [{ href: "/finance/structures", label: "Fee structures" }]
       : []),

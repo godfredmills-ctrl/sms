@@ -102,6 +102,12 @@ export const PERMISSIONS: PermissionDef[] = [
     ["reminder.manage", "update", "Configure automated fee reminders"],
     ["reconcile", "update", "Reconcile provider settlements"],
     ["report", "read", "View financial reports"],
+    ["expense.read", "read", "View expenditure and vendors"],
+    ["expense.record", "create", "Record bills and expenses"],
+    ["expense.approve", "approve", "Approve or turn down expenditure"],
+    ["expense.pay", "update", "Mark expenditure as paid"],
+    ["vendor.manage", "update", "Manage vendors and expense categories"],
+    ["budget.manage", "update", "Set the annual budget"],
   ]),
 
   ...define("communication", [
@@ -270,6 +276,12 @@ export const ROLE_PRESETS: RolePreset[] = [
       "finance.read",
       "finance.report",
       "finance.discount.manage",
+      // The head teacher approves what the bursar records. Nobody may approve
+      // their own expenditure, so somebody other than the bursar has to hold
+      // this or no bill in the school can ever be approved.
+      "finance.expense.read",
+      "finance.expense.approve",
+      "finance.budget.manage",
       "payroll.read",
       "payroll.approve",
       "settings.read",

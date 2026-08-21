@@ -413,6 +413,8 @@ model AcademicYear {
   offerings      SubjectOffering[]
   promotions     PromotionRecord[]
   calendarEvents CalendarEvent[]
+  expenses       Expense[]
+  budgetLines    BudgetLine[]
 
   @@unique([schoolId, name])
 }
@@ -436,6 +438,7 @@ model Term {
   reportCards       ReportCard[]
   invoices          Invoice[]
   feeStructures     FeeStructure[]
+  expenses          Expense[]
 
   @@unique([academicYearId, sequence])
 }
@@ -616,6 +619,8 @@ model User {
   aiInsights            AiInsight[]
   savedReports          ReportDefinition[]
   ballots               Ballot[]
+  expensesRequested     Expense[]            @relation("ExpenseRequestedBy")
+  expensesApproved      Expense[]            @relation("ExpenseApprovedBy")
 
   @@index([status])
   @@index([portal])
@@ -2521,6 +2526,7 @@ model FileAsset {
   lessonResources         LessonResource[]
   submissionFiles         SubmissionFile[]
   siteMedia               SiteMedia[]
+  expenseReceipts         Expense[]                @relation("ExpenseReceipt")
 
   @@index([mimeType])
 }
@@ -3726,4 +3732,173 @@ model WrittenDocument {
   @@index([aboutStaffId])
   @@index([aboutStudentId])
   @@index([updatedAt])
+}
+
+// ---------------------------------------------------------------------------
+// Expenditure
+//
+// The other half of the ledger. Everything above this line records money
+// coming in — fees, invoices, receipts — and payroll records the largest
+// single thing going out. Between them they cannot answer the question a
+// board asks every term: did the school spend less than it took?
+//
+// So: who the school pays (Vendor), what the spending is called
+// (ExpenseCategory), each bill (Expense), and what was planned (BudgetLine).
+// Amounts are minor units — pesewas — like every other amount in this schema.
+// ---------------------------------------------------------------------------
+
+enum ExpenseStatus {
+  /// Recorded, and waiting for somebody with the authority to approve it.
+  PENDING
+  /// Approved, and owed. The school has committed to paying it.
+  APPROVED
+  /// Paid, with a date and a method against it.
+  PAID
+  /// Turned down, with a reason.
+  REJECTED
+  /// Entered in error. Kept rather than deleted, so the reference is not reused.
+  VOID
+}
+
+/// Somebody the school pays: a supplier, a contractor, a utility.
+model Vendor {
+  id       String  @id @default(cuid())
+  name     String
+  /// What they supply — "Stationery", "Generator servicing".
+  supplies String?
+
+  contactName String?
+  phone       String?
+  email       String?
+  address     String?
+
+  /// Taxpayer Identification Number. A school withholding tax on a payment
+  /// has to file it against the supplier's TIN, and chasing it afterwards is
+  /// how the return ends up late.
+  tin String?
+
+  bankName    String?
+  bankAccount String?
+  momoNumber  String?
+
+  active Boolean @default(true)
+  notes  String?
+
+  expenses Expense[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([name])
+  @@index([active])
+}
+
+/// A line in the income and expenditure statement.
+model ExpenseCategory {
+  id   String  @id @default(cuid())
+  name String  @unique
+  /// Sorts the statement, and is what the bursar's own ledger calls this line.
+  code String?
+  /// OPERATING — the running of the school. CAPITAL — a thing that lasts.
+  /// STAFF — anything paid to or for staff outside the payroll run.
+  kind String  @default("OPERATING")
+
+  active    Boolean @default(true)
+  sortOrder Int     @default(0)
+  notes     String?
+
+  expenses Expense[]
+  budgets  BudgetLine[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([active])
+}
+
+/// One bill: what it was for, who it was to, and whether it has been paid.
+model Expense {
+  id String @id @default(cuid())
+
+  /// "EXP/2026/0041". Unique, quoted on the voucher, never reused.
+  reference String @unique
+
+  categoryId String
+  category   ExpenseCategory @relation(fields: [categoryId], references: [id])
+  vendorId   String?
+  vendor     Vendor?         @relation(fields: [vendorId], references: [id], onDelete: SetNull)
+
+  description String
+  /// The amount the school pays out, in minor units.
+  amountMinor Int
+  /// Withholding tax kept back from that amount and owed to the GRA. Part of
+  /// the cost, not on top of it — so the statement adds amountMinor and the
+  /// tax return reads taxMinor.
+  taxMinor    Int    @default(0)
+  currency    String @default("GHS")
+
+  /// When the cost was incurred, which is what the statement sorts on. Not
+  /// the same as when it was paid, and a term's figures are wrong if the two
+  /// are conflated.
+  incurredOn DateTime
+  paidOn     DateTime?
+  method     String? // CASH | BANK_TRANSFER | MOBILE_MONEY | CHEQUE
+  /// Cheque number, transfer reference, momo transaction id.
+  paymentRef String?
+
+  status ExpenseStatus @default(PENDING)
+
+  /// Which term and year it belongs to. Both denormalised from incurredOn at
+  /// the time of writing, because a term's dates can be corrected afterwards
+  /// and a statement that silently reallocates last term's costs is worse
+  /// than one that is a little stale.
+  termId         String?
+  term           Term?         @relation(fields: [termId], references: [id], onDelete: SetNull)
+  academicYearId String?
+  academicYear   AcademicYear? @relation(fields: [academicYearId], references: [id], onDelete: SetNull)
+
+  requestedById String?
+  requestedBy   User?     @relation("ExpenseRequestedBy", fields: [requestedById], references: [id], onDelete: SetNull)
+  approvedById  String?
+  approvedBy    User?     @relation("ExpenseApprovedBy", fields: [approvedById], references: [id], onDelete: SetNull)
+  approvedAt    DateTime?
+  /// Why it was turned down, shown to whoever recorded it.
+  decisionNote  String?
+
+  /// The receipt or the supplier's invoice, scanned.
+  receiptId String?
+  receipt   FileAsset? @relation("ExpenseReceipt", fields: [receiptId], references: [id], onDelete: SetNull)
+
+  notes String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([categoryId])
+  @@index([vendorId])
+  @@index([termId])
+  @@index([academicYearId])
+  @@index([incurredOn])
+}
+
+/// What was planned for a category in a year, so the statement can show
+/// whether it held.
+model BudgetLine {
+  id String @id @default(cuid())
+
+  academicYearId String
+  academicYear   AcademicYear    @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
+  categoryId     String
+  category       ExpenseCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  /// The figure agreed for the whole year, in minor units.
+  amountMinor Int
+  note        String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([academicYearId, categoryId])
+  @@index([academicYearId])
 }
