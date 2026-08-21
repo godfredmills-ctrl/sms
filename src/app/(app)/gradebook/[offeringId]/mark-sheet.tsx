@@ -4,6 +4,7 @@ import { useMemo, useRef, useState, useTransition } from "react";
 import { Save, Search, UserX } from "lucide-react";
 
 import { Alert, Badge, Button, Input } from "@/components/ui";
+import { weightSubject } from "@/lib/marks-math";
 import { cn } from "@/lib/utils";
 
 import { saveScores, type ScoreEntry } from "../actions";
@@ -107,24 +108,30 @@ export function MarkSheet({
     inputs.current[key(next.id, assessmentId)]?.select();
   }
 
-  /** Weighted subject total, recomputed live so a teacher sees the effect. */
+  /**
+   * Weighted subject total, recomputed live so a teacher sees the effect.
+   *
+   * Through the same function the report card uses. This used to be the
+   * formula written out a second time, and the second copy had the same bug in
+   * it — an absence scored zero and still spent its weight — so a teacher
+   * ticking "absent" watched the running total fall exactly as far as the
+   * printed card would later fall. Two wrongs agreeing is the hardest kind of
+   * wrong to notice.
+   */
   function totalFor(studentId: string): number | null {
-    let weighted = 0;
-    let weightUsed = 0;
-
-    for (const assessment of assessments) {
-      const cell = marks[key(studentId, assessment.id)];
-      if (!cell || assessment.weight <= 0) continue;
-      if (cell.score === null && !cell.isAbsent) continue;
-      const percent = cell.isAbsent
-        ? 0
-        : ((cell.score ?? 0) / assessment.maxScore) * 100;
-      weighted += (percent * assessment.weight) / 100;
-      weightUsed += assessment.weight;
-    }
-
-    if (weightUsed === 0) return null;
-    return Math.round((weighted / weightUsed) * 1000) / 10;
+    return weightSubject(
+      assessments.map((assessment) => {
+        const cell = marks[key(studentId, assessment.id)];
+        return {
+          maxScore: assessment.maxScore,
+          weight: assessment.weight,
+          isExam: assessment.isExam,
+          score: cell?.score ?? null,
+          isAbsent: cell?.isAbsent ?? false,
+          isExempt: false,
+        };
+      }),
+    ).totalScore;
   }
 
   function save() {

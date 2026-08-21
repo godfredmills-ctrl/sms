@@ -80,6 +80,9 @@ async function main() {
         { subject: "Integrated Science", ca: "24", exam: "47", total: "71", grade: "B3", position: "8th", classAverage: "63.9", remark: "Good" },
         { subject: "Social Studies", ca: "27", exam: "51", total: "78", grade: "B2", position: "4th", classAverage: "65.0", remark: "Very good" },
         { subject: "Computing", ca: "29", exam: "56", total: "85", grade: "A1", position: "2nd", classAverage: "70.2", remark: "Outstanding" },
+        // A pupil who missed one paper. "Abs", never "0.0" — an absence is
+        // not a zero, and printing it as one moved the whole class average.
+        { subject: "French", ca: "25", exam: "Abs", total: "83.3", grade: "A1", position: "5th", classAverage: "64.8", remark: "Absent for the paper" },
       ],
       summary: [
         { label: "Average", value: "78.2%" },

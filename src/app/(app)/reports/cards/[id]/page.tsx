@@ -9,6 +9,7 @@ import { isAiEnabled } from "@/lib/ai/client";
 import { requirePermission, userCan } from "@/lib/auth";
 import { studentOutOfScope } from "@/lib/scope";
 import { db } from "@/lib/db";
+import { formatScoreCell } from "@/lib/marks-math";
 import { percentOf } from "@/lib/money";
 import { calculateAge, formatDate, humanise, toNumber } from "@/lib/utils";
 
@@ -272,10 +273,10 @@ export default async function ReportCardPage({
               <tr key={line.id} className="border-b border-[var(--border)]">
                 <td className="py-1">{line.subject.name}</td>
                 <td className="numeric py-1 text-right">
-                  {toNumber(line.caScore)?.toFixed(1) ?? "—"}
+                  {formatScoreCell(toNumber(line.caScore), { absent: line.caAbsent })}
                 </td>
                 <td className="numeric py-1 text-right">
-                  {toNumber(line.examScore)?.toFixed(1) ?? "—"}
+                  {formatScoreCell(toNumber(line.examScore), { absent: line.examAbsent })}
                 </td>
                 <td className="numeric py-1 text-right font-semibold">
                   {toNumber(line.totalScore)?.toFixed(1) ?? "—"}

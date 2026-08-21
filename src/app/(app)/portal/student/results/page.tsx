@@ -14,6 +14,7 @@ import {
 } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { formatScoreCell } from "@/lib/marks-math";
 import { formatDate, ordinal, toNumber } from "@/lib/utils";
 
 import { NotLinked } from "../not-linked";
@@ -178,10 +179,14 @@ export default async function StudentResultsPage() {
                         >
                           <td className="py-1.5 pr-3">{line.subject.name}</td>
                           <td className="numeric py-1.5 pr-3 text-right">
-                            {toNumber(line.caScore)?.toFixed(1) ?? "—"}
+                            {formatScoreCell(toNumber(line.caScore), {
+                              absent: line.caAbsent,
+                            })}
                           </td>
                           <td className="numeric py-1.5 pr-3 text-right">
-                            {toNumber(line.examScore)?.toFixed(1) ?? "—"}
+                            {formatScoreCell(toNumber(line.examScore), {
+                              absent: line.examAbsent,
+                            })}
                           </td>
                           <td className="numeric py-1.5 pr-3 text-right font-medium">
                             {toNumber(line.totalScore)?.toFixed(1) ?? "—"}

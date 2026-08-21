@@ -1,4 +1,5 @@
 import { db } from "./db";
+import { weightSubject, type Component } from "./marks-math";
 import { rankDescending, toNumber } from "./utils";
 
 /**
@@ -67,6 +68,15 @@ export type SubjectResult = {
   caScore: number | null;
   examScore: number | null;
   totalScore: number | null;
+  /**
+   * Every component of that half was an absence.
+   *
+   * Carried through to the card so the cell can print "Abs" rather than a
+   * number. Without it, a null score is indistinguishable from a subject that
+   * simply has no exam component yet, and both print as a dash.
+   */
+  caAbsent: boolean;
+  examAbsent: boolean;
   teacherName: string | null;
   excludeFromAggregate: boolean;
   breakdown: Array<{
@@ -128,19 +138,14 @@ export async function computeSubjectResults(
 
     for (const studentId of studentIds) {
       const breakdown: SubjectResult["breakdown"] = [];
-      let caWeighted = 0;
-      let caWeightUsed = 0;
-      let examWeighted = 0;
-      let examWeightUsed = 0;
+      const components: Component[] = [];
 
       for (const assessment of offering.assessments) {
         const record = assessment.scores.find((score) => score.studentId === studentId);
-        if (!record || record.isExempt) continue;
+        if (!record) continue;
 
         const maxScore = toNumber(assessment.maxScore) ?? 100;
         const weight = toNumber(assessment.weight) ?? 0;
-        const raw = record.isAbsent ? 0 : (toNumber(record.score) ?? 0);
-        const percent = maxScore > 0 ? (raw / maxScore) * 100 : 0;
 
         breakdown.push({
           title: assessment.title,
@@ -152,31 +157,32 @@ export async function computeSubjectResults(
           isAbsent: record.isAbsent,
         });
 
-        if (weight <= 0) continue;
-
-        if (assessment.isExam) {
-          examWeighted += (percent * weight) / 100;
-          examWeightUsed += weight;
-        } else {
-          caWeighted += (percent * weight) / 100;
-          caWeightUsed += weight;
-        }
+        components.push({
+          maxScore,
+          weight,
+          isExam: assessment.isExam,
+          score: record.isAbsent ? null : toNumber(record.score),
+          isAbsent: record.isAbsent,
+          isExempt: record.isExempt,
+        });
       }
 
-      // Only count components that actually exist, so a term with no exam yet
-      // still produces a meaningful CA-only mark.
-      const hasAny = caWeightUsed + examWeightUsed > 0;
-      const totalScore = hasAny
-        ? round1(((caWeighted + examWeighted) / (caWeightUsed + examWeightUsed)) * 100)
-        : null;
+      // The arithmetic itself is in lib/marks-math.ts, shared with the mark
+      // sheet's live total. It used to be written out here and again there,
+      // and both copies turned an absence into a zero that still spent its
+      // full weight — which is a hard zero by a longer route, and which moved
+      // the class average and every position on the sheet with it.
+      const weighted = weightSubject(components);
 
       const results = perStudent.get(studentId) ?? [];
       results.push({
         subjectId: offering.subject.id,
         subjectName: offering.subject.name,
-        caScore: caWeightUsed > 0 ? round1(caWeighted) : null,
-        examScore: examWeightUsed > 0 ? round1(examWeighted) : null,
-        totalScore,
+        caScore: weighted.caScore,
+        examScore: weighted.examScore,
+        totalScore: weighted.totalScore,
+        caAbsent: weighted.caAbsent,
+        examAbsent: weighted.examAbsent,
         teacherName,
         excludeFromAggregate: offering.subject.excludeFromAggregate,
         breakdown,
@@ -376,6 +382,11 @@ export async function generateClassReportCards(options: {
         caScore: subject.caScore,
         examScore: subject.examScore,
         totalScore: subject.totalScore,
+        // Carried onto the line so a renderer can tell an absence from a
+        // component that does not exist. Both are a null score, and printed
+        // the same they read as the same thing.
+        caAbsent: subject.caAbsent,
+        examAbsent: subject.examAbsent,
         grade: band?.grade ?? null,
         point: band?.point ?? null,
         position: subjectPositions.get(subject.subjectId)?.get(studentId) ?? null,

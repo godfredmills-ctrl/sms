@@ -1708,9 +1708,15 @@ model ReportCardLine {
   subject      Subject    @relation(fields: [subjectId], references: [id], onDelete: Cascade)
 
   /// Continuous assessment sub-total, scaled to caWeight.
-  caScore      Decimal? @db.Decimal(6, 2)
-  examScore    Decimal? @db.Decimal(6, 2)
-  totalScore   Decimal? @db.Decimal(6, 2)
+  caScore    Decimal? @db.Decimal(6, 2)
+  examScore  Decimal? @db.Decimal(6, 2)
+  totalScore Decimal? @db.Decimal(6, 2)
+
+  /// Every component of that half was an absence, rather than there being no
+  /// such component. Both leave the score null, and a card that prints them
+  /// the same tells a parent a child had no exam when the child missed it.
+  caAbsent     Boolean  @default(false)
+  examAbsent   Boolean  @default(false)
   grade        String?
   point        Decimal? @db.Decimal(4, 2)
   position     Int?

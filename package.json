@@ -30,7 +30,8 @@
     "payroll:check": "tsx scripts/check-payroll.ts",
     "db:sync-permissions": "tsx scripts/sync-permissions.ts",
     "md:check": "tsx scripts/check-markdown.ts",
-    "exams:check": "tsx --conditions=react-server scripts/check-exams.ts"
+    "exams:check": "tsx --conditions=react-server scripts/check-exams.ts",
+    "marks:check": "tsx scripts/check-marks.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

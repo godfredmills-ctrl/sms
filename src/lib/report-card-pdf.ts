@@ -4,6 +4,7 @@ import { userCan, type AuthUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { studentOutOfScope } from "@/lib/scope";
 import { loadDocumentImage } from "@/lib/document-images";
+import { formatScoreCell } from "@/lib/marks-math";
 import { renderReportCardPdf } from "@/lib/pdf";
 import { env } from "@/lib/env";
 import { formatDate, fullName, ordinal, toNumber } from "@/lib/utils";
@@ -173,8 +174,10 @@ export async function buildReportCardPdf(id: string): Promise<Buffer | null> {
     meta,
     subjects: card.lines.map((line) => ({
       subject: line.subject.name,
-      ca: toNumber(line.caScore)?.toFixed(1) ?? "—",
-      exam: toNumber(line.examScore)?.toFixed(1) ?? "—",
+      // "Abs" rather than a dash when the pupil missed it — and never "0.0",
+      // which is what an absence printed as before the weighting was fixed.
+      ca: formatScoreCell(toNumber(line.caScore), { absent: line.caAbsent }),
+      exam: formatScoreCell(toNumber(line.examScore), { absent: line.examAbsent }),
       total: toNumber(line.totalScore)?.toFixed(1) ?? "—",
       grade: line.grade ?? "—",
       position: line.position ? ordinal(line.position) : "—",
