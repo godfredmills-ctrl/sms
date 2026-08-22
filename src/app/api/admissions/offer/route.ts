@@ -6,7 +6,7 @@ import { db } from "@/lib/db";
 import { renderDocumentPdf } from "@/lib/document-pdf";
 import { loadLetterhead } from "@/lib/letterhead";
 import { formatMoney } from "@/lib/money";
-import { formatDate, listName } from "@/lib/utils";
+import { formatDate, fullName } from "@/lib/utils";
 
 /**
  * The offer of a place.
@@ -107,7 +107,11 @@ export async function GET(request: Request) {
   }
 
   const guardian = application.student.guardians[0]?.guardian ?? null;
-  const child = listName(application.student);
+  // fullName, not listName. listName is register order with the middle names
+  // cut to initials — "Owusu-Ansah, Abena K." — which is right for a class
+  // list and wrong in a sentence a family keeps: "We are pleased to offer
+  // Owusu-Ansah, Abena K. a place" is not how anybody writes to a parent.
+  const child = fullName(application.student);
   const average = assessmentAverage(
     application.assessments.map((entry) => ({
       score: entry.score === null ? null : Number(entry.score),
@@ -140,7 +144,13 @@ export async function GET(request: Request) {
 
   body.push("");
 
-  if (application.offerExpiresOn) {
+  // An accepted or declined copy must not still ask for a reply by a date
+  // that has already been answered. A family that accepted in March, asking
+  // for their letter in August for a visa, would have been told the school
+  // was about to give the place away.
+  const settled = Boolean(application.acceptedOn || application.declinedOn);
+
+  if (application.offerExpiresOn && !settled) {
     body.push(
       `This place is held until ${formatDate(application.offerExpiresOn, "long")}. If we have not heard from you by that date we shall assume you no longer require it and offer the place to another family.`,
       "",
@@ -170,6 +180,34 @@ export async function GET(request: Request) {
     );
   }
 
+  // Whoever pressed print, if they have a staff record; otherwise the head
+  // teacher. An unsigned offer of a place is not a document a family can do
+  // anything with — and a user account with no staff record, which the invite
+  // flow creates, would have produced exactly that.
+  const printer = user.staffId
+    ? await db.staff.findUnique({
+        where: { id: user.staffId },
+        select: { firstName: true, lastName: true, jobTitle: true },
+      })
+    : null;
+
+  const signer =
+    printer ??
+    (await db.staff.findFirst({
+      where: {
+        status: "ACTIVE",
+        user: { roles: { some: { role: { key: "head_teacher" } } } },
+      },
+      select: { firstName: true, lastName: true, jobTitle: true },
+    }));
+
+  const signatory = signer
+    ? {
+        name: `${signer.firstName} ${signer.lastName}`,
+        title: signer.jobTitle ?? (printer ? "Registrar" : "Head Teacher"),
+      }
+    : null;
+
   const pdf = await renderDocumentPdf({
     letterhead,
     document: {
@@ -187,21 +225,7 @@ export async function GET(request: Request) {
         : "Dear Parent or Guardian,",
       body: body.join("\n"),
       closing: "Yours faithfully,",
-      signatory: user.staffId
-        ? await db.staff
-            .findUnique({
-              where: { id: user.staffId },
-              select: { firstName: true, lastName: true, jobTitle: true },
-            })
-            .then((staff) =>
-              staff
-                ? {
-                    name: `${staff.firstName} ${staff.lastName}`,
-                    title: staff.jobTitle ?? "Registrar",
-                  }
-                : null,
-            )
-        : null,
+      signatory,
       footnote: application.applicationFeeMinor
         ? `Assessment fee of ${formatMoney(application.applicationFeeMinor)} refers.`
         : null,

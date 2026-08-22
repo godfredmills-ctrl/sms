@@ -37,6 +37,8 @@ export type BoardRow = {
   papers: Array<{ paper: string; score: number | null; maxScore: number }>;
   average: number | null;
   recommendation: string | null;
+  interviewNote: string | null;
+  interviewAttendees: string | null;
   offerExpiresOn: string | null;
   waitlistRank: number | null;
   stage: Stage;
@@ -59,11 +61,19 @@ export function PipelineBoard({
   rows,
   papers,
   today,
+  mayLetter,
 }: {
   rows: BoardRow[];
   /** The entrance papers this school sets. */
   papers: string[];
   today: string;
+  /**
+   * Whether this viewer may print the offer letter — the same pair the route
+   * enforces. It was the one control on the row drawn from the stage alone,
+   * so an assistant head, who holds read and interview and nothing else, was
+   * shown exactly one button and it was the one that 403s.
+   */
+  mayLetter: boolean;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState<string | null>(null);
@@ -184,6 +194,20 @@ export function PipelineBoard({
                             .join(" · ")}
                         </p>
 
+                        {row.interviewNote ? (
+                          // Written by the interviewer and, until now, stored
+                          // and read back nowhere at all.
+                          <p className="mt-1 text-xs text-[var(--text-muted)]">
+                            &ldquo;{row.interviewNote}&rdquo;
+                            {row.interviewAttendees ? (
+                              <span className="text-[var(--text-subtle)]">
+                                {" "}
+                                — {row.interviewAttendees}
+                              </span>
+                            ) : null}
+                          </p>
+                        ) : null}
+
                         {row.papers.length ? (
                           <p className="numeric mt-0.5 text-xs text-[var(--text-subtle)]">
                             {row.papers
@@ -228,9 +252,10 @@ export function PipelineBoard({
                               : "Offer a place"}
                           </Button>
                         ) : null}
-                        {row.stage === "OFFERED" ||
-                        row.stage === "EXPIRED" ||
-                        row.stage === "ACCEPTED" ? (
+                        {mayLetter &&
+                        (row.stage === "OFFERED" ||
+                          row.stage === "EXPIRED" ||
+                          row.stage === "ACCEPTED") ? (
                           <a
                             href={`/api/admissions/offer?id=${row.id}`}
                             target="_blank"

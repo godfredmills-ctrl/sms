@@ -53,14 +53,17 @@ export default async function AdmissionsPage() {
   }
 
   const now = new Date();
-  const [rows, places, waiting, levels, enrolled] = await Promise.all([
+  const [rows, seats, waiting, levels, enrolled] = await Promise.all([
     pipeline(year.id, now),
     placesByLevel(year.id, now),
     // Applicants with no application yet. Admitting a pupil under Students
     // creates the person; this is the intake attached to them, and the two
     // being separate is why the list can be non-empty at all.
     db.student.findMany({
-      where: { status: { in: ["APPLICANT", "OFFERED"] }, admission: { is: null } },
+      where: {
+        status: { in: ["APPLICANT", "OFFERED"] },
+        admissions: { none: { academicYearId: year.id } },
+      },
       orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
       take: 500,
       select: { id: true, firstName: true, lastName: true, otherNames: true, admissionNo: true },
@@ -80,6 +83,9 @@ export default async function AdmissionsPage() {
   const mayAssess = userCan(user, "admission.assess");
   const mayInterview = userCan(user, "admission.interview");
   const mayManage = userCan(user, "admission.manage");
+  // The letter route accepts either of these, so the link is gated on the
+  // same pair rather than on the stage.
+  const mayLetter = mayOffer || mayManage;
 
   const board: BoardRow[] = rows.map((row) => ({
     id: row.id,
@@ -93,6 +99,8 @@ export default async function AdmissionsPage() {
     papers: row.papers,
     average: row.average,
     recommendation: row.recommendation,
+    interviewNote: row.interviewNote,
+    interviewAttendees: row.interviewAttendees,
     offerExpiresOn: row.offerExpiresOn ? formatDate(row.offerExpiresOn) : null,
     waitlistRank: row.waitlistRank,
     stage: row.stage,
@@ -112,6 +120,7 @@ export default async function AdmissionsPage() {
   const live = board.filter(
     (row) => !["ENROLLED", "WITHDRAWN", "DECLINED"].includes(row.stage),
   ).length;
+  const places = seats.levels;
   const oversubscribed = places.filter((level) => level.over);
 
   return (
@@ -167,6 +176,15 @@ export default async function AdmissionsPage() {
         >
           Nothing releases a lapsed offer on its own, so the seat is still being held.
           Ring the family, or give it away — either way it needs a decision.
+        </Alert>
+      ) : null}
+
+      {seats.unplaced ? (
+        <Alert tone="warning" title="Places promised against no year group" className="mb-4">
+          {seats.unplaced} offer{seats.unplaced === 1 ? " is" : "s are"} outstanding without a
+          year group, so {seats.unplaced === 1 ? "it belongs" : "they belong"} to no line
+          below and {seats.unplaced === 1 ? "is" : "are"} counted in none of the seats.
+          Set the year group on {seats.unplaced === 1 ? "it" : "them"}.
         </Alert>
       ) : null}
 
@@ -226,7 +244,12 @@ export default async function AdmissionsPage() {
         />
       ) : null}
 
-      <PipelineBoard rows={board} papers={PAPERS} today={now.toISOString().slice(0, 10)} />
+      <PipelineBoard
+        rows={board}
+        papers={PAPERS}
+        today={now.toISOString().slice(0, 10)}
+        mayLetter={mayLetter}
+      />
     </>
   );
 }

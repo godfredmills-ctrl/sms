@@ -1023,7 +1023,7 @@ model Student {
 
   boardingAllocations BoardingAllocation[]
   exeats              BoardingExeat[]
-  admission           AdmissionApplication?
+  admissions          AdmissionApplication[]
   siblingApplications AdmissionApplication[] @relation("AdmissionSibling")
 
   @@index([status])
@@ -4358,9 +4358,8 @@ enum AdmissionDecision {
 model AdmissionApplication {
   id String @id @default(cuid())
 
-  /// The APPLICANT student record. One application per child per intake; a
-  /// child who applies again next year gets a new one.
-  studentId String  @unique
+  /// The APPLICANT student record.
+  studentId String
   student   Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
   academicYearId String
@@ -4406,6 +4405,13 @@ model AdmissionApplication {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  /// One application per child per intake — not one per child ever. The
+  /// constraint was on the pupil alone, which contradicted the decline path
+  /// two files away: declining puts them back to APPLICANT precisely because
+  /// "next year they often apply again", and with the old constraint they
+  /// could not, on that record, ever.
+  @@unique([studentId, academicYearId])
+  @@index([studentId])
   @@index([academicYearId])
   @@index([applyingForLevelId])
   @@index([offerExpiresOn])

@@ -5019,28 +5019,37 @@ async function seedAdmissions(
     waitlist?: number;
     sibling?: boolean;
     feePaid: boolean;
+    /**
+     * The parent on the file — who the offer letter is addressed to.
+     *
+     * Seeded because without one every demo offer letter printed "Dear Parent
+     * or Guardian" with no address, while the same drafts recorded who came to
+     * the interview. The demo was asserting these families exist and telling
+     * them the school did not know their name.
+     */
+    parent: { title: string; first: string; relation: "MOTHER" | "FATHER" | "GRANDMOTHER" };
   };
 
   const drafts: Draft[] = [
     // Nothing done yet.
-    { first: "Nana Ama", last: "Osei", gender: "FEMALE", level: entry, source: "WEBSITE", papers: [], feePaid: false },
-    { first: "Selorm", last: "Agbeko", gender: "MALE", level: entry, source: "WALK_IN", papers: [["English", null], ["Mathematics", null]], feePaid: true },
+    { first: "Nana Ama", last: "Osei", gender: "FEMALE", level: entry, source: "WEBSITE", papers: [], feePaid: false , parent: { title: "Mrs", first: "Yaa", relation: "MOTHER" as const } },
+    { first: "Selorm", last: "Agbeko", gender: "MALE", level: entry, source: "WALK_IN", papers: [["English", null], ["Mathematics", null]], feePaid: true , parent: { title: "Mr", first: "Elorm", relation: "FATHER" as const } },
     // Assessed.
-    { first: "Efua", last: "Bediako", gender: "FEMALE", level: entry, source: "REFERRAL", papers: [["English", 78], ["Mathematics", 71], ["Reasoning", 74]], feePaid: true },
+    { first: "Efua", last: "Bediako", gender: "FEMALE", level: entry, source: "REFERRAL", papers: [["English", 78], ["Mathematics", 71], ["Reasoning", 74]], feePaid: true , parent: { title: "Mrs", first: "Akua", relation: "MOTHER" as const } },
     // Interviewed and recommended, no offer yet.
-    { first: "Kojo", last: "Amankwah", gender: "MALE", level: middle, source: "TRANSFER", papers: [["English", 66], ["Mathematics", 82]], interview: { decision: "RECOMMEND", attendees: "Both parents", days: 4 }, feePaid: true },
+    { first: "Kojo", last: "Amankwah", gender: "MALE", level: middle, source: "TRANSFER", papers: [["English", 66], ["Mathematics", 82]], interview: { decision: "RECOMMEND", attendees: "Both parents", days: 4 }, feePaid: true , parent: { title: "Mr", first: "Kwabena", relation: "FATHER" as const } },
     // Offered, in date.
-    { first: "Abena", last: "Owusu-Ansah", gender: "FEMALE", level: entry, source: "SIBLING", sibling: true, papers: [["English", 84], ["Mathematics", 79], ["Reasoning", 88]], interview: { decision: "RECOMMEND", attendees: "Mother", days: 12 }, offer: { madeDaysAgo: 9, lapsesInDays: 12 }, feePaid: true },
+    { first: "Abena", last: "Owusu-Ansah", gender: "FEMALE", level: entry, source: "SIBLING", sibling: true, papers: [["English", 84], ["Mathematics", 79], ["Reasoning", 88]], interview: { decision: "RECOMMEND", attendees: "Mother", days: 12 }, offer: { madeDaysAgo: 9, lapsesInDays: 12 }, feePaid: true , parent: { title: "Mrs", first: "Adjoa", relation: "MOTHER" as const } },
     // Offered and accepted — coming, not yet enrolled.
-    { first: "Yaw", last: "Frimpong", gender: "MALE", level: middle, source: "WEBSITE", papers: [["English", 70], ["Mathematics", 90]], interview: { decision: "RECOMMEND", attendees: "Father and elder sister", days: 20 }, offer: { madeDaysAgo: 16, lapsesInDays: 6 }, accepted: true, feePaid: true },
+    { first: "Yaw", last: "Frimpong", gender: "MALE", level: middle, source: "WEBSITE", papers: [["English", 70], ["Mathematics", 90]], interview: { decision: "RECOMMEND", attendees: "Father and elder sister", days: 20 }, offer: { madeDaysAgo: 16, lapsesInDays: 6 }, accepted: true, feePaid: true , parent: { title: "Mr", first: "Kwesi", relation: "FATHER" as const } },
     // The two the board exists for: a place held for a family who went quiet.
-    { first: "Adwoa", last: "Tetteh", gender: "FEMALE", level: entry, source: "WALK_IN", papers: [["English", 62], ["Mathematics", 58]], interview: { decision: "RECOMMEND", attendees: "Grandmother", days: 40 }, offer: { madeDaysAgo: 35, lapsesInDays: -7 }, feePaid: true },
-    { first: "Kwame", last: "Boadu", gender: "MALE", level: middle, source: "REFERRAL", papers: [["English", 69], ["Mathematics", 64], ["Reasoning", 66]], interview: { decision: "RECOMMEND", attendees: "Both parents", days: 45 }, offer: { madeDaysAgo: 38, lapsesInDays: -3 }, feePaid: true },
+    { first: "Adwoa", last: "Tetteh", gender: "FEMALE", level: entry, source: "WALK_IN", papers: [["English", 62], ["Mathematics", 58]], interview: { decision: "RECOMMEND", attendees: "Grandmother", days: 40 }, offer: { madeDaysAgo: 35, lapsesInDays: -7 }, feePaid: true , parent: { title: "Madam", first: "Afua", relation: "GRANDMOTHER" as const } },
+    { first: "Kwame", last: "Boadu", gender: "MALE", level: middle, source: "REFERRAL", papers: [["English", 69], ["Mathematics", 64], ["Reasoning", 66]], interview: { decision: "RECOMMEND", attendees: "Both parents", days: 45 }, offer: { madeDaysAgo: 38, lapsesInDays: -3 }, feePaid: true , parent: { title: "Mr", first: "Kojo", relation: "FATHER" as const } },
     // Held in reserve: good enough, the year is full.
-    { first: "Akosua", last: "Nyarko", gender: "FEMALE", level: entry, source: "WEBSITE", papers: [["English", 60], ["Mathematics", 55]], interview: { decision: "RESERVE", attendees: "Mother", days: 8 }, waitlist: 1, feePaid: true },
-    { first: "Kofi", last: "Danso", gender: "MALE", level: entry, source: "WALK_IN", papers: [["English", 57], ["Mathematics", 61]], interview: { decision: "RESERVE", attendees: "Father", days: 7 }, waitlist: 2, feePaid: false },
+    { first: "Akosua", last: "Nyarko", gender: "FEMALE", level: entry, source: "WEBSITE", papers: [["English", 60], ["Mathematics", 55]], interview: { decision: "RESERVE", attendees: "Mother", days: 8 }, waitlist: 1, feePaid: true , parent: { title: "Mrs", first: "Esi", relation: "MOTHER" as const } },
+    { first: "Kofi", last: "Danso", gender: "MALE", level: entry, source: "WALK_IN", papers: [["English", 57], ["Mathematics", 61]], interview: { decision: "RESERVE", attendees: "Father", days: 7 }, waitlist: 2, feePaid: false , parent: { title: "Mr", first: "Yaw", relation: "FATHER" as const } },
     // Went elsewhere.
-    { first: "Maame", last: "Adjei", gender: "FEMALE", level: middle, source: "WEBSITE", papers: [["English", 75], ["Mathematics", 73]], interview: { decision: "RECOMMEND", attendees: "Both parents", days: 30 }, offer: { madeDaysAgo: 26, lapsesInDays: -10 }, declined: "Took a place at another school nearer home.", feePaid: true },
+    { first: "Maame", last: "Adjei", gender: "FEMALE", level: middle, source: "WEBSITE", papers: [["English", 75], ["Mathematics", 73]], interview: { decision: "RECOMMEND", attendees: "Both parents", days: 30 }, offer: { madeDaysAgo: 26, lapsesInDays: -10 }, declined: "Took a place at another school nearer home.", feePaid: true , parent: { title: "Mrs", first: "Ama", relation: "MOTHER" as const } },
   ];
 
   const assessor = staff[1] ?? staff[0];
@@ -5059,6 +5068,35 @@ async function seedAdmissions(
         admissionType: draft.source === "TRANSFER" ? "TRANSFER" : "NEW",
       },
       select: { id: true },
+    });
+
+    const parent = await db.guardian.create({
+      data: {
+        title: draft.parent.title,
+        firstName: draft.parent.first,
+        lastName: draft.last,
+        gender: draft.parent.relation === "FATHER" ? "MALE" : "FEMALE",
+        phone: phone(),
+        address: `House ${between(1, 90)}, ${pick(["East Legon", "Adenta", "Spintex", "Dansoman", "Achimota", "Madina", "Tema Community 5"])}`,
+        city: "Accra",
+      },
+      select: { id: true },
+    });
+
+    await db.studentGuardian.create({
+      data: {
+        studentId: student.id,
+        guardianId: parent.id,
+        relation: draft.parent.relation,
+        isPrimary: true,
+        isEmergency: true,
+        isBillPayer: true,
+        hasCustody: true,
+        canPickUp: true,
+        receivesReports: true,
+        livesWithStudent: true,
+        sortKey: 0,
+      },
     });
 
     const application = await db.admissionApplication.create({

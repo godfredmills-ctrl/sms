@@ -37,6 +37,7 @@ async function factsFor(applicationId: string) {
       declinedOn: true,
       waitlistRank: true,
       academicYearId: true,
+      applyingForLevelId: true,
       student: { select: { status: true, firstName: true, lastName: true } },
       assessments: { select: { score: true } },
       interviews: { select: { decision: true } },
@@ -107,14 +108,18 @@ export async function saveApplicationAction(
   if (id) {
     await db.admissionApplication.update({ where: { id }, data });
   } else {
-    // One application per child. A second attempt on the same record is the
-    // registrar opening the wrong row, not a second intake.
-    const existing = await db.admissionApplication.findUnique({
-      where: { studentId },
+    // One per child per intake. A child who applied last year and was turned
+    // down, or declined, applies again this year on the same pupil record —
+    // which is what the decline path assumes when it puts them back to
+    // APPLICANT rather than withdrawing them.
+    const existing = await db.admissionApplication.findFirst({
+      where: { studentId, academicYearId: year.id },
       select: { id: true },
     });
     if (existing) {
-      return { error: `${student.firstName} ${student.lastName} already has an application.` };
+      return {
+        error: `${student.firstName} ${student.lastName} already has an application for this year.`,
+      };
     }
     await db.admissionApplication.create({
       data: { ...data, studentId, createdById: user.id },
@@ -332,12 +337,34 @@ export async function decideApplicationAction(
   }
 
   if (act === "WAITLIST") {
-    const rank = Number.parseInt(text(formData, "rank"), 10);
+    const given = Number.parseInt(text(formData, "rank"), 10);
+    let rank: number;
+
+    if (Number.isFinite(given) && given > 0) {
+      rank = given;
+    } else {
+      // No rank given means the back of that year group's queue, not the
+      // front. Defaulting to 1 put every reserve at the head of the list, so
+      // the ordering fell through to whoever applied earliest — and when a
+      // place came free the board named the wrong child for it.
+      const last = await db.admissionApplication.findFirst({
+        where: {
+          academicYearId: loaded.application.academicYearId,
+          applyingForLevelId: loaded.application.applyingForLevelId,
+          waitlistRank: { not: null },
+          id: { not: applicationId },
+        },
+        orderBy: { waitlistRank: "desc" },
+        select: { waitlistRank: true },
+      });
+      rank = (last?.waitlistRank ?? 0) + 1;
+    }
+
     await db.admissionApplication.update({
       where: { id: applicationId },
-      data: { waitlistRank: Number.isFinite(rank) && rank > 0 ? rank : 1 },
+      data: { waitlistRank: rank },
     });
-    message = "On the waiting list.";
+    message = `On the waiting list at number ${rank}.`;
   }
 
   if (act === "ACCEPT") {

@@ -489,9 +489,32 @@ export async function setStudentStageAction(
         },
         update: { classSectionId, status: "ACTIVE" },
       }),
+      // An enrolled child is out of the pipeline — stageOf reads
+      // Student.status first and returns ENROLLED whatever else is on the
+      // record — but an application still marked declined would be a
+      // contradiction sitting in the row for anybody who read it.
+      db.admissionApplication.updateMany({
+        where: { studentId: id },
+        data: { declinedOn: null, declineReason: null, waitlistRank: null },
+      }),
     ]);
   } else {
-    await db.student.update({ where: { id }, data: { status: "OFFERED" } });
+    // The admissions board derives its stage from the application, not from
+    // Student.status, so moving the pupil here alone made the two screens
+    // disagree: the profile said a place had been offered and the board went
+    // on showing them as applied, with an Offer button still on the row.
+    //
+    // Stamped rather than left null, and with no lapse date, because this
+    // path has nowhere to ask for one — the board's own offer control is where
+    // a date is set, and an offer with no date is the honest record of one
+    // made without a deadline.
+    await db.$transaction([
+      db.student.update({ where: { id }, data: { status: "OFFERED" } }),
+      db.admissionApplication.updateMany({
+        where: { studentId: id, offeredOn: null },
+        data: { offeredOn: new Date(), acceptedOn: null, declinedOn: null, waitlistRank: null },
+      }),
+    ]);
   }
 
   await db.auditLog.create({

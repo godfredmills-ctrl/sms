@@ -26,6 +26,9 @@ export type PipelineRow = {
   papers: Array<{ paper: string; score: number | null; maxScore: number }>;
   average: number | null;
   recommendation: string | null;
+  /** What the interviewer wrote. It was stored and read back nowhere. */
+  interviewNote: string | null;
+  interviewAttendees: string | null;
   interviewedOn: Date | null;
   offeredOn: Date | null;
   offerExpiresOn: Date | null;
@@ -69,7 +72,7 @@ export async function pipeline(academicYearId: string, now: Date): Promise<Pipel
       },
       interviews: {
         orderBy: { heldOn: "desc" },
-        select: { decision: true, heldOn: true },
+        select: { decision: true, heldOn: true, notes: true, attendees: true },
       },
     },
   });
@@ -106,6 +109,8 @@ export async function pipeline(academicYearId: string, now: Date): Promise<Pipel
       // The most recent one. A family seen twice is two records, and the
       // second conversation is the one that stands.
       recommendation: application.interviews[0]?.decision ?? null,
+      interviewNote: application.interviews[0]?.notes ?? null,
+      interviewAttendees: application.interviews[0]?.attendees ?? null,
       interviewedOn: application.interviews[0]?.heldOn ?? null,
       offeredOn: application.offeredOn,
       offerExpiresOn: application.offerExpiresOn,
@@ -157,7 +162,16 @@ export async function placesByLevel(academicYearId: string, now: Date) {
     pipeline(academicYearId, now),
   ]);
 
-  return levels.map((level) => {
+  // Offers held against no year group. They are real seats promised to real
+  // families, and belonging to no level they fell out of every count — a
+  // school could promise ten places the board never mentioned.
+  const unplaced = rows.filter(
+    (row) =>
+      row.levelId === null &&
+      (row.stage === "OFFERED" || row.stage === "EXPIRED" || row.stage === "ACCEPTED"),
+  ).length;
+
+  const byLevel = levels.map((level) => {
     const seats = level.sections.reduce((sum, section) => sum + section.capacity, 0);
     const enrolled = level.sections.reduce(
       (sum, section) => sum + section._count.enrollments,
@@ -179,4 +193,6 @@ export async function placesByLevel(academicYearId: string, now: Date) {
       over: enrolled + held > seats,
     };
   });
+
+  return { levels: byLevel, unplaced };
 }
