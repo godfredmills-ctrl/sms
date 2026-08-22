@@ -66,9 +66,14 @@ export async function saveHouseAction(
       select: { gender: true },
     });
     if (existing && existing.gender !== gender && gender !== "MIXED") {
+      // Scoped to the current year, like every other boarding read. Without
+      // it, an allocation left open when a previous year rolled over would
+      // block the change for ever, on the strength of a child who left.
+      const year = await currentYearId();
       const wrong = await db.boardingAllocation.count({
         where: {
           endedOn: null,
+          ...(year ? { academicYearId: year } : {}),
           room: { houseId: id },
           student: { gender: gender === "BOYS" ? "FEMALE" : "MALE" },
         },
@@ -221,12 +226,23 @@ export async function allocateBedAction(formData: FormData): Promise<BoardingSta
 
   try {
     await db.$transaction(async (tx) => {
+      // The room row is locked before the recount. Without it the recount is
+      // not a guard at all: Postgres runs this at READ COMMITTED, where
+      // count() takes no locks and sees no uncommitted insert, so two clerks
+      // both read 23 of 24 and both write. Locking makes them queue, and the
+      // second one gets the sentence below instead of a twenty-fifth bed.
+      const locked = await tx.$queryRaw<{ capacity: number }[]>`
+        SELECT "capacity" FROM "BoardingRoom" WHERE "id" = ${roomId} FOR UPDATE
+      `;
+      const capacity = locked[0]?.capacity;
+      if (capacity === undefined) throw new Error("That room was not found.");
+
       const taken = await tx.boardingAllocation.count({
         where: { roomId, endedOn: null, academicYearId },
       });
-      if (taken >= room.capacity) {
+      if (taken >= capacity) {
         throw new Error(
-          `${room.name} filled up while you were looking at it — ${taken} of ${room.capacity} beds are taken.`,
+          `${room.name} filled up while you were looking at it — ${taken} of ${capacity} beds are taken.`,
         );
       }
 
@@ -259,6 +275,15 @@ export async function allocateBedAction(formData: FormData): Promise<BoardingSta
       });
     });
   } catch (error) {
+    // A constraint violation is a sentence, not a stack trace. The partial
+    // unique index on one-open-bed-per-year fires when the same child is
+    // allocated twice at once, and Prisma's message for it carries an
+    // absolute path from the server.
+    if ((error as { code?: string }).code === "P2002") {
+      return {
+        error: "That pupil was given a bed a moment ago. Reload and check where they are.",
+      };
+    }
     return { error: (error as Error).message };
   }
 
@@ -503,7 +528,21 @@ export async function decideExeatAction(formData: FormData): Promise<BoardingSta
     data.signedInById = user.staffId ?? null;
   }
 
-  await db.boardingExeat.update({ where: { id }, data });
+  try {
+    await db.boardingExeat.update({ where: { id }, data });
+  } catch (error) {
+    // Two approved leave-outs for one child can exist — the check when one is
+    // raised only refuses a child who is already out — so signing out the
+    // second is an ordinary mistake, and the partial unique index catches it.
+    // Only P2002: a dropped connection must not be reported to the gate as a
+    // duplicate leave-out.
+    if (to === "OUT" && (error as { code?: string }).code === "P2002") {
+      return {
+        error: `${exeat.student.firstName} is already signed out on another leave-out. Sign them back in first.`,
+      };
+    }
+    throw error;
+  }
 
   await db.auditLog.create({
     data: {

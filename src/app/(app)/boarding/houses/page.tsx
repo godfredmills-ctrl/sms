@@ -36,7 +36,7 @@ export default async function HousesPage() {
     );
   }
 
-  const [houses, staff, waiting] = await Promise.all([
+  const [houses, staff, waiting, allBoarders] = await Promise.all([
     db.boardingHouse.findMany({
       orderBy: [{ active: "desc" }, { name: "asc" }],
       select: {
@@ -85,6 +85,30 @@ export default async function HousesPage() {
       select: { id: true, firstName: true, lastName: true, title: true, jobTitle: true },
     }),
     unhoused(year.id),
+    // Every boarder, not only the ones with no bed. The picker used to offer
+    // the unhoused alone, which made the move this page advertises impossible:
+    // a child already in a room simply was not in the list, so the only way to
+    // move them was to release the bed first and hope nobody took it.
+    db.student.findMany({
+      where: { status: "ENROLLED", isBoarder: true },
+      orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
+      take: 2000,
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        otherNames: true,
+        admissionNo: true,
+        boardingAllocations: {
+          where: { endedOn: null, academicYearId: year.id },
+          take: 1,
+          select: {
+            bedLabel: true,
+            room: { select: { name: true, house: { select: { name: true } } } },
+          },
+        },
+      },
+    }),
   ]);
 
   const rows: HouseRow[] = houses.map((house) => ({
@@ -121,18 +145,30 @@ export default async function HousesPage() {
     description: person.jobTitle ?? undefined,
   }));
 
-  const unplaced: SelectOption[] = waiting.map((student) => ({
-    value: student.id,
-    label: listName(student),
-    description:
+  // Whoever has no bed first, then the rest — so the common job is at the top
+  // of the list and a move is still possible. Where a child already has a bed
+  // the picker says which, because allocating them again moves them out of it.
+  const describe = (student: (typeof allBoarders)[number]) => {
+    const bed = student.boardingAllocations[0];
+    return (
       [
         student.admissionNo,
-        student.enrollments[0]
-          ? `${student.enrollments[0].classSection.classLevel.name} ${student.enrollments[0].classSection.name}`
-          : null,
+        bed
+          ? `now in ${bed.room.house.name} · ${bed.room.name}${bed.bedLabel ? ` · ${bed.bedLabel}` : ""}`
+          : "no bed",
       ]
         .filter(Boolean)
-        .join(" · ") || undefined,
+        .join(" · ") || undefined
+    );
+  };
+
+  const unplaced: SelectOption[] = [
+    ...allBoarders.filter((student) => student.boardingAllocations.length === 0),
+    ...allBoarders.filter((student) => student.boardingAllocations.length > 0),
+  ].map((student) => ({
+    value: student.id,
+    label: listName(student),
+    description: describe(student),
   }));
 
   return (
@@ -143,9 +179,10 @@ export default async function HousesPage() {
       />
       {waiting.length ? (
         <Alert tone="info" className="mb-4">
-          {waiting.length} boarder{waiting.length === 1 ? " has" : "s have"} no bed. They are
-          the only pupils offered when you allocate — a child already in a bed is moved by
-          allocating them again, which closes the old row rather than deleting it.
+          {waiting.length} boarder{waiting.length === 1 ? " has" : "s have"} no bed. They
+          are listed first when you allocate. A child already in a room is moved by
+          allocating them again, which closes the old row rather than deleting it — the
+          picker says where each one is now.
         </Alert>
       ) : null}
       <HousesEditor houses={rows} staff={staffOptions} unplaced={unplaced} />

@@ -32,6 +32,8 @@ export type ExeatRow = {
   houseName: string | null;
   reason: string;
   destination: string;
+  /** ISO, for the arithmetic. */
+  dueBackAtISO: string;
   departsAt: string;
   dueBackAt: string;
   releasedToName: string;
@@ -183,7 +185,14 @@ function Group({
           <ul className="divide-y divide-[var(--border)]">
             {rows.map((row) => {
               const status = TONE.get(row.status as (typeof EXEAT_STATUSES)[number]["value"]);
-              const late = isOverdue({ status: row.status, dueBackAt: row.dueBackAt }, now);
+              // Against the ISO value, never the formatted one. "15 Aug 2026,
+              // 18:00" happens to re-parse in V8 and happens not to in other
+              // engines, and an hour that depends on which browser is at the
+              // desk is not an hour.
+              const late = isOverdue(
+                { status: row.status, dueBackAt: row.dueBackAtISO },
+                now,
+              );
 
               return (
                 <li key={row.id} className="py-3">

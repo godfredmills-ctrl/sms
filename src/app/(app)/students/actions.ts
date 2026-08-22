@@ -2,7 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 
+
 import { authorize } from "@/lib/auth";
+import { houseRefusal } from "@/lib/boarding-rules";
 import { db } from "@/lib/db";
 
 import { LIFECYCLE_TRANSITIONS } from "./lifecycle";
@@ -559,6 +561,42 @@ export async function updateStudentAction(
   // must not write them either — silence here would blank them.
   const mayEditBackground = user.permissions.has("student.background.read");
 
+  // Boarding is two records that have to agree: the four fields on this row,
+  // and the BoardingAllocation that owns a bed in a room. This form used to
+  // write the fields alone, so unticking "Boarder" here left the allocation
+  // open — the bed stayed counted as taken, the child did not appear on the
+  // list of boarders without one, and only their name under the room in
+  // Houses & rooms said anything was wrong.
+  const wantsBoarding = formData.get("isBoarder") === "on";
+  const boardingYear = await db.academicYear.findFirst({
+    where: { isCurrent: true },
+    select: { id: true },
+  });
+  const openBed = boardingYear
+    ? await db.boardingAllocation.findFirst({
+        where: { studentId: id, academicYearId: boardingYear.id, endedOn: null },
+        select: {
+          id: true,
+          room: { select: { house: { select: { name: true, gender: true } } } },
+        },
+      })
+    : null;
+
+  // The same rule the boarding module applies when a house's sex is changed
+  // under its boarders, applied from the other direction. Correcting a
+  // pupil's recorded sex is ordinary and often overdue; doing it while they
+  // hold a bed in a house that now forbids them is a thing somebody has to
+  // act on, and it would have happened here in silence.
+  const newGender = text(formData, "gender");
+  if (openBed && newGender) {
+    const clash = houseRefusal(newGender, openBed.room.house.gender);
+    if (clash) {
+      return {
+        error: `They are in ${openBed.room.house.name}, and ${clash.toLowerCase().replace(/.$/, "")} — move them to another house first.`,
+      };
+    }
+  }
+
   const firstName = text(formData, "firstName");
   const lastName = text(formData, "lastName");
   if (!firstName || !lastName) return { error: "First and last name are required." };
@@ -624,10 +662,18 @@ export async function updateStudentAction(
         transportMode: optional(formData, "transportMode"),
         busRoute: optional(formData, "busRoute"),
 
-        isBoarder: formData.get("isBoarder") === "on",
-        house: optional(formData, "house"),
-        dormitory: optional(formData, "dormitory"),
-        roomNumber: optional(formData, "roomNumber"),
+        // The boarding fields are the allocation's, whenever there is one.
+        // See the reconciliation below: writing them from this form while a
+        // bed is open let somebody untick "Boarder" here and leave the bed
+        // occupied by a child the boarding module still believes is in it.
+        ...(openBed
+          ? {}
+          : {
+              house: optional(formData, "house"),
+              dormitory: optional(formData, "dormitory"),
+              roomNumber: optional(formData, "roomNumber"),
+            }),
+        isBoarder: wantsBoarding,
 
         ...(mayEditBackground
           ? {
@@ -661,6 +707,34 @@ export async function updateStudentAction(
       summary: `Updated ${firstName} ${lastName} (${admissionNo})`,
     },
   });
+
+  // Boarding switched off with a bed still open: close it, and clear the four
+  // fields the allocation owned. Done after the update rather than inside it
+  // because the bed is a different table with its own rules, and leaving it
+  // open would keep it counted as taken by a child the school no longer
+  // believes is boarding.
+  if (openBed && !wantsBoarding) {
+    await db.boardingAllocation.update({
+      where: { id: openBed.id },
+      data: { endedOn: new Date() },
+    });
+    await db.student.update({
+      where: { id },
+      data: { house: null, dormitory: null, roomNumber: null },
+    });
+    await db.auditLog.create({
+      data: {
+        userId: user.id,
+        actorLabel: user.fullName,
+        action: "boarding.deallocate",
+        entity: "Student",
+        entityId: id,
+        summary: "Bed released — no longer a boarder",
+      },
+    });
+    revalidatePath("/boarding");
+    revalidatePath("/boarding/houses");
+  }
 
   revalidatePath("/students");
   revalidatePath(`/students/${id}`);

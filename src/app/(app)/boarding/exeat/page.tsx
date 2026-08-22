@@ -19,12 +19,49 @@ export default async function ExeatPage() {
   const canGate = userCan(user, "boarding.gate");
   const canRequest = userCan(user, "boarding.exeat.request");
 
-  const [exeats, boarders] = await Promise.all([
+  // Two queries, not one capped list. Everything still open is fetched
+  // without a limit, because "who is off the premises" must never be a
+  // partial answer — and it would have been: Postgres orders an enum by
+  // declaration order, REQUESTED and APPROVED come before OUT, so a term's
+  // worth of finished leave-outs would have pushed the children who are
+  // actually out past take: 300 and the screen would have read "Nobody is
+  // out" while the school did not have them.
+  const openStatuses = ["REQUESTED", "APPROVED", "OUT"] as const;
+
+  const [open, finished, boarders] = await Promise.all([
     db.boardingExeat.findMany({
-      // Everything open, and a tail of what has closed — enough to answer "did
-      // she come back on Sunday" without loading a term of history.
-      orderBy: [{ status: "asc" }, { dueBackAt: "asc" }],
-      take: 300,
+      where: { status: { in: [...openStatuses] } },
+      orderBy: { dueBackAt: "asc" },
+      select: {
+        id: true,
+        status: true,
+        reason: true,
+        destination: true,
+        departsAt: true,
+        dueBackAt: true,
+        releasedToName: true,
+        releasedToPhone: true,
+        relationship: true,
+        signedOutAt: true,
+        signedInAt: true,
+        decisionNote: true,
+        house: { select: { name: true } },
+        student: {
+          select: {
+            firstName: true,
+            lastName: true,
+            otherNames: true,
+            admissionNo: true,
+          },
+        },
+      },
+    }),
+    // A tail of what has closed — enough to answer "did she come back on
+    // Sunday" without loading a term of history.
+    db.boardingExeat.findMany({
+      where: { status: { in: ["RETURNED", "CANCELLED"] } },
+      orderBy: { dueBackAt: "desc" },
+      take: 60,
       select: {
         id: true,
         status: true,
@@ -65,7 +102,7 @@ export default async function ExeatPage() {
       : Promise.resolve([]),
   ]);
 
-  const rows: ExeatRow[] = exeats.map((exeat) => ({
+  const rows: ExeatRow[] = [...open, ...finished].map((exeat) => ({
     id: exeat.id,
     status: exeat.status,
     studentName: listName(exeat.student),
@@ -73,6 +110,7 @@ export default async function ExeatPage() {
     houseName: exeat.house?.name ?? null,
     reason: exeat.reason,
     destination: exeat.destination,
+    dueBackAtISO: exeat.dueBackAt.toISOString(),
     departsAt: formatDateTime(exeat.departsAt),
     dueBackAt: formatDateTime(exeat.dueBackAt),
     releasedToName: exeat.releasedToName,

@@ -53,7 +53,15 @@ export default async function BoardingPage() {
 
   const now = new Date();
   const overdue = out.filter((exeat) => isOverdue({ status: "OUT", dueBackAt: exeat.dueBackAt }, now));
-  const beds = rooms.reduce((sum, room) => sum + (room.active ? room.capacity : 0), 0);
+  // A room taken out of use keeps its boarders, so it keeps the beds they are
+  // actually in. Dropping its whole capacity put the total below the number
+  // filled — "54 / 48", "-6 spare" — with no over-full room to explain it,
+  // because every room was exactly at capacity. Its empty beds are still not
+  // offered: allocationRefusal will not put anybody in an inactive room.
+  const beds = rooms.reduce(
+    (sum, room) => sum + (room.active ? room.capacity : room.occupied),
+    0,
+  );
   const filled = rooms.reduce((sum, room) => sum + room.occupied, 0);
   const overFull = rooms.filter((room) => room.occupied > room.capacity);
 
