@@ -279,9 +279,44 @@ export async function paperMarkSheet(paperId: string): Promise<ScriptRow[]> {
     offerings.map((offering) => [offering.classSectionId, offering]),
   );
 
+  const sectionIds = offerings.map((offering) => offering.classSectionId);
+
   const [candidates, assessments] = await Promise.all([
     db.examCandidate.findMany({
-      where: { sessionId: paper.sessionId },
+      // The paper's candidates, not the session's. A session runs several year
+      // groups over a fortnight, and scoping on the session alone put every
+      // candidate in the school on every marking sheet — two hundred rows of
+      // which sixty were the pile in front of you and the rest were JHS 1
+      // sitting nothing, each with a reason beside it. A list that long is not
+      // read; it is scrolled past, and the genuinely blocked candidates it was
+      // meant to surface disappear into it.
+      //
+      // Three ways to belong here, and the union of them is deliberate:
+      // somebody who sat it, somebody entered from a class that sits it, and
+      // somebody who has since moved into one. The last two are how a
+      // candidate ends up needing a row and a reason rather than a mark.
+      where: {
+        sessionId: paper.sessionId,
+        OR: [
+          { seats: { some: { paperId } } },
+          ...(sectionIds.length
+            ? [
+                { classSectionId: { in: sectionIds } },
+                {
+                  student: {
+                    enrollments: {
+                      some: {
+                        status: "ACTIVE" as const,
+                        academicYearId: paper.session.academicYearId,
+                        classSectionId: { in: sectionIds },
+                      },
+                    },
+                  },
+                },
+              ]
+            : []),
+        ],
+      },
       orderBy: { candidateNo: "asc" },
       select: {
         id: true,

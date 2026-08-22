@@ -77,6 +77,7 @@ export default async function PaperPage({
       session: { select: { id: true, name: true, status: true } },
       assessments: {
         select: {
+          isPublished: true,
           offering: { select: { classSection: { select: { name: true } } } },
           _count: { select: { scores: true } },
         },
@@ -300,6 +301,14 @@ export default async function PaperPage({
                   sections={paper.assessments.map(
                     (entry) => entry.offering.classSection.name,
                   )}
+                  marks={paper.assessments.reduce(
+                    (sum, entry) => sum + entry._count.scores,
+                    0,
+                  )}
+                  unpublished={
+                    paper.assessments.filter((entry) => !entry.isPublished).length
+                  }
+                  canPublish={userCan(user, "assessment.publish")}
                 />
               </CardBody>
             </Card>

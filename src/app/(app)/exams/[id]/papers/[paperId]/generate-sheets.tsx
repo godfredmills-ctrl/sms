@@ -2,11 +2,15 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { FileSpreadsheet } from "lucide-react";
+import { FileSpreadsheet, Send } from "lucide-react";
 
 import { Alert, Button, Field, Input } from "@/components/ui";
 
-import { generatePaperMarkSheetsAction, setPaperMarkingAction } from "../../../actions";
+import {
+  generatePaperMarkSheetsAction,
+  publishPaperMarksAction,
+  setPaperMarkingAction,
+} from "../../../actions";
 
 /**
  * Creating the mark sheet column for each class sitting this paper.
@@ -23,6 +27,9 @@ export function GenerateSheets({
   maxMarks,
   sheets,
   sections,
+  marks,
+  unpublished,
+  canPublish,
 }: {
   paperId: string;
   sessionId: string;
@@ -30,6 +37,11 @@ export function GenerateSheets({
   maxMarks: number | null;
   sheets: number;
   sections: string[];
+  /** Marks entered across every class. */
+  marks: number;
+  /** Classes whose marks are still not out. */
+  unpublished: number;
+  canPublish: boolean;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -114,6 +126,39 @@ export function GenerateSheets({
               Refreshing updates the title, the maximum and the weight. It never
               unpublishes a class whose marks have already gone out.
             </p>
+          ) : null}
+
+          {sheets && canPublish && unpublished > 0 ? (
+            // One press for the whole paper. It was marked once across every
+            // class and then had to be published from each class's own
+            // gradebook page — pages the exams officer who marked it does not
+            // own.
+            <div className="border-t border-[var(--border)] pt-3">
+              <Button
+                size="sm"
+                disabled={busy || marks === 0}
+                onClick={async () => {
+                  setBusy(true);
+                  setProblem(null);
+                  setDone(null);
+                  const data = new FormData();
+                  data.append("paperId", paperId);
+                  const result = await publishPaperMarksAction(data);
+                  setBusy(false);
+                  if (result.error) setProblem(result.error);
+                  if (result.message) setDone(result.message);
+                  router.refresh();
+                }}
+              >
+                <Send className="size-4" />
+                {busy ? "Publishing…" : `Publish to ${unpublished} class${unpublished === 1 ? "" : "es"}`}
+              </Button>
+              <p className="mt-1 text-xs text-[var(--text-subtle)]">
+                {marks === 0
+                  ? "Nothing is entered yet."
+                  : "Every pupil and every guardian who receives reports is notified. This cannot be undone from here."}
+              </p>
+            </div>
           ) : null}
         </>
       )}

@@ -38,6 +38,7 @@ import {
 } from "@/components/ui";
 import { requirePermission, userCan } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { formatScoreCell } from "@/lib/marks-math";
 import { daysOverdue } from "@/lib/library";
 import { directionLabel } from "@/lib/transport";
 
@@ -1140,10 +1141,14 @@ export default async function StudentProfilePage({
                         >
                           <td className="px-4 py-2">{line.subject.name}</td>
                           <td className="numeric px-4 py-2 text-right">
-                            {toNumber(line.caScore)?.toFixed(1) ?? "—"}
+                            {formatScoreCell(toNumber(line.caScore), {
+                              absent: line.caAbsent,
+                            })}
                           </td>
                           <td className="numeric px-4 py-2 text-right">
-                            {toNumber(line.examScore)?.toFixed(1) ?? "—"}
+                            {formatScoreCell(toNumber(line.examScore), {
+                              absent: line.examAbsent,
+                            })}
                           </td>
                           <td className="numeric px-4 py-2 text-right font-medium">
                             {toNumber(line.totalScore)?.toFixed(1) ?? "—"}

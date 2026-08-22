@@ -16,6 +16,8 @@ import {
 } from "@/lib/exams";
 import { offeringOutOfScope } from "@/lib/scope";
 
+import { publishAssessment } from "../gradebook/actions";
+
 export type ExamState = {
   ok?: boolean;
   error?: string;
@@ -154,6 +156,31 @@ export async function setSessionStatusAction(formData: FormData): Promise<ExamSt
     where: { id },
     data: { status: status as "DRAFT" | "PUBLISHED" | "COMPLETED" },
   });
+
+  // "Sat" is the end of the marking, so it closes the mark sheets these
+  // examinations produced. Until now COMPLETED was a label nothing read, and
+  // Assessment.isLocked was a column two places checked and nothing ever set —
+  // a lock that could not be applied is not a lock. Reopening lifts it, so
+  // this is a door rather than a wall.
+  const locked = status === "COMPLETED";
+  if (locked || session.status === "COMPLETED") {
+    const touched = await db.assessment.updateMany({
+      where: { examPaper: { sessionId: id } },
+      data: { isLocked: locked },
+    });
+    if (touched.count) {
+      await db.auditLog.create({
+        data: {
+          userId: user.id,
+          actorLabel: user.fullName,
+          action: locked ? "assessment.lock" : "assessment.unlock",
+          entity: "ExamSession",
+          entityId: id,
+          summary: `${locked ? "Locked" : "Unlocked"} ${touched.count} mark sheet${touched.count === 1 ? "" : "s"} for ${session.name}`,
+        },
+      });
+    }
+  }
 
   await db.auditLog.create({
     data: {
@@ -803,7 +830,7 @@ export async function saveExamPaperMarks(
       sessionId: true,
       maxMarks: true,
       subject: { select: { name: true } },
-      assessments: { select: { id: true, maxScore: true } },
+      assessments: { select: { id: true, maxScore: true, isLocked: true, title: true } },
       session: { select: { term: { select: { isLocked: true } } } },
     },
   });
@@ -819,6 +846,15 @@ export async function saveExamPaperMarks(
   // still raises the class average and moves everybody's position.
   const maxFor = new Map(
     paper.assessments.map((one) => [one.id, Number(one.maxScore)]),
+  );
+
+  // A locked column is locked through this door too. saveScores in the
+  // gradebook has always refused one; this path did not, so the same column
+  // was writable from the examinations side and refused from the gradebook —
+  // two doors into one mark sheet with two different rules, which is how a
+  // lock comes to mean nothing.
+  const lockedSheets = new Set(
+    paper.assessments.filter((one) => one.isLocked).map((one) => one.id),
   );
   if (paper.session.term?.isLocked) {
     return { error: "This term is locked. Ask an administrator to reopen it." };
@@ -859,6 +895,12 @@ export async function saveExamPaperMarks(
 
     // The register decides. A candidate the invigilator wrote down as absent
     // gets an absence, whatever was typed against them.
+    if (lockedSheets.has(row.assessmentId)) {
+      return {
+        error: `The mark sheet for ${row.marksSection ?? "that class"} is locked and cannot be changed.`,
+      };
+    }
+
     const isAbsent = row.seatStatus === "ABSENT";
     const max = maxFor.get(row.assessmentId) ?? paper.maxMarks ?? 100;
     if (!isAbsent && entry.score !== null) {
@@ -993,4 +1035,104 @@ async function resyncIfGenerated(paperId: string): Promise<string | null> {
   return result.ok
     ? `The ${existing} mark sheet${existing === 1 ? "" : "s"} already generated were updated to match.`
     : `The mark sheets could NOT be updated to match: ${result.error}`;
+}
+
+/**
+ * Publishes every class's marks for one paper.
+ *
+ * A paper is marked once across three classes and then had to be published
+ * three times, from three different gradebook pages, because publication hangs
+ * off the assessment. The exams officer who marked it is not the teacher who
+ * owns any of those pages.
+ *
+ * It goes through publishAssessment rather than writing isPublished directly:
+ * that function is what notifies every pupil and every guardian who receives
+ * reports, and a second publish path that skipped the notification would mean
+ * a mark visible in the portal that nobody was told about.
+ *
+ * Still gated on assessment.publish, which the registrar deliberately does not
+ * hold. Marking is the exams office's work; releasing marks to families is the
+ * head's, and it cannot be undone by anybody once the messages have gone.
+ */
+export async function publishPaperMarksAction(formData: FormData): Promise<ExamState> {
+  let user;
+  try {
+    user = await authorize("assessment.publish");
+  } catch (error) {
+    return { error: (error as Error).message };
+  }
+
+  const paperId = text(formData, "paperId");
+  if (!paperId) return { error: "Which paper?" };
+
+  const paper = await db.examPaper.findUnique({
+    where: { id: paperId },
+    select: {
+      sessionId: true,
+      subject: { select: { name: true } },
+      assessments: {
+        select: {
+          id: true,
+          isPublished: true,
+          offeringId: true,
+          offering: { select: { classSection: { select: { name: true } } } },
+          _count: { select: { scores: true } },
+        },
+      },
+    },
+  });
+  if (!paper) return { error: "That paper was not found." };
+
+  const unpublished = paper.assessments.filter((one) => !one.isPublished);
+  if (unpublished.length === 0) {
+    return { ok: true, message: "Every class's marks are already published." };
+  }
+
+  // A class with nothing entered is not published. Publishing an empty column
+  // tells families the results are out and shows them nothing, which generates
+  // exactly the phone calls the notification was meant to save.
+  const empty = unpublished.filter((one) => one._count.scores === 0);
+  const ready = unpublished.filter((one) => one._count.scores > 0);
+  if (ready.length === 0) {
+    return {
+      error: "No marks have been entered for this paper yet, so there is nothing to publish.",
+    };
+  }
+
+  const failed: string[] = [];
+  for (const assessment of ready) {
+    const result = await publishAssessment(assessment.id);
+    if (result && "error" in result && result.error) {
+      failed.push(`${assessment.offering.classSection.name}: ${result.error}`);
+    }
+  }
+
+  await db.auditLog.create({
+    data: {
+      userId: user.id,
+      actorLabel: user.fullName,
+      action: "assessment.exam.publish",
+      entity: "ExamPaper",
+      entityId: paperId,
+      summary: `Published ${ready.length - failed.length} of ${ready.length} class mark sheets for ${paper.subject.name}`,
+    },
+  });
+
+  revalidatePath(`/exams/${paper.sessionId}/papers/${paperId}`);
+  revalidatePath("/gradebook");
+  for (const assessment of ready) revalidatePath(`/gradebook/${assessment.offeringId}`);
+
+  const notes: string[] = [];
+  if (empty.length) {
+    notes.push(
+      `${empty.map((one) => one.offering.classSection.name).join(", ")} had no marks entered and ${empty.length === 1 ? "was" : "were"} left unpublished.`,
+    );
+  }
+  if (failed.length) notes.push(failed.join(" "));
+
+  return {
+    ok: failed.length === 0,
+    error: failed.length ? failed.join(" ") : undefined,
+    message: `Published for ${ready.length - failed.length} class${ready.length - failed.length === 1 ? "" : "es"}.${notes.length ? ` ${notes.join(" ")}` : ""}`,
+  };
 }
