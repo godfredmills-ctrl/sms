@@ -133,6 +133,22 @@ export function parseInline(source: string): Inline[] {
     }
 
     if (char === "*" || char === "_") {
+      // A run of four or more is not emphasis — it is a line to write on.
+      //
+      // School documents are full of them: "Signed ________________", "Name:
+      // ____________". Read as emphasis, a signature line disappeared entirely
+      // and turned the words after it bold — a leave-out pass came off the
+      // printer reading "Signed out at **by**", with nowhere for the gate to
+      // write. Emphasis is one, two or three markers; anything longer is what
+      // it looks like.
+      let run = 0;
+      while (source[index + run] === char) run += 1;
+      if (run >= 4) {
+        text += char.repeat(run);
+        index += run;
+        continue;
+      }
+
       const triple = source.startsWith(char.repeat(3), index);
       const double = source.startsWith(char.repeat(2), index);
 

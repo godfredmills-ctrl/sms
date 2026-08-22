@@ -52,6 +52,18 @@ check("underscore inside a word", shape("file_name_here.pdf"), ["file_name_here.
 check("underscore emphasis around words", shape("_quietly_"), ["quietly|i"]);
 check("bold inside a sentence", shape("the **head** said"), ["the ", "head|b", " said"]);
 check("markers inside code are literal", shape("`a**b`"), ["a**b|c"]);
+
+// A run of four or more is a line to write on, not emphasis. A leave-out pass
+// printed as "Signed out at **by**", with the line itself gone and nowhere for
+// the gate to sign.
+check("a signature line survives", shape("Signed out at ________________    by ________________"), [
+  "Signed out at ________________    by ________________",
+]);
+check("a short fill-in line survives", shape("Name: ____________"), ["Name: ____________"]);
+check("four asterisks are not emphasis", shape("a **** b"), ["a **** b"]);
+// Three is still emphasis, and two, and one.
+check("three still means bold italic", shape("***both***"), ["both|b|i"]);
+// (the block-level rule is checked under Blocks, where kinds() is defined)
 // ...and a marker outside one must not pair with a marker inside it.
 check("an asterisk does not pair into a later code span", shape("2 * 4 and `a * b`"), [
   "2 * 4 and ",
@@ -75,6 +87,9 @@ check("heading levels", kinds("# One\n## Two\n### Three"), [
 ]);
 check("hash without a space is not a heading", kinds("#notaheading"), ["paragraph"]);
 check("rule", kinds("---"), ["rule"]);
+// A run of underscores on its own line is still a rule — the four-or-more
+// inline guard must not have swallowed the block-level one.
+check("a rule of underscores", kinds("____"), ["rule"]);
 check("quote", kinds("> mind the gap"), ["quote"]);
 
 check(

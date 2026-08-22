@@ -2,7 +2,7 @@
 
 import { useActionState, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Check, DoorOpen, LogIn, Plus, X } from "lucide-react";
+import { Check, DoorOpen, LogIn, Plus, Printer, X } from "lucide-react";
 
 import { SearchableSelect, type SelectOption } from "@/components/select-search";
 import {
@@ -258,6 +258,17 @@ function Group({
                           <Check className="size-4" />
                           Approve
                         </Button>
+                      ) : null}
+                      {row.status === "APPROVED" || row.status === "OUT" ? (
+                        <a
+                          href={`/api/boarding/exeat?id=${row.id}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1 rounded-[var(--radius)] border border-[var(--border)] px-2.5 py-1.5 text-sm text-[var(--text-muted)] hover:text-[var(--text)]"
+                        >
+                          <Printer className="size-4" />
+                          Pass
+                        </a>
                       ) : null}
                       {row.allowed.includes("OUT") ? (
                         <Button

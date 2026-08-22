@@ -12,6 +12,7 @@ const TABS: Tab[] = [
   { href: "/portal/student/credentials", label: "Certificates" },
   { href: "/portal/student/timetable", label: "Timetable" },
   { href: "/portal/student/attendance", label: "Attendance" },
+  { href: "/portal/student/boarding", label: "Boarding" },
   { href: "/portal/student/fees", label: "Fees" },
   { href: "/portal/student/announcements", label: "Announcements" },
 ];

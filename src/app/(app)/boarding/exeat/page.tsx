@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 
 import type { SelectOption } from "@/components/select-search";
-import { PageHeader } from "@/components/ui";
+import { Printer } from "lucide-react";
+
+import { LinkButton, PageHeader } from "@/components/ui";
 import { requirePermission, userCan } from "@/lib/auth";
 import { EXEAT_TRANSITIONS, type ExeatStatusValue } from "@/lib/boarding-rules";
 import { db } from "@/lib/db";
@@ -137,6 +139,19 @@ export default async function ExeatPage() {
       <PageHeader
         title="Leave-out"
         description="A boarder off the compound is signed out to a named adult and signed back in. This is what the school has when somebody asks where a child is."
+        action={
+          canGate || canApprove ? (
+            <LinkButton
+              href="/api/boarding/exeat"
+              target="_blank"
+              size="sm"
+              variant="secondary"
+            >
+              <Printer className="size-4" />
+              Passes for everyone approved
+            </LinkButton>
+          ) : null
+        }
       />
       <ExeatDesk
         rows={rows}

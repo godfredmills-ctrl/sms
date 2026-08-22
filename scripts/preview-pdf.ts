@@ -854,7 +854,52 @@ async function main() {
     }),
   );
 
-  console.log(`Wrote thirteen PDFs to ${out}`);
+
+  // The leave-out pass. Two to a print run, so the page break is exercised —
+  // it is cut and handed to two different children.
+  writeFileSync(
+    `${out}/exeat-pass.pdf`,
+    await renderDocumentPdf({
+      letterhead: examLetterhead,
+      document: {
+        title: "Leave-out passes",
+        date: "21 August 2026",
+        body: "",
+        footnote:
+          "Carried by the pupil and shown on request. Returned to the gate on the way back in.",
+        sections: [
+          { name: "Priscilla Naa Quartey", no: "GCS/2024/0390", cls: "JHS 3 A", house: "Sutherland House", to: "East Legon", why: "Weekend at home", by: "Mr Yaw Darko (Uncle)", phone: "055 210 9931" },
+          { name: "Kwabɛna Asantɛ Mensah", no: "GCS/2023/0114", cls: "JHS 2 B", house: "Aggrey House", to: "Korle Bu, Accra", why: "Dental appointment", by: "Mr Kwesi Boateng (Father)", phone: "024 556 1120" },
+        ].map((one) =>
+          [
+            `# ${one.name}`,
+            "",
+            `**${one.no}** · ${one.cls} · ${one.house}`,
+            "",
+            "| Leave-out | Details |",
+            "| --- | --- |",
+            `| Going to | ${one.to} |`,
+            `| Why | ${one.why} |`,
+            "| Leaves | 21 Aug 2026, 16:00 |",
+            "| **Due back** | **23 Aug 2026, 18:00** |",
+            `| Released to | ${one.by} |`,
+            `| Their phone | ${one.phone} |`,
+            "| Approved by | Mrs Esi Appiah |",
+            "",
+            "> This pupil is a boarder of this school and is off the compound with the school's permission until the hour above. If they are found elsewhere, or after that hour, please telephone the school.",
+            "",
+            "---",
+            "",
+            "Signed out at ________________    by ________________",
+            "",
+            "Signed back in at ________________    by ________________",
+          ].join("\n"),
+        ),
+      },
+    }),
+  );
+
+  console.log(`Wrote fourteen PDFs to ${out}`);
   await checkMastheadClearance();
   await checkBackgroundIsDrawn(layout, backdrop);
   await checkVerificationCode();
