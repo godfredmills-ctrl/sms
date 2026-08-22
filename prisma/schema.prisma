@@ -417,6 +417,7 @@ model AcademicYear {
   budgetLines    BudgetLine[]
   examSessions   ExamSession[]
   boardingBeds   BoardingAllocation[]
+  admissions     AdmissionApplication[]
 
   @@unique([schoolId, name])
 }
@@ -613,18 +614,19 @@ model User {
   prefs             NotificationPreference[]
   tokens            VerificationToken[]
 
-  authoredAnnouncements Announcement[]       @relation("AnnouncementAuthor")
-  authoredMemos         Memo[]               @relation("MemoAuthor")
+  authoredAnnouncements Announcement[]         @relation("AnnouncementAuthor")
+  authoredMemos         Memo[]                 @relation("MemoAuthor")
   memoRecipients        MemoRecipient[]
-  sentMessages          DirectMessage[]      @relation("MessageSender")
+  sentMessages          DirectMessage[]        @relation("MessageSender")
   conversations         ConversationMember[]
-  uploadedFiles         FileAsset[]          @relation("FileUploader")
+  uploadedFiles         FileAsset[]            @relation("FileUploader")
   aiInsights            AiInsight[]
   savedReports          ReportDefinition[]
   ballots               Ballot[]
-  expensesRequested     Expense[]            @relation("ExpenseRequestedBy")
-  expensesApproved      Expense[]            @relation("ExpenseApprovedBy")
-  examSessionsCreated   ExamSession[]        @relation("ExamSessionAuthor")
+  expensesRequested     Expense[]              @relation("ExpenseRequestedBy")
+  expensesApproved      Expense[]              @relation("ExpenseApprovedBy")
+  examSessionsCreated   ExamSession[]          @relation("ExamSessionAuthor")
+  admissionsCreated     AdmissionApplication[] @relation("AdmissionAuthor")
 
   @@index([status])
   @@index([portal])
@@ -815,11 +817,13 @@ model Staff {
   documents        StaffDocument[]
   examInvigilators ExamInvigilator[]
 
-  housesLedByThem      BoardingHouse[] @relation("HouseParent")
-  housesAssistedByThem BoardingHouse[] @relation("HouseAssistant")
-  exeatsApproved       BoardingExeat[] @relation("ExeatApprover")
-  exeatsReleased       BoardingExeat[] @relation("ExeatReleasedBy")
-  exeatsReceived       BoardingExeat[] @relation("ExeatReceivedBy")
+  housesLedByThem       BoardingHouse[]       @relation("HouseParent")
+  housesAssistedByThem  BoardingHouse[]       @relation("HouseAssistant")
+  exeatsApproved        BoardingExeat[]       @relation("ExeatApprover")
+  exeatsReleased        BoardingExeat[]       @relation("ExeatReleasedBy")
+  exeatsReceived        BoardingExeat[]       @relation("ExeatReceivedBy")
+  admissionsAssessed    AdmissionAssessment[] @relation("AdmissionAssessor")
+  admissionsInterviewed AdmissionInterview[]  @relation("AdmissionInterviewer")
 
   @@index([status])
   @@index([department])
@@ -1019,6 +1023,8 @@ model Student {
 
   boardingAllocations BoardingAllocation[]
   exeats              BoardingExeat[]
+  admission           AdmissionApplication?
+  siblingApplications AdmissionApplication[] @relation("AdmissionSibling")
 
   @@index([status])
   @@index([lastName, firstName])
@@ -1349,10 +1355,11 @@ model ClassLevel {
   curriculum String?
   isActive   Boolean @default(true)
 
-  sections      ClassSection[]
-  feeStructures FeeStructure[]
-  subjects      LevelSubject[]
-  examPapers    ExamPaper[]
+  sections              ClassSection[]
+  feeStructures         FeeStructure[]
+  subjects              LevelSubject[]
+  examPapers            ExamPaper[]
+  admissionApplications AdmissionApplication[]
 
   @@index([sequence])
 }
@@ -4247,17 +4254,17 @@ model BoardingAllocation {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-
-  @@index([studentId])
-  @@index([roomId])
-  @@index([academicYearId])
-  @@index([endedOn])
   // Also in the database, and NOT expressible here: a partial unique index on
   // (studentId, academicYearId) WHERE endedOn IS NULL — one open bed per child
   // per year. See the boarding migration. Prisma cannot describe a partial
   // index, so it will not appear in a diff against this file; do not "fix"
   // that by adding a plain @@unique, which would forbid a child from ever
   // having lived in two rooms and delete the history the closed rows keep.
+
+  @@index([studentId])
+  @@index([roomId])
+  @@index([academicYearId])
+  @@index([endedOn])
 }
 
 /// Leave-out: a boarder off the premises, and who has them.
@@ -4304,13 +4311,149 @@ model BoardingExeat {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  // Also in the database: a partial unique index on (studentId) WHERE
+  // status = 'OUT'. A child can be off the premises once at a time. Same
+  // caveat as the allocation above — it cannot be written here.
 
   @@index([studentId])
   @@index([houseId])
   @@index([status])
   @@index([dueBackAt])
   @@index([departsAt])
-  // Also in the database: a partial unique index on (studentId) WHERE
-  // status = 'OUT'. A child can be off the premises once at a time. Same
-  // caveat as the allocation above — it cannot be written here.
+}
+
+// ---------------------------------------------------------------------------
+// Admissions
+//
+// A child could already be admitted: a Student row goes APPLICANT → OFFERED →
+// ENROLLED, one button at a time on their own profile. What was missing was
+// everything a school actually decides with — the entrance papers, the
+// interview, an offer with a date on it, and a way to see the whole intake at
+// once instead of one child at a time.
+//
+// The application hangs off the Student record rather than duplicating the
+// person. An applicant is already a pupil of this school in every sense the
+// database cares about; they simply have not started.
+// ---------------------------------------------------------------------------
+
+enum AdmissionSource {
+  WALK_IN
+  WEBSITE
+  REFERRAL
+  AGENT
+  /// A brother or sister already here — in practice the strongest claim on a
+  /// place, and the one a school is asked about most.
+  SIBLING
+  TRANSFER
+  OTHER
+}
+
+enum AdmissionDecision {
+  RECOMMEND
+  /// Good enough, but the year is full. The waiting list is made of these.
+  RESERVE
+  DECLINE
+}
+
+model AdmissionApplication {
+  id String @id @default(cuid())
+
+  /// The APPLICANT student record. One application per child per intake; a
+  /// child who applies again next year gets a new one.
+  studentId String  @unique
+  student   Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  academicYearId String
+  academicYear   AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
+
+  /// The year group applied for, which is not always the one their age says.
+  applyingForLevelId String?
+  applyingForLevel   ClassLevel? @relation(fields: [applyingForLevelId], references: [id], onDelete: SetNull)
+
+  source AdmissionSource @default(WALK_IN)
+
+  /// A brother or sister already on the roll.
+  siblingId String?
+  sibling   Student? @relation("AdmissionSibling", fields: [siblingId], references: [id], onDelete: SetNull)
+
+  appliedOn DateTime @default(now())
+
+  /// The assessment fee, in minor units like every other amount here.
+  applicationFeeMinor Int     @default(0)
+  applicationFeePaid  Boolean @default(false)
+
+  // --- The offer ------------------------------------------------------------
+  offeredOn      DateTime?
+  /// The day the place goes back on the table. An offer without one is a place
+  /// held for ever by a family who chose another school in March.
+  offerExpiresOn DateTime?
+  offerNote      String?
+  acceptedOn     DateTime?
+  declinedOn     DateTime?
+  declineReason  String?
+
+  /// Where they stand if the year is full. Null means not on the list.
+  waitlistRank Int?
+
+  notes String?
+
+  createdById String?
+  createdBy   User?   @relation("AdmissionAuthor", fields: [createdById], references: [id], onDelete: SetNull)
+
+  assessments AdmissionAssessment[]
+  interviews  AdmissionInterview[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([academicYearId])
+  @@index([applyingForLevelId])
+  @@index([offerExpiresOn])
+  @@index([waitlistRank])
+}
+
+/// One entrance paper, and what the child scored on it.
+model AdmissionAssessment {
+  id            String               @id @default(cuid())
+  applicationId String
+  application   AdmissionApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  /// "Mathematics", "English", "Reasoning".
+  paper    String
+  score    Decimal? @db.Decimal(6, 2)
+  maxScore Decimal  @default(100) @db.Decimal(6, 2)
+
+  satOn      DateTime?
+  assessorId String?
+  assessor   Staff?    @relation("AdmissionAssessor", fields: [assessorId], references: [id], onDelete: SetNull)
+  notes      String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([applicationId, paper])
+  @@index([assessorId])
+}
+
+/// The interview. A school interviews the family as much as the child.
+model AdmissionInterview {
+  id            String               @id @default(cuid())
+  applicationId String
+  application   AdmissionApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  heldOn        DateTime
+  interviewerId String?
+  interviewer   Staff?   @relation("AdmissionInterviewer", fields: [interviewerId], references: [id], onDelete: SetNull)
+
+  /// Who came — "mother and grandmother", "father alone".
+  attendees String?
+
+  decision AdmissionDecision
+  notes    String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([applicationId])
+  @@index([interviewerId])
 }

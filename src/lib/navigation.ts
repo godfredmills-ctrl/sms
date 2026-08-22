@@ -58,6 +58,12 @@ export const STAFF_NAVIGATION: NavGroup[] = [
           { label: "All students", href: "/students", icon: "Users" },
           {
             label: "Admissions",
+            href: "/admissions",
+            icon: "ClipboardList",
+            permissions: ["admission.read", "admission.manage", "admission.offer"],
+          },
+          {
+            label: "Admit a pupil",
             href: "/students/new",
             icon: "UserPlus",
             permissions: ["student.create"],

@@ -167,6 +167,7 @@ async function main() {
   // and not the other reads as a school that spends nothing but salaries.
   await seedExpenditure(terms, year.id, roles);
   await seedBoarding(students, staff, year.id);
+  await seedAdmissions(levels, staff, year.id, roles);
 
   console.log("\nDone.\n");
   await printCredentials();
@@ -247,6 +248,9 @@ async function reset() {
     // Examinations: seats point at papers, candidates and halls, so they go
     // first; the session holds papers and candidates, so it goes last.
     "examSeat", "examInvigilator", "examPaper", "examCandidate", "examVenue", "examSession",
+    // Admissions: assessments and interviews point at the application, which
+    // points at the pupil.
+    "admissionAssessment", "admissionInterview", "admissionApplication",
     // Boarding: allocations and leave-outs point at rooms, houses and pupils,
     // so they clear first; a room points at its house.
     "boardingExeat", "boardingAllocation", "boardingRoom", "boardingHouse",
@@ -4960,5 +4964,164 @@ async function seedBoarding(students: StudentRow[], staff: StaffRow[], academicY
         signedInById: exeat.status === "RETURNED" ? approver : null,
       },
     });
+  }
+}
+
+/**
+ * An intake in progress: applicants at every stage of it.
+ *
+ * Including two whose offer has lapsed, which is the state the whole board
+ * exists to surface — a place still being held for a family who stopped
+ * answering the telephone. A demo where every offer is live shows none of it.
+ */
+async function seedAdmissions(
+  levels: LevelRow[],
+  staff: StaffRow[],
+  academicYearId: string,
+  roles: Record<string, string>,
+) {
+  console.log("  Admissions…");
+
+  if (levels.length === 0) return;
+
+  const registrar = await db.user.findFirst({
+    where: { roles: { some: { roleId: roles.registrar } } },
+    select: { id: true },
+  });
+
+  const DAY = 86_400_000;
+  const now = Date.now();
+
+  // A sibling already on the roll — the strongest claim on a place, and the
+  // thing a school is asked about most.
+  const existing = await db.student.findFirst({
+    where: { status: "ENROLLED" },
+    orderBy: { admissionNo: "asc" },
+    select: { id: true },
+  });
+
+  const entry = levels[0];
+  const middle = levels[Math.min(3, levels.length - 1)];
+
+  type Draft = {
+    first: string;
+    last: string;
+    gender: "MALE" | "FEMALE";
+    level: LevelRow;
+    source: "WALK_IN" | "WEBSITE" | "REFERRAL" | "SIBLING" | "TRANSFER";
+    /** Papers, as [name, score] — null is set but not yet marked. */
+    papers: Array<[string, number | null]>;
+    interview?: { decision: "RECOMMEND" | "RESERVE" | "DECLINE"; attendees: string; days: number };
+    /** Days ago the offer was made, and days from now it lapses. */
+    offer?: { madeDaysAgo: number; lapsesInDays: number };
+    accepted?: boolean;
+    declined?: string;
+    waitlist?: number;
+    sibling?: boolean;
+    feePaid: boolean;
+  };
+
+  const drafts: Draft[] = [
+    // Nothing done yet.
+    { first: "Nana Ama", last: "Osei", gender: "FEMALE", level: entry, source: "WEBSITE", papers: [], feePaid: false },
+    { first: "Selorm", last: "Agbeko", gender: "MALE", level: entry, source: "WALK_IN", papers: [["English", null], ["Mathematics", null]], feePaid: true },
+    // Assessed.
+    { first: "Efua", last: "Bediako", gender: "FEMALE", level: entry, source: "REFERRAL", papers: [["English", 78], ["Mathematics", 71], ["Reasoning", 74]], feePaid: true },
+    // Interviewed and recommended, no offer yet.
+    { first: "Kojo", last: "Amankwah", gender: "MALE", level: middle, source: "TRANSFER", papers: [["English", 66], ["Mathematics", 82]], interview: { decision: "RECOMMEND", attendees: "Both parents", days: 4 }, feePaid: true },
+    // Offered, in date.
+    { first: "Abena", last: "Owusu-Ansah", gender: "FEMALE", level: entry, source: "SIBLING", sibling: true, papers: [["English", 84], ["Mathematics", 79], ["Reasoning", 88]], interview: { decision: "RECOMMEND", attendees: "Mother", days: 12 }, offer: { madeDaysAgo: 9, lapsesInDays: 12 }, feePaid: true },
+    // Offered and accepted — coming, not yet enrolled.
+    { first: "Yaw", last: "Frimpong", gender: "MALE", level: middle, source: "WEBSITE", papers: [["English", 70], ["Mathematics", 90]], interview: { decision: "RECOMMEND", attendees: "Father and elder sister", days: 20 }, offer: { madeDaysAgo: 16, lapsesInDays: 6 }, accepted: true, feePaid: true },
+    // The two the board exists for: a place held for a family who went quiet.
+    { first: "Adwoa", last: "Tetteh", gender: "FEMALE", level: entry, source: "WALK_IN", papers: [["English", 62], ["Mathematics", 58]], interview: { decision: "RECOMMEND", attendees: "Grandmother", days: 40 }, offer: { madeDaysAgo: 35, lapsesInDays: -7 }, feePaid: true },
+    { first: "Kwame", last: "Boadu", gender: "MALE", level: middle, source: "REFERRAL", papers: [["English", 69], ["Mathematics", 64], ["Reasoning", 66]], interview: { decision: "RECOMMEND", attendees: "Both parents", days: 45 }, offer: { madeDaysAgo: 38, lapsesInDays: -3 }, feePaid: true },
+    // Held in reserve: good enough, the year is full.
+    { first: "Akosua", last: "Nyarko", gender: "FEMALE", level: entry, source: "WEBSITE", papers: [["English", 60], ["Mathematics", 55]], interview: { decision: "RESERVE", attendees: "Mother", days: 8 }, waitlist: 1, feePaid: true },
+    { first: "Kofi", last: "Danso", gender: "MALE", level: entry, source: "WALK_IN", papers: [["English", 57], ["Mathematics", 61]], interview: { decision: "RESERVE", attendees: "Father", days: 7 }, waitlist: 2, feePaid: false },
+    // Went elsewhere.
+    { first: "Maame", last: "Adjei", gender: "FEMALE", level: middle, source: "WEBSITE", papers: [["English", 75], ["Mathematics", 73]], interview: { decision: "RECOMMEND", attendees: "Both parents", days: 30 }, offer: { madeDaysAgo: 26, lapsesInDays: -10 }, declined: "Took a place at another school nearer home.", feePaid: true },
+  ];
+
+  const assessor = staff[1] ?? staff[0];
+  const interviewer = staff[0];
+
+  for (const [index, draft] of drafts.entries()) {
+    const student = await db.student.create({
+      data: {
+        admissionNo: `GCS/APP/${String(index + 1).padStart(4, "0")}`,
+        firstName: draft.first,
+        lastName: draft.last,
+        gender: draft.gender,
+        dateOfBirth: new Date(now - (5 + (index % 8)) * 365 * DAY),
+        status: draft.accepted || draft.offer ? "OFFERED" : "APPLICANT",
+        nationality: "Ghanaian",
+        admissionType: draft.source === "TRANSFER" ? "TRANSFER" : "NEW",
+      },
+      select: { id: true },
+    });
+
+    const application = await db.admissionApplication.create({
+      data: {
+        studentId: student.id,
+        academicYearId,
+        applyingForLevelId: draft.level.id,
+        source: draft.source,
+        siblingId: draft.sibling ? (existing?.id ?? null) : null,
+        appliedOn: new Date(now - (50 - index * 3) * DAY),
+        applicationFeeMinor: 15_000,
+        applicationFeePaid: draft.feePaid,
+        createdById: registrar?.id ?? null,
+        offeredOn: draft.offer ? new Date(now - draft.offer.madeDaysAgo * DAY) : null,
+        offerExpiresOn: draft.offer
+          ? new Date(now + draft.offer.lapsesInDays * DAY)
+          : null,
+        acceptedOn: draft.accepted ? new Date(now - 3 * DAY) : null,
+        declinedOn: draft.declined ? new Date(now - 2 * DAY) : null,
+        declineReason: draft.declined ?? null,
+        waitlistRank: draft.waitlist ?? null,
+      },
+      select: { id: true },
+    });
+
+    for (const [paper, score] of draft.papers) {
+      await db.admissionAssessment.create({
+        data: {
+          applicationId: application.id,
+          paper,
+          score,
+          maxScore: 100,
+          satOn: score === null ? null : new Date(now - (20 - index) * DAY),
+          assessorId: score === null ? null : (assessor?.id ?? null),
+        },
+      });
+    }
+
+    if (draft.interview) {
+      await db.admissionInterview.create({
+        data: {
+          applicationId: application.id,
+          heldOn: new Date(now - draft.interview.days * DAY),
+          interviewerId: interviewer?.id ?? null,
+          attendees: draft.interview.attendees,
+          decision: draft.interview.decision,
+          notes:
+            draft.interview.decision === "RESERVE"
+              ? "Would do well here. The year group is full."
+              : draft.interview.decision === "DECLINE"
+                ? "Not ready for this year group."
+                : "Settled, curious, reads well for the age.",
+        },
+      });
+    }
+
+    // A declined family is back to being an applicant — they did not withdraw,
+    // and next year they often apply again.
+    if (draft.declined) {
+      await db.student.update({
+        where: { id: student.id },
+        data: { status: "APPLICANT" },
+      });
+    }
   }
 }

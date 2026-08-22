@@ -94,6 +94,14 @@ export const PERMISSIONS: PermissionDef[] = [
     ["template.manage", "update", "Manage transcript and certificate templates"],
   ]),
 
+  ...define("admission", [
+    ["read", "read", "View the admissions pipeline"],
+    ["manage", "update", "Record and edit applications"],
+    ["assess", "update", "Enter entrance assessment marks"],
+    ["interview", "update", "Record an admissions interview"],
+    ["offer", "approve", "Make, withdraw and settle offers of a place"],
+  ]),
+
   ...define("boarding", [
     ["read", "read", "View houses, beds and who is off the premises"],
     ["manage", "update", "Manage houses and rooms, and allocate beds"],
@@ -295,6 +303,7 @@ export const ROLE_PRESETS: RolePreset[] = [
       "finance.expense.approve",
       "finance.budget.manage",
       ...expand("boarding"),
+      ...expand("admission"),
       "payroll.read",
       "payroll.approve",
       "settings.read",
@@ -321,6 +330,8 @@ export const ROLE_PRESETS: RolePreset[] = [
       "letter.write",
       "letter.finalise",
       ...expand("boarding"),
+      "admission.read",
+      "admission.interview",
       "ai.insight.view",
       "ai.insight.generate",
       "staff.read",
@@ -380,6 +391,9 @@ export const ROLE_PRESETS: RolePreset[] = [
       // a pile of anonymous scripts sorted by seat actually requires. A class
       // teacher marks their own classes through the same sheet.
       "assessment.exam.marks",
+      // The other half of the job title. The registrar runs the intake: the
+      // entrance papers, the interviews, the offers and the waiting list.
+      ...expand("admission"),
       ...expand("document"),
       // Admissions runs the enquiry inbox: an enquiry is a prospective
       // student, which is the registrar's work before it is anyone else's.
