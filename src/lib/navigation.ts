@@ -81,7 +81,7 @@ export const STAFF_NAVIGATION: NavGroup[] = [
             permissions: ["student.discipline.manage"],
           },
           {
-            label: "Boarding",
+            label: "Boarding list",
             href: "/students/boarding",
             icon: "BedDouble",
             permissions: ["student.read"],
@@ -111,6 +111,22 @@ export const STAFF_NAVIGATION: NavGroup[] = [
         href: "/clinic",
         icon: "Stethoscope",
         permissions: ["student.medical.read"],
+      },
+      {
+        label: "Boarding",
+        href: "/boarding",
+        icon: "BedDouble",
+        permissions: ["boarding.read", "boarding.manage", "boarding.gate"],
+        children: [
+          { label: "Overview", href: "/boarding", icon: "LayoutDashboard" },
+          { label: "Leave-out", href: "/boarding/exeat", icon: "DoorOpen" },
+          {
+            label: "Houses & rooms",
+            href: "/boarding/houses",
+            icon: "Building2",
+            permissions: ["boarding.manage"],
+          },
+        ],
       },
       {
         label: "Staff",

@@ -166,6 +166,7 @@ async function main() {
   // After payroll: the statement adds the two together, and a demo with one
   // and not the other reads as a school that spends nothing but salaries.
   await seedExpenditure(terms, year.id, roles);
+  await seedBoarding(students, staff, year.id);
 
   console.log("\nDone.\n");
   await printCredentials();
@@ -246,6 +247,9 @@ async function reset() {
     // Examinations: seats point at papers, candidates and halls, so they go
     // first; the session holds papers and candidates, so it goes last.
     "examSeat", "examInvigilator", "examPaper", "examCandidate", "examVenue", "examSession",
+    // Boarding: allocations and leave-outs point at rooms, houses and pupils,
+    // so they clear first; a room points at its house.
+    "boardingExeat", "boardingAllocation", "boardingRoom", "boardingHouse",
     "payslip", "payrollRun",
     // Expenditure: the bills first, then what they point at. A budget line
     // points at a category too, so both go before it.
@@ -4735,6 +4739,226 @@ async function seedExaminations(
     await db.assessment.updateMany({
       where: { examPaperId: paper.id },
       data: { isPublished: true, publishedAt: new Date() },
+    });
+  }
+}
+
+/**
+ * Boarding: two houses, their rooms, and a gate with somebody overdue.
+ *
+ * The overdue leave-out is deliberate. It is the one state the whole module
+ * exists to surface, it is the only reason anybody opens the page in a hurry,
+ * and a demo where every child is safely back shows none of it.
+ */
+async function seedBoarding(students: StudentRow[], staff: StaffRow[], academicYearId: string) {
+  console.log("  Boarding…");
+
+  const boarders = students.filter((student) => student.isBoarder);
+  if (boarders.length === 0) return;
+
+  const [houseParent, assistant, second] = staff;
+
+  const boys = await db.boardingHouse.create({
+    data: {
+      name: "Aggrey House",
+      code: "AGG",
+      gender: "BOYS",
+      houseParentId: houseParent?.id ?? null,
+      assistantId: assistant?.id ?? null,
+      colour: "Green",
+      motto: "Steadfast",
+      notes: "Nearest the san. Generator feeds this block first.",
+      rooms: {
+        create: [
+          { name: "Dormitory 1", capacity: 24, floor: "Ground" },
+          { name: "Dormitory 2", capacity: 24, floor: "First" },
+          { name: "Prefects' Room", capacity: 6, floor: "First" },
+        ],
+      },
+    },
+    select: { id: true, rooms: { select: { id: true, name: true, capacity: true } } },
+  });
+
+  const girls = await db.boardingHouse.create({
+    data: {
+      name: "Sutherland House",
+      code: "SUT",
+      gender: "GIRLS",
+      houseParentId: second?.id ?? null,
+      colour: "Blue",
+      motto: "With courage",
+      notes: "Two doors. The far gate is locked after prep.",
+      rooms: {
+        create: [
+          { name: "Dormitory A", capacity: 24, floor: "Ground" },
+          { name: "Dormitory B", capacity: 24, floor: "First" },
+          { name: "Sick Bay Annexe", capacity: 4, floor: "Ground" },
+        ],
+      },
+    },
+    select: { id: true, rooms: { select: { id: true, name: true, capacity: true } } },
+  });
+
+  // Allocated by sex into the right house, filling each dormitory in turn and
+  // stopping at its capacity — the same rule the interface enforces, so the
+  // seeded data is data the school could have produced by pressing the button.
+  const fill = async (
+    rooms: Array<{ id: string; name: string; capacity: number }>,
+    people: StudentRow[],
+    houseName: string,
+  ) => {
+    let index = 0;
+    for (const room of rooms) {
+      for (let bed = 1; bed <= room.capacity && index < people.length; bed += 1) {
+        const student = people[index];
+        index += 1;
+        await db.boardingAllocation.create({
+          data: {
+            studentId: student.id,
+            roomId: room.id,
+            academicYearId,
+            bedLabel: `Bed ${bed}`,
+          },
+        });
+        await db.student.update({
+          where: { id: student.id },
+          data: { house: houseName, dormitory: room.name, roomNumber: `Bed ${bed}` },
+        });
+      }
+    }
+    // Whoever is left over has no bed, which is the list a school works
+    // through in the first week — and the one that quietly grew when boarding
+    // was four text fields.
+    return people.length - index;
+  };
+
+  const boysList = boarders.filter((student) => student.gender === "MALE");
+  const girlsList = boarders.filter((student) => student.gender === "FEMALE");
+  const others = boarders.filter(
+    (student) => student.gender !== "MALE" && student.gender !== "FEMALE",
+  );
+
+  await fill(boys.rooms, boysList, "Aggrey House");
+  await fill(girls.rooms, girlsList, "Sutherland House");
+  // Anyone whose sex is recorded as other or undisclosed is left for a person
+  // to place. The rules do not refuse them a house; they also do not choose.
+  void others;
+
+  // --- The gate --------------------------------------------------------------
+  const HOUR = 3_600_000;
+  const now = Date.now();
+
+  const exeats: Array<{
+    student: StudentRow;
+    houseId: string;
+    reason: string;
+    destination: string;
+    departs: number;
+    due: number;
+    releasedTo: string;
+    phone: string;
+    relationship: string;
+    status: "REQUESTED" | "APPROVED" | "OUT" | "RETURNED";
+    overdue?: boolean;
+  }> = [];
+
+  const pick = (list: StudentRow[], at: number) => list[at % Math.max(list.length, 1)];
+
+  if (boysList.length) {
+    exeats.push({
+      student: pick(boysList, 3),
+      houseId: boys.id,
+      reason: "Dental appointment",
+      destination: "Korle Bu, Accra",
+      departs: now - 6 * HOUR,
+      due: now - 2 * HOUR,
+      releasedTo: "Mr Kwesi Boateng",
+      phone: "024 556 1120",
+      relationship: "Father",
+      status: "OUT",
+      overdue: true,
+    });
+    exeats.push({
+      student: pick(boysList, 9),
+      houseId: boys.id,
+      reason: "Family funeral",
+      destination: "Kumasi",
+      departs: now - 3 * HOUR,
+      due: now + 20 * HOUR,
+      releasedTo: "Mrs Akosua Frimpong",
+      phone: "020 771 4408",
+      relationship: "Aunt",
+      status: "OUT",
+    });
+  }
+
+  if (girlsList.length) {
+    exeats.push({
+      student: pick(girlsList, 2),
+      houseId: girls.id,
+      reason: "Weekend at home",
+      destination: "East Legon",
+      departs: now + 26 * HOUR,
+      due: now + 60 * HOUR,
+      releasedTo: "Mr Yaw Darko",
+      phone: "055 210 9931",
+      relationship: "Uncle",
+      status: "APPROVED",
+    });
+    exeats.push({
+      student: pick(girlsList, 6),
+      houseId: girls.id,
+      reason: "Optician",
+      destination: "Osu",
+      departs: now + 4 * HOUR,
+      due: now + 9 * HOUR,
+      releasedTo: "Ms Naa Adjeley Tetteh",
+      phone: "027 884 3312",
+      relationship: "Elder sister",
+      status: "REQUESTED",
+    });
+    exeats.push({
+      student: pick(girlsList, 11),
+      houseId: girls.id,
+      reason: "Mid-term break",
+      destination: "Tema",
+      departs: now - 80 * HOUR,
+      due: now - 30 * HOUR,
+      releasedTo: "Mrs Efua Mensah",
+      phone: "024 990 2277",
+      relationship: "Mother",
+      status: "RETURNED",
+    });
+  }
+
+  const approver = houseParent?.id ?? null;
+
+  for (const exeat of exeats) {
+    if (!exeat.student) continue;
+    const decided = exeat.status !== "REQUESTED";
+    await db.boardingExeat.create({
+      data: {
+        studentId: exeat.student.id,
+        houseId: exeat.houseId,
+        reason: exeat.reason,
+        destination: exeat.destination,
+        departsAt: new Date(exeat.departs),
+        dueBackAt: new Date(exeat.due),
+        releasedToName: exeat.releasedTo,
+        releasedToPhone: exeat.phone,
+        relationship: exeat.relationship,
+        status: exeat.status,
+        approvedById: decided ? approver : null,
+        approvedAt: decided ? new Date(exeat.departs - HOUR) : null,
+        signedOutAt:
+          exeat.status === "OUT" || exeat.status === "RETURNED"
+            ? new Date(exeat.departs)
+            : null,
+        signedOutById:
+          exeat.status === "OUT" || exeat.status === "RETURNED" ? approver : null,
+        signedInAt: exeat.status === "RETURNED" ? new Date(exeat.due - HOUR) : null,
+        signedInById: exeat.status === "RETURNED" ? approver : null,
+      },
     });
   }
 }

@@ -94,6 +94,14 @@ export const PERMISSIONS: PermissionDef[] = [
     ["template.manage", "update", "Manage transcript and certificate templates"],
   ]),
 
+  ...define("boarding", [
+    ["read", "read", "View houses, beds and who is off the premises"],
+    ["manage", "update", "Manage houses and rooms, and allocate beds"],
+    ["exeat.request", "create", "Raise a leave-out for a boarder"],
+    ["exeat.approve", "approve", "Approve or turn down a leave-out"],
+    ["gate", "update", "Sign boarders out and back in at the gate"],
+  ]),
+
   ...define("finance", [
     ["read", "read", "View invoices, payments and balances"],
     ["fee.manage", "update", "Manage fee categories and fee structures"],
@@ -286,6 +294,7 @@ export const ROLE_PRESETS: RolePreset[] = [
       "finance.expense.read",
       "finance.expense.approve",
       "finance.budget.manage",
+      ...expand("boarding"),
       "payroll.read",
       "payroll.approve",
       "settings.read",
@@ -311,6 +320,7 @@ export const ROLE_PRESETS: RolePreset[] = [
       "letter.read",
       "letter.write",
       "letter.finalise",
+      ...expand("boarding"),
       "ai.insight.view",
       "ai.insight.generate",
       "staff.read",
@@ -475,6 +485,35 @@ export const ROLE_PRESETS: RolePreset[] = [
     ],
   },
   {
+    key: "house_parent",
+    name: "House Parent",
+    description:
+      "A boarding house: its beds, its boarders, and their leave-out. Sleeps on the compound.",
+    portal: "STAFF",
+    rank: 55,
+    permissions: [
+      "dashboard.view",
+      ...expand("boarding"),
+      // Their boarders, not the school. student.read.own is the scoped one;
+      // student.read would open every child's record in the school, which a
+      // house parent has no more claim to than any other teacher.
+      "student.read.own",
+      // The two things a house parent is called about at night.
+      "student.medical.read",
+      "student.discipline.manage",
+      "attendance.read",
+      "communication.announcement.read",
+      "communication.memo.read",
+      "communication.message",
+      "communication.sms.send",
+      "document.read",
+      // A boarder who has left the compound often left on a bus, and a house
+      // parent is the person who notices they did not come back on one.
+      "transport.read",
+      "visitor.read",
+    ],
+  },
+  {
     key: "nurse",
     name: "School Nurse",
     description: "Medical records, clinic visits and health alerts.",
@@ -525,6 +564,10 @@ export const ROLE_PRESETS: RolePreset[] = [
       "website.enquiry.manage",
       "visitor.read",
       "visitor.manage",
+      // The gate. Signing a boarder out to a named adult is the same act as
+      // logging a visitor in, done by the same person at the same desk.
+      "boarding.read",
+      "boarding.gate",
       "library.read",
       "library.circulate",
       "transport.read",

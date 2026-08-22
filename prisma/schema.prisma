@@ -416,6 +416,7 @@ model AcademicYear {
   expenses       Expense[]
   budgetLines    BudgetLine[]
   examSessions   ExamSession[]
+  boardingBeds   BoardingAllocation[]
 
   @@unique([schoolId, name])
 }
@@ -814,6 +815,12 @@ model Staff {
   documents        StaffDocument[]
   examInvigilators ExamInvigilator[]
 
+  housesLedByThem      BoardingHouse[] @relation("HouseParent")
+  housesAssistedByThem BoardingHouse[] @relation("HouseAssistant")
+  exeatsApproved       BoardingExeat[] @relation("ExeatApprover")
+  exeatsReleased       BoardingExeat[] @relation("ExeatReleasedBy")
+  exeatsReceived       BoardingExeat[] @relation("ExeatReceivedBy")
+
   @@index([status])
   @@index([department])
   @@index([lastName, firstName])
@@ -1009,6 +1016,9 @@ model Student {
   lessonProgress   LessonProgress[]
   candidacies      Candidate[]
   examCandidates   ExamCandidate[]
+
+  boardingAllocations BoardingAllocation[]
+  exeats              BoardingExeat[]
 
   @@index([status])
   @@index([lastName, firstName])
@@ -4127,4 +4137,180 @@ model ExamSeat {
   @@index([candidateId])
   @@index([venueId])
   @@index([status])
+}
+
+// ---------------------------------------------------------------------------
+// Boarding
+//
+// Until now a boarder was four free-text fields on Student — isBoarder, house,
+// dormitory, roomNumber — which can say a child is in Room 14 of a house that
+// does not exist, and can say it of thirty children about a room that sleeps
+// eight. Nothing counted the beds.
+//
+// The other half is the one that matters more. A boarder leaving the compound
+// is signed out to a named adult and signed back in, and that record is the
+// same kind of thing as the visitor log and the bus manifest: it is what the
+// school has when somebody asks where a child is. It is kept here rather than
+// inferred from attendance, because attendance answers "were they in the
+// lesson" and this answers "are they on the premises".
+// ---------------------------------------------------------------------------
+
+enum BoardingGender {
+  BOYS
+  GIRLS
+  MIXED
+}
+
+enum ExeatStatus {
+  /// Asked for, not yet decided.
+  REQUESTED
+  /// Approved, and the child has not left yet.
+  APPROVED
+  /// Signed out at the gate. The child is off the premises.
+  OUT
+  /// Signed back in.
+  RETURNED
+  /// Turned down, or withdrawn before they left.
+  CANCELLED
+}
+
+/// A boarding house: the pastoral unit a boarder belongs to.
+model BoardingHouse {
+  id     String         @id @default(cuid())
+  name   String
+  /// Short form, printed on a house list — "RH" for Rutherford House.
+  code   String?
+  gender BoardingGender @default(MIXED)
+
+  /// The member of staff who sleeps on the compound and is called at night.
+  houseParentId String?
+  houseParent   Staff?  @relation("HouseParent", fields: [houseParentId], references: [id], onDelete: SetNull)
+  assistantId   String?
+  assistant     Staff?  @relation("HouseAssistant", fields: [assistantId], references: [id], onDelete: SetNull)
+
+  colour String?
+  motto  String?
+  notes  String?
+  active Boolean @default(true)
+
+  rooms  BoardingRoom[]
+  exeats BoardingExeat[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([name])
+  @@index([active])
+}
+
+/// A room or dormitory, and how many it sleeps.
+model BoardingRoom {
+  id      String        @id @default(cuid())
+  houseId String
+  house   BoardingHouse @relation(fields: [houseId], references: [id], onDelete: Cascade)
+
+  name     String
+  /// Beds, not floor space. A dormitory that sleeps eight is eight.
+  capacity Int
+  floor    String?
+  notes    String?
+  active   Boolean @default(true)
+
+  allocations BoardingAllocation[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([houseId, name])
+  @@index([active])
+}
+
+/// A boarder in a bed, for a year.
+model BoardingAllocation {
+  id        String       @id @default(cuid())
+  roomId    String
+  room      BoardingRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  studentId String
+  student   Student      @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  academicYearId String
+  academicYear   AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
+
+  /// "Bed 3", "top bunk" — what the child is told, when the school labels beds.
+  bedLabel String?
+
+  startedOn DateTime  @default(now())
+  /// Set when they move room or leave boarding. A closed row is history, and
+  /// history is what answers "who was in that dormitory last term".
+  endedOn   DateTime?
+  notes     String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([studentId])
+  @@index([roomId])
+  @@index([academicYearId])
+  @@index([endedOn])
+  // Also in the database, and NOT expressible here: a partial unique index on
+  // (studentId, academicYearId) WHERE endedOn IS NULL — one open bed per child
+  // per year. See the boarding migration. Prisma cannot describe a partial
+  // index, so it will not appear in a diff against this file; do not "fix"
+  // that by adding a plain @@unique, which would forbid a child from ever
+  // having lived in two rooms and delete the history the closed rows keep.
+}
+
+/// Leave-out: a boarder off the premises, and who has them.
+model BoardingExeat {
+  id        String  @id @default(cuid())
+  studentId String
+  student   Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  /// Denormalised at the time of writing, so the record still says which house
+  /// the child was in after they change house or leave the school.
+  houseId String?
+  house   BoardingHouse? @relation(fields: [houseId], references: [id], onDelete: SetNull)
+
+  reason      String
+  destination String
+
+  departsAt DateTime
+  dueBackAt DateTime
+
+  /// Who is collecting them. Not a guardian id: the person at the gate is
+  /// often an uncle, a driver, an elder sibling — and the name written down
+  /// is the name the gate checks against, whoever it belongs to.
+  releasedToName  String
+  releasedToPhone String?
+  relationship    String?
+
+  status ExeatStatus @default(REQUESTED)
+
+  approvedById String?
+  approvedBy   Staff?    @relation("ExeatApprover", fields: [approvedById], references: [id], onDelete: SetNull)
+  approvedAt   DateTime?
+  decisionNote String?
+
+  /// The gate. Two timestamps and two names, because "signed out" without
+  /// somebody's name against it is not a record of anything.
+  signedOutAt   DateTime?
+  signedOutById String?
+  signedOutBy   Staff?    @relation("ExeatReleasedBy", fields: [signedOutById], references: [id], onDelete: SetNull)
+  signedInAt    DateTime?
+  signedInById  String?
+  signedInBy    Staff?    @relation("ExeatReceivedBy", fields: [signedInById], references: [id], onDelete: SetNull)
+
+  notes String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([studentId])
+  @@index([houseId])
+  @@index([status])
+  @@index([dueBackAt])
+  @@index([departsAt])
+  // Also in the database: a partial unique index on (studentId) WHERE
+  // status = 'OUT'. A child can be off the premises once at a time. Same
+  // caveat as the allocation above — it cannot be written here.
 }
