@@ -5,7 +5,7 @@ import { Lock, Smartphone } from "lucide-react";
 import { Alert, Button, Card, CardBody } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { env } from "@/lib/env";
+import { integrationConfig } from "@/lib/integrations/config";
 import { allocatePaymentToOldestInvoices } from "@/lib/finance";
 import { formatMoney } from "@/lib/money";
 import { notifyUsers } from "@/lib/messaging";
@@ -65,7 +65,7 @@ export default async function MockCheckoutPage({
   // The simulator exists to stand in for a gateway that is not configured. If
   // one IS configured the school is taking real money, and a page that marks
   // payments settled without any must not be reachable at all.
-  if (env.payments.provider !== "mock") notFound();
+  if ((await integrationConfig()).payments.provider !== "mock") notFound();
 
   const user = await requireUser();
   const { reference } = await searchParams;
@@ -95,7 +95,7 @@ export default async function MockCheckoutPage({
 
     // A Server Action is a POST endpoint of its own: the checks above ran when
     // the page was rendered and prove nothing about who is calling this.
-    if (env.payments.provider !== "mock") notFound();
+    if ((await integrationConfig()).payments.provider !== "mock") notFound();
     const actor = await requireUser();
 
     const outcome = String(formData.get("outcome") ?? "success");

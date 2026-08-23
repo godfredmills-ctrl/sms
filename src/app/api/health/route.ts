@@ -1,6 +1,9 @@
+import path from "node:path";
+
 import { NextResponse } from "next/server";
 
 import { db } from "@/lib/db";
+import { env } from "@/lib/env";
 import { isS3, s3ConfigProblems } from "@/lib/storage";
 
 export const dynamic = "force-dynamic";
@@ -16,8 +19,13 @@ export const dynamic = "force-dynamic";
  */
 function storageStatus() {
   if (!isS3()) {
-    const dir = process.env.STORAGE_LOCAL_DIR ?? "./storage/uploads";
-    const ephemeral = !dir.startsWith("/");
+    // Through env, and with the same absolute-path test the storage module
+    // uses. Read straight from process.env this missed the trimming and the
+    // empty-string fallback that env applies, and `startsWith("/")` called a
+    // perfectly good Windows path ephemeral — so a developer's health check
+    // and their integrations page disagreed about the same directory.
+    const dir = env.storage.localDir;
+    const ephemeral = !path.isAbsolute(dir);
     return {
       driver: "local",
       ok: true,

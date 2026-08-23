@@ -486,6 +486,36 @@ model Setting {
   @@unique([group, key])
 }
 
+/// Provider credentials a school can set without a redeploy.
+///
+/// Deliberately separate from Setting rather than reusing its isSecret flag.
+/// Setting is read by group and cached wholesale, so a secret living there
+/// would be one careless `getSettingGroup("messaging")` away from a page that
+/// renders its own settings; keeping credentials in a table nothing else reads
+/// means the only path to them is the resolver that decrypts them.
+///
+/// `value` is ciphertext when isSecret, plaintext otherwise — a host name and
+/// a chosen provider are not secrets, and encrypting them would only make the
+/// column unreadable to an operator with a psql prompt and a real problem.
+///
+/// The environment still wins wherever it sets the same key; see
+/// src/lib/integrations/config.ts.
+model IntegrationSetting {
+  id       String  @id @default(cuid())
+  key      String  @unique /// The environment variable name: "ARKESEL_API_KEY"
+  value    String
+  isSecret Boolean @default(false)
+
+  /// Not a relation: a credential must outlive the account that set it, and
+  /// deleting a departed bursar must never cascade into the school's SMS
+  /// configuration. The label is denormalised for the same reason AuditLog
+  /// denormalises its actor.
+  updatedById    String?
+  updatedByLabel String?
+
+  updatedAt DateTime @updatedAt
+}
+
 // -----------------------------------------------------------------------------
 // Customisable dropdowns — every select in the UI is backed by an OptionSet.
 // -----------------------------------------------------------------------------

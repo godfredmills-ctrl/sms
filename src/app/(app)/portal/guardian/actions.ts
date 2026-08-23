@@ -48,7 +48,7 @@ export async function startCheckout(
   }
 
   const reference = `PAY-${generateToken(12).toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 14)}`;
-  const gateway = getGateway();
+  const gateway = await getGateway();
 
   const payment = await db.payment.create({
     data: {

@@ -387,8 +387,8 @@ export default async function GuardianPortalPage({
               {totalOutstanding > 0 ? (
                 <PayForm
                   wards={payableChildren}
-                  availableChannels={onlineChannels()}
-                  liveGateway={isLiveGateway()}
+                  availableChannels={await onlineChannels()}
+                  liveGateway={await isLiveGateway()}
                 />
               ) : (
                 <EmptyState

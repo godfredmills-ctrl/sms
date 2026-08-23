@@ -2,7 +2,7 @@ import type { MessageChannel, PortalType, Prisma } from "@prisma/client";
 
 import { reminderAudienceFilter } from "@/lib/audiences";
 import { db } from "@/lib/db";
-import { env } from "@/lib/env";
+import { integrationConfig } from "@/lib/integrations/config";
 import { formatMoney } from "@/lib/money";
 import { formatDate } from "@/lib/utils";
 
@@ -742,6 +742,6 @@ function endOfDay(date: Date): Date {
 }
 
 /** Public VAPID key for the browser to subscribe with. */
-export function getVapidPublicKey(): string {
-  return env.push.publicKey;
+export async function getVapidPublicKey(): Promise<string> {
+  return (await integrationConfig()).push.publicKey;
 }

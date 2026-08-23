@@ -509,14 +509,14 @@ export default async function AnalyticsPage() {
       <div className="grid gap-4 lg:grid-cols-2">
         <AiInsightCard
           insight={briefView}
-          enabled={isAiEnabled()}
+          enabled={(await isAiEnabled())}
           onGenerate={canGenerate ? generateManagementBriefAction : undefined}
           emptyHint="Ask Claude to read the figures above and write the leadership brief."
         />
 
         <AiInsightCard
           insight={atRiskView}
-          enabled={isAiEnabled() && Boolean(term)}
+          enabled={(await isAiEnabled()) && Boolean(term)}
           onGenerate={canGenerate && term ? generateAtRiskScanAction : undefined}
           emptyHint="Screen every enrolled student for attendance below 85% or an average below 45%, then triage them."
         />

@@ -232,7 +232,7 @@ export async function generateStudentProgressInsight(
   termId: string,
   createdById?: string,
 ): Promise<InsightPayload | null> {
-  if (!isAiEnabled()) return null;
+  if (!(await isAiEnabled())) return null;
   const snapshot = await buildStudentSnapshot(studentId, termId);
   if (!snapshot) return null;
 
@@ -339,7 +339,7 @@ export async function generateTeachingInsight(
   termId: string,
   createdById?: string,
 ): Promise<InsightPayload | null> {
-  if (!isAiEnabled()) return null;
+  if (!(await isAiEnabled())) return null;
   const snapshot = await buildTeachingSnapshot(teacherId, termId);
   if (!snapshot.length) return null;
 
@@ -370,7 +370,7 @@ export async function generateClassInsight(
   termId: string,
   createdById?: string,
 ): Promise<InsightPayload | null> {
-  if (!isAiEnabled()) return null;
+  if (!(await isAiEnabled())) return null;
 
   const [section, scores, attendance] = await Promise.all([
     db.classSection.findUnique({
@@ -565,7 +565,7 @@ export async function buildManagementSnapshot() {
 export async function generateManagementBrief(
   createdById?: string,
 ): Promise<InsightPayload | null> {
-  if (!isAiEnabled()) return null;
+  if (!(await isAiEnabled())) return null;
   const snapshot = await buildManagementSnapshot();
 
   const prompt = `Write the management brief for the school's leadership team (Head Teacher, Bursar, Board).
@@ -596,7 +596,7 @@ ${JSON.stringify(snapshot, null, 2)}`;
 export async function generateFinanceInsight(
   createdById?: string,
 ): Promise<InsightPayload | null> {
-  if (!isAiEnabled()) return null;
+  if (!(await isAiEnabled())) return null;
 
   const [byStatus, byChannel, ageing, topDebtors] = await Promise.all([
     db.invoice.groupBy({
@@ -686,7 +686,7 @@ export async function generateAtRiskScan(
   termId: string,
   createdById?: string,
 ): Promise<InsightPayload | null> {
-  if (!isAiEnabled()) return null;
+  if (!(await isAiEnabled())) return null;
 
   const students = await db.student.findMany({
     where: { status: "ENROLLED" },
@@ -778,7 +778,7 @@ ${JSON.stringify(flagged, null, 2)}`;
  * wording in `formTeacherRemark` is never overwritten.
  */
 export async function generateReportCardRemark(reportCardId: string): Promise<string | null> {
-  if (!isAiEnabled()) return null;
+  if (!(await isAiEnabled())) return null;
 
   const report = await db.reportCard.findUnique({
     where: { id: reportCardId },
@@ -869,7 +869,7 @@ export async function generateReportNarrative(
   rows: Array<Record<string, unknown>>,
   createdById?: string,
 ): Promise<InsightPayload | null> {
-  if (!isAiEnabled() || !rows.length) return null;
+  if (!(await isAiEnabled()) || !rows.length) return null;
 
   // Cap the sample so a 5,000-row export does not blow up the prompt.
   const sample = rows.slice(0, 150);

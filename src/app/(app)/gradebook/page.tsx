@@ -200,7 +200,7 @@ export default async function GradebookPage() {
         <div className="mb-5">
           <AiInsightCard
             insight={insight}
-            enabled={isAiEnabled()}
+            enabled={(await isAiEnabled())}
             onGenerate={
               userCan(user, "ai.insight.generate")
                 ? async () => {

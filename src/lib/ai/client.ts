@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 
-import { env } from "@/lib/env";
+import { integrationConfig } from "@/lib/integrations/config";
 
 import { capabilitiesFor, parseLooseJson } from "./capabilities";
 
@@ -19,16 +19,20 @@ export { INSIGHT_SCHEMA, type InsightPayload } from "./schemas";
  * degrades the request instead of failing it.
  */
 
-let cachedClient: Anthropic | null = null;
+/** Cached against the key it was built from — see the note on the mail transport. */
+let cachedClient: { apiKey: string; client: Anthropic } | null = null;
 
-function getClient(): Anthropic | null {
-  if (!env.ai.enabled) return null;
-  cachedClient ??= new Anthropic({ apiKey: env.ai.apiKey });
-  return cachedClient;
+async function getClient(): Promise<Anthropic | null> {
+  const { ai } = await integrationConfig();
+  if (!ai.enabled) return null;
+  if (cachedClient?.apiKey !== ai.apiKey) {
+    cachedClient = { apiKey: ai.apiKey, client: new Anthropic({ apiKey: ai.apiKey }) };
+  }
+  return cachedClient.client;
 }
 
-export function isAiEnabled(): boolean {
-  return env.ai.enabled;
+export async function isAiEnabled(): Promise<boolean> {
+  return (await integrationConfig()).ai.enabled;
 }
 
 export type Effort = "low" | "medium" | "high" | "xhigh" | "max";
@@ -50,8 +54,7 @@ export type AiCallOptions = {
 };
 
 /** Builds the parts of a request that depend on what the model supports. */
-function requestShape(effort: Effort) {
-  const model = env.ai.model;
+function requestShape(model: string, effort: Effort) {
   const supports = capabilitiesFor(model);
 
   return {
@@ -93,11 +96,12 @@ function jsonInstruction(schema: Record<string, unknown>): string {
 export async function generateStructured<T>(
   options: AiCallOptions,
 ): Promise<AiResult<T> | null> {
-  const client = getClient();
+  const client = await getClient();
   if (!client) return null;
 
   const { system, prompt, schema, maxTokens = 8000, effort = "high" } = options;
-  const shape = requestShape(effort);
+  const { ai } = await integrationConfig();
+  const shape = requestShape(ai.model, effort);
 
   try {
     const response = await client.beta.messages.create({
@@ -146,7 +150,7 @@ export async function generateStructured<T>(
     };
   } catch (error) {
     // AI is an enhancement, never a hard dependency: log and degrade.
-    logAiFailure(error);
+    logAiFailure(error, ai.model);
     return null;
   }
 }
@@ -158,10 +162,11 @@ export async function generateText(options: {
   maxTokens?: number;
   effort?: Effort;
 }): Promise<AiResult<string> | null> {
-  const client = getClient();
+  const client = await getClient();
   if (!client) return null;
 
-  const shape = requestShape(options.effort ?? "medium");
+  const { ai } = await integrationConfig();
+  const shape = requestShape(ai.model, options.effort ?? "medium");
 
   try {
     const response = await client.beta.messages.create({
@@ -193,7 +198,7 @@ export async function generateText(options: {
       outputTokens: response.usage.output_tokens ?? 0,
     };
   } catch (error) {
-    logAiFailure(error);
+    logAiFailure(error, ai.model);
     return null;
   }
 }
@@ -203,7 +208,7 @@ export async function generateText(options: {
  * SDK error buries the message under several hundred lines of headers. Pull
  * out the part that says what to change.
  */
-function logAiFailure(error: unknown) {
+function logAiFailure(error: unknown, model: string) {
   const candidate = error as {
     status?: number;
     error?: { error?: { message?: string } };
@@ -215,8 +220,8 @@ function logAiFailure(error: unknown) {
 
   if (candidate?.status === 400) {
     console.error(
-      `[ai] request rejected for model "${env.ai.model}": ${detail}\n` +
-        `[ai] If this names an unsupported parameter, unset ANTHROPIC_MODEL to use the default.`,
+      `[ai] request rejected for model "${model}": ${detail}\n` +
+        `[ai] If this names an unsupported parameter, clear the model setting to use the default.`,
     );
     return;
   }

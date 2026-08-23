@@ -190,6 +190,87 @@ export async function checkStorage(): Promise<{
   }
 }
 
+/**
+ * Writes a small object, reads it back, and deletes it.
+ *
+ * `checkStorage` proves the bucket exists and the credentials are accepted.
+ * It does not prove anything can be *put* there, and an R2 or B2 token issued
+ * read-only passes it and fails every upload — which surfaces as a broken
+ * photograph upload weeks later rather than as a red badge on the day the
+ * bucket was set up. This is the check that would have caught it.
+ */
+export async function checkStorageWritable(): Promise<{ ok: boolean; detail: string }> {
+  const probeKey = `_healthcheck/${randomUUID()}.txt`;
+  const payload = Buffer.from(`storage probe ${new Date().toISOString()}`, "utf8");
+
+  if (!isS3()) {
+    const target = resolveLocalPath(probeKey);
+    try {
+      await mkdir(path.dirname(target), { recursive: true });
+      await writeFile(target, payload);
+      const read = await readFile(target);
+      await unlink(target);
+      if (!read.equals(payload)) {
+        return { ok: false, detail: "Wrote a probe file and read back different bytes." };
+      }
+      const root = localRoot();
+      return path.isAbsolute(env.storage.localDir)
+        ? { ok: true, detail: `Wrote, read back and removed a probe file in ${root}.` }
+        : {
+            ok: false,
+            detail: `Wrote and read back a probe file in ${root}, but STORAGE_LOCAL_DIR is a relative path, so that directory is inside the container and every upload is lost on the next redeploy. Point it at a mounted volume.`,
+          };
+    } catch (error) {
+      return { ok: false, detail: (error as Error).message };
+    }
+  }
+
+  const problems = s3ConfigProblems();
+  if (problems.length) return { ok: false, detail: problems.join("; ") };
+
+  try {
+    await s3().send(
+      new PutObjectCommand({
+        Bucket: env.storage.s3Bucket,
+        Key: probeKey,
+        Body: payload,
+        ContentType: "text/plain",
+      }),
+    );
+  } catch (error) {
+    return {
+      ok: false,
+      detail: `The bucket is reachable but nothing can be written to it: ${(error as Error).message}`,
+    };
+  }
+
+  try {
+    const response = await s3().send(
+      new GetObjectCommand({ Bucket: env.storage.s3Bucket, Key: probeKey }),
+    );
+    const read = Buffer.from(await response.Body!.transformToByteArray());
+    if (!read.equals(payload)) {
+      return { ok: false, detail: "Wrote a probe object and read back different bytes." };
+    }
+  } catch (error) {
+    return {
+      ok: false,
+      detail: `Wrote a probe object but could not read it back: ${(error as Error).message}`,
+    };
+  } finally {
+    // Best effort. A probe left behind is 40 bytes in a bucket; failing the
+    // check over it would report a storage fault that does not exist.
+    await s3()
+      .send(new DeleteObjectCommand({ Bucket: env.storage.s3Bucket, Key: probeKey }))
+      .catch(() => undefined);
+  }
+
+  return {
+    ok: true,
+    detail: `Wrote, read back and removed a probe object in "${env.storage.s3Bucket}".`,
+  };
+}
+
 // -----------------------------------------------------------------------------
 // Local driver
 // -----------------------------------------------------------------------------

@@ -14,7 +14,7 @@ import { formatMoney } from "@/lib/money";
  * It never creates a payment from webhook data alone.
  */
 export async function POST(request: Request) {
-  const gateway = getGateway();
+  const gateway = await getGateway();
 
   // The raw body is needed byte-for-byte to verify the signature.
   const rawBody = await request.text();

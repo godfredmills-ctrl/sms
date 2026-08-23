@@ -368,7 +368,7 @@ export default async function DashboardPage() {
         <div className="mb-6">
           <AiInsightCard
             insight={brief}
-            enabled={isAiEnabled()}
+            enabled={(await isAiEnabled())}
             onGenerate={
               userCan(user, "ai.insight.generate")
                 ? generateManagementBriefAction

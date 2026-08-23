@@ -89,9 +89,9 @@ export default async function ReportsPage() {
         />
         <StatCard
           label="AI narratives"
-          value={isAiEnabled() ? "On" : "Off"}
-          hint={isAiEnabled() ? "Claude can interpret results" : "No API key set"}
-          tone={isAiEnabled() ? "success" : "neutral"}
+          value={(await isAiEnabled()) ? "On" : "Off"}
+          hint={(await isAiEnabled()) ? "Claude can interpret results" : "No API key set"}
+          tone={(await isAiEnabled()) ? "success" : "neutral"}
           icon={<Sparkles className="size-4" />}
         />
       </div>
@@ -101,7 +101,7 @@ export default async function ReportsPage() {
           <ReportBuilder
             datasets={available}
             filterOptions={filterOptions}
-            aiEnabled={isAiEnabled()}
+            aiEnabled={(await isAiEnabled())}
           />
         </div>
       ) : (

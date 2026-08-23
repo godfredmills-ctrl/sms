@@ -99,6 +99,7 @@ for (const check of [
   ["seed coverage", "scripts/check-seed-tables.mjs"],
   ["unreachable actions", "scripts/check-dead-actions.mjs"],
   ["script conditions", "scripts/check-script-conditions.mjs"],
+  ["integration reads", "scripts/check-integration-reads.mjs"],
 ]) {
   run(`Checking ${check[0]}`, check[1], []);
 }

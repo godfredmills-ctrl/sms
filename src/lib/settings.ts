@@ -92,8 +92,8 @@ export function invalidateSettings(group?: SettingGroup): void {
 export async function messagingSettings() {
   const values = await getSettingGroup("messaging");
   return {
-    senderId: (values.senderId as string) || env.sms.senderId,
-    emailFrom: (values.emailFrom as string) || env.email.from,
+    senderId: (values.senderId as string) || env.messaging.senderId,
+    emailFrom: (values.emailFrom as string) || env.messaging.emailFrom,
     replyTo: (values.replyTo as string) || "",
     signature: (values.signature as string) || "",
     /** Outside this window only urgent messages are dispatched. */

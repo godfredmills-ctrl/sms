@@ -402,7 +402,7 @@ export default async function ReportCardPage({
                 card.nextTermBegins?.toISOString().slice(0, 10) ?? null
               }
               canEditHeadRemark={canApprove}
-              aiEnabled={isAiEnabled()}
+              aiEnabled={(await isAiEnabled())}
             />
           </div>
         </Card>

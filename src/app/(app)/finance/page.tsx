@@ -242,7 +242,7 @@ export default async function FinancePage() {
         <div className="mb-5">
           <AiInsightCard
             insight={insight}
-            enabled={isAiEnabled()}
+            enabled={(await isAiEnabled())}
             onGenerate={
               userCan(user, "ai.insight.generate")
                 ? generateFinanceInsightAction

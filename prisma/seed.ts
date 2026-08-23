@@ -263,7 +263,12 @@ async function reset() {
     "classSection", "classLevel", "subject",
     "auditLog", "session", "verificationToken",
     "userRole", "rolePermission", "role", "permission", "user",
-    "fileAsset", "term", "academicYear", "setting", "campus", "school",
+    // Provider credentials are wiped with everything else. Leaving a live
+    // Paystack key behind while the demo data around it was replaced would
+    // point a rehearsal at somebody's real merchant account; anything set in
+    // the deployment's environment is untouched either way.
+    "fileAsset", "term", "academicYear", "setting", "integrationSetting",
+    "campus", "school",
   ];
 
   // A model missing from the list above is not a harmless omission: its rows

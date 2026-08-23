@@ -1,8 +1,9 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import type { PaymentChannel, PaymentProvider, PaymentStatus } from "@prisma/client";
 
-import { env } from "@/lib/env";
 import { generateCode } from "@/lib/crypto";
+import { env } from "@/lib/env";
+import { integrationConfig, type ResolvedPayments } from "@/lib/integrations/config";
 import { normalisePhone } from "@/lib/utils";
 
 /**
@@ -117,8 +118,10 @@ class PaystackGateway implements PaymentGateway {
     "USSD",
   ];
 
+  constructor(private readonly config: ResolvedPayments) {}
+
   private get secret() {
-    return env.payments.paystackSecret;
+    return this.config.paystackSecret;
   }
 
   private async request<T>(
@@ -297,15 +300,17 @@ class HubtelGateway implements PaymentGateway {
   readonly label = "Hubtel";
   readonly channels: PaymentChannel[] = ["MOBILE_MONEY", "CARD", "BANK_TRANSFER"];
 
+  constructor(private readonly config: ResolvedPayments) {}
+
   private get auth() {
-    const { hubtelClientId, hubtelClientSecret } = env.payments;
+    const { hubtelClientId, hubtelClientSecret } = this.config;
     if (!hubtelClientId || !hubtelClientSecret) return null;
     return Buffer.from(`${hubtelClientId}:${hubtelClientSecret}`).toString("base64");
   }
 
   async initiate(request: CheckoutRequest): Promise<CheckoutResponse> {
     const auth = this.auth;
-    if (!auth || !env.payments.hubtelMerchant) {
+    if (!auth || !this.config.hubtelMerchant) {
       return { ok: false, error: "Hubtel credentials are not configured." };
     }
 
@@ -321,7 +326,7 @@ class HubtelGateway implements PaymentGateway {
           description: `School fees — ${request.reference}`,
           callbackUrl: request.callbackUrl,
           returnUrl: request.callbackUrl,
-          merchantAccountNumber: env.payments.hubtelMerchant,
+          merchantAccountNumber: this.config.hubtelMerchant,
           clientReference: request.reference,
         }),
         cache: "no-store",
@@ -353,7 +358,7 @@ class HubtelGateway implements PaymentGateway {
 
     try {
       const response = await fetch(
-        `https://api-txnstatus.hubtel.com/transactions/${env.payments.hubtelMerchant}/status?clientReference=${encodeURIComponent(reference)}`,
+        `https://api-txnstatus.hubtel.com/transactions/${this.config.hubtelMerchant}/status?clientReference=${encodeURIComponent(reference)}`,
         { headers: { Authorization: `Basic ${auth}` }, cache: "no-store" },
       );
       const body = (await response.json()) as {
@@ -454,19 +459,31 @@ function hashCode(value: string): number {
 // Resolution
 // -----------------------------------------------------------------------------
 
-const gateways: Record<string, PaymentGateway> = {
-  paystack: new PaystackGateway(),
-  hubtel: new HubtelGateway(),
-  mock: new MockGateway(),
-};
+/**
+ * Gateways are built per call rather than held in a module-level map.
+ *
+ * They carry the credentials they were built with, and a school can change
+ * those from the settings screen — a map built once at import would keep
+ * charging against a Paystack key that was replaced an hour ago, with nothing
+ * on screen to say so. Construction is a few object allocations; nothing here
+ * holds a connection.
+ */
+export async function getGateway(name?: string): Promise<PaymentGateway> {
+  const { payments } = await integrationConfig();
+  const key = (name ?? payments.provider).toLowerCase();
 
-export function getGateway(name?: string): PaymentGateway {
-  const key = (name ?? env.payments.provider).toLowerCase();
-  return gateways[key] ?? gateways.mock;
+  switch (key) {
+    case "paystack":
+      return new PaystackGateway(payments);
+    case "hubtel":
+      return new HubtelGateway(payments);
+    default:
+      return new MockGateway();
+  }
 }
 
-export function isLiveGateway(): boolean {
-  return getGateway().id !== "MOCK";
+export async function isLiveGateway(): Promise<boolean> {
+  return (await getGateway()).id !== "MOCK";
 }
 
 /** Human-readable labels for the channel picker in the portals. */
@@ -483,8 +500,8 @@ export const CHANNEL_LABELS: Record<PaymentChannel, string> = {
 };
 
 /** Channels a guardian can pick in the portal (excludes back-office methods). */
-export function onlineChannels(): PaymentChannel[] {
-  return getGateway().channels;
+export async function onlineChannels(): Promise<PaymentChannel[]> {
+  return (await getGateway()).channels;
 }
 
 /** Channels the bursar can record manually at the front desk. */

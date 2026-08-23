@@ -33,7 +33,9 @@
     "exams:check": "tsx --conditions=react-server scripts/check-exams.ts",
     "marks:check": "tsx scripts/check-marks.ts",
     "boarding:check": "tsx scripts/check-boarding.ts",
-    "admissions:check": "tsx scripts/check-admissions.ts"
+    "admissions:check": "tsx scripts/check-admissions.ts",
+    "integrations:check": "tsx --conditions=react-server scripts/check-integrations.ts",
+    "setup:integrations": "node scripts/setup-integrations.mjs"
   },
   "prisma": {
     "seed": "tsx --conditions=react-server prisma/seed.ts"
