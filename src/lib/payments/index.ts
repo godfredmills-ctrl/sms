@@ -324,7 +324,17 @@ class HubtelGateway implements PaymentGateway {
         body: JSON.stringify({
           totalAmount: request.amountMinor / 100,
           description: `School fees — ${request.reference}`,
-          callbackUrl: request.callbackUrl,
+          // These are two different things and were being sent the same value.
+          //
+          // returnUrl is where the payer's browser is sent afterwards;
+          // callbackUrl is where Hubtel POSTs its server-to-server
+          // confirmation. Pointing both at the guardian's fees page meant the
+          // confirmation was posted to a React page, which answers 405 — so
+          // this file's own Hubtel webhook parser could never run at all. A
+          // parent who approved the mobile money prompt on their phone and
+          // never returned to the browser left the school holding the money
+          // with the invoice fully outstanding.
+          callbackUrl: `${env.appUrl}/api/webhooks/payments`,
           returnUrl: request.callbackUrl,
           merchantAccountNumber: this.config.hubtelMerchant,
           clientReference: request.reference,

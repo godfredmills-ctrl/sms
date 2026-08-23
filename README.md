@@ -197,6 +197,19 @@ can gate a deploy. Run it after every seed.
    provider what actually happened and records DELIVERED or FAILED per
    recipient, so a reminder to a dead SIM stops counting as a parent told.
 
+9. **Schedule payment reconciliation** (required once you take real money) —
+   every 15 minutes:
+
+   ```
+   curl -fsS -X POST "$APP_URL/api/cron/payments" -H "Authorization: Bearer $CRON_SECRET"
+   ```
+
+   The webhook is somebody else's request to your server and can be lost. This
+   asks the provider directly about every checkout still unconfirmed, and
+   finishes any payment that was recorded but never applied to a bill — the
+   state that otherwise has a family chased for fees they have already paid.
+   See the payments section below.
+
 ---
 
 ## Integrations
@@ -208,17 +221,53 @@ All of these are optional and degrade to a mock implementation when unset.
 One integration covers **mobile money** (MTN, Telecel, AirtelTigo), **cards**,
 **bank transfer** and **USSD**.
 
+Set it either from **Settings → Integrations** in the app (encrypted, no
+redeploy, with a Test button that contacts Paystack for real) or in the
+environment, which takes precedence:
+
 ```
 PAYMENT_PROVIDER=paystack
 PAYSTACK_SECRET_KEY=sk_live_...
 PAYSTACK_PUBLIC_KEY=pk_live_...
 ```
 
-Point the Paystack webhook at `https://<your-domain>/api/webhooks/payments`. The
-route verifies the HMAC signature, rejects amount mismatches, and is idempotent —
-a replayed webhook cannot double-credit an account.
+#### Going live with real money — the checklist
 
-Hubtel is supported as an alternative (`PAYMENT_PROVIDER=hubtel`).
+Every step below has been the cause of a payment going missing at some point.
+
+1. **`APP_URL` must be the real public origin**, not localhost. The payer is
+   redirected back to `${APP_URL}/portal/guardian/fees?ref=…`, and if that
+   points at localhost they never get back and never see their receipt.
+2. **Set the webhook** in the Paystack dashboard (Settings → API Keys &
+   Webhooks) to `https://<your-domain>/api/webhooks/payments`. The route
+   verifies the HMAC signature over the raw body, rejects amount and currency
+   mismatches, and is idempotent — a replayed webhook cannot double-credit.
+3. **Schedule the reconciliation cron.** This is not optional once real money is
+   moving. A webhook is a request from somebody else's server: it can be lost
+   while the app redeploys, refused during a database blip, or never sent
+   because step 2 was skipped. The sweep asks Paystack directly about anything
+   left unconfirmed, finishes any payment that was recorded but never applied to
+   a bill, and closes genuinely dead checkouts only after the provider confirms
+   they came to nothing.
+   ```bash
+   curl -fsS -X POST "$APP_URL/api/cron/payments" -H "Authorization: Bearer $CRON_SECRET"
+   ```
+   Every 15 minutes is a sensible cadence. It is safe to run as often as you
+   like — settlement is idempotent.
+4. **Use a live key.** `sk_test_` keys work end to end and move no money. The
+   Test button on the integrations page says which kind is in use.
+5. **Check the test gateway is off.** With `PAYMENT_PROVIDER=paystack` the
+   simulator at `/pay/mock` stops responding, which is the intent — it settles
+   invoices without payment.
+6. **Make one real payment of GH₵1** to yourself and confirm the receipt appears
+   on the guardian portal and the invoice balance drops.
+
+Paystack requires business verification before it will issue live keys, so start
+that before the term does.
+
+Hubtel is supported as an alternative (`PAYMENT_PROVIDER=hubtel`); it needs a
+client ID, client secret and merchant account number, and its callback is
+configured by this system rather than in a dashboard.
 
 ### SMS
 

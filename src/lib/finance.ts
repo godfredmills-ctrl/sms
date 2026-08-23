@@ -612,15 +612,41 @@ export async function allocatePaymentToOldestInvoices(
     if (!payment) return [];
     if (payment.allocations.length > 0) return [];
 
-    const invoices = await tx.invoice.findMany({
-      where: {
-        studentId: payment.studentId,
-        balanceMinor: { gt: 0 },
-        status: { in: ["ISSUED", "PART_PAID", "OVERDUE"] },
-      },
-      orderBy: [{ dueDate: "asc" }, { issueDate: "asc" }],
-      select: { id: true, balanceMinor: true },
-    });
+    /**
+     * Locked, not just read.
+     *
+     * Two people pay the same child's bill at the same time — a mother and a
+     * father both answering the same fee-deadline SMS, which is exactly how it
+     * happens — and the provider delivers both webhooks milliseconds apart.
+     * Under READ COMMITTED both transactions read the same balance, both
+     * decide the whole of it is unpaid, and both allocate the full amount. The
+     * unique index does not catch it because the allocations belong to
+     * different payments.
+     *
+     * The ledger then holds GH₵2,000 against a GH₵1,000 invoice, and because
+     * the balance is clamped at zero the surplus is not recorded as credit —
+     * it is simply gone. Nothing recomputes it back, because every recompute
+     * reads the same over-allocated rows.
+     *
+     * `FOR UPDATE` makes the second transaction wait for the first to commit
+     * and then re-read, so it sees a balance of zero and allocates nothing;
+     * its payment stays unallocated and shows as credit, which is what a
+     * genuine double payment is.
+     */
+    const locked = await tx.$queryRaw<Array<{ id: string; balanceMinor: number }>>`
+      SELECT "id", "balanceMinor"
+      FROM "Invoice"
+      WHERE "studentId" = ${payment.studentId}
+        AND "balanceMinor" > 0
+        AND "status" IN ('ISSUED', 'PART_PAID', 'OVERDUE')
+      ORDER BY "dueDate" ASC NULLS LAST, "issueDate" ASC
+      FOR UPDATE
+    `;
+
+    const invoices = locked.map((invoice) => ({
+      id: invoice.id,
+      balanceMinor: Number(invoice.balanceMinor),
+    }));
 
     let remaining = payment.amountMinor;
     const touched: string[] = [];

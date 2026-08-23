@@ -14,8 +14,11 @@ import {
   StatusBadge,
 } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
+import { db } from "@/lib/db";
 import { getStudentStatement } from "@/lib/finance";
 import { formatMoney, percentOf } from "@/lib/money";
+import { getGateway } from "@/lib/payments";
+import { settlePayment, type Settlement } from "@/lib/payments/settle";
 import { formatDate, formatPercent, fullName } from "@/lib/utils";
 
 import { NotLinked } from "../not-linked";
@@ -24,12 +27,168 @@ import { wardsFor } from "../wards";
 export const metadata: Metadata = { title: "Fee Account" };
 export const dynamic = "force-dynamic";
 
-export default async function GuardianFeesPage() {
+/**
+ * The payer comes back here from the provider with `?ref=` on the URL.
+ *
+ * That reference was being ignored entirely: a parent finished paying on
+ * Paystack, was redirected to this page, and saw the balance they had before
+ * they paid, with nothing to say the payment had happened. Whether it settled
+ * depended on a webhook arriving in the seconds in between.
+ *
+ * So the reference is used: the provider is asked directly what became of it,
+ * and the payment is settled through the same function the webhook uses. The
+ * parent then sees the answer, and the balance below it is the balance after
+ * their payment.
+ *
+ * Scoped to this guardian's own payments. Settling somebody else's payment
+ * would do no harm — it only writes down what the provider says is true — but
+ * reporting back a receipt number and an amount would tell one family what
+ * another had paid.
+ */
+async function settleOnReturn(
+  guardianId: string,
+  reference: string,
+): Promise<(Settlement & { studentName?: string }) | null> {
+  const payment = await db.payment.findFirst({
+    where: {
+      reference,
+      student: { guardians: { some: { guardianId } } },
+    },
+    select: {
+      status: true,
+      provider: true,
+      receiptNo: true,
+      amountMinor: true,
+      student: { select: { firstName: true, lastName: true } },
+    },
+  });
+
+  if (!payment) return null;
+
+  const studentName = `${payment.student.firstName} ${payment.student.lastName}`;
+
+  /**
+   * Only a payment that went to a real gateway may be settled from here.
+   *
+   * `getGateway` falls back to the mock for any name it does not recognise, and
+   * the mock's `verify` answers SUCCESS unconditionally — that is what makes it
+   * useful for rehearsing the fee flow, and lethal afterwards. A school that
+   * pilots on the test gateway and then switches to Paystack is left holding
+   * PROCESSING rows stamped provider=MOCK against real invoices, and the
+   * reference to each one is sitting in the parent's own browser history. Load
+   * this page with it and the mock cheerfully confirms a payment that never
+   * happened, clearing thousands of cedis of real fees.
+   *
+   * `/pay/mock` already refuses to run once a live provider is configured. This
+   * is the same guard, in the place the same danger reappeared — and it matches
+   * what the sweep already does, which restricts itself to real providers.
+   */
+  const settleable = payment.provider === "PAYSTACK" || payment.provider === "HUBTEL";
+
+  // Already settled — the common case, and the fast path. Still worth asking
+  // whether it was ever applied: settling and allocating are separate commits.
+  if (payment.status === "SUCCESS") {
+    await settlePayment(reference, { ok: true, status: "SUCCESS" });
+    return {
+      outcome: "already-settled",
+      receiptNo: payment.receiptNo,
+      amountMinor: payment.amountMinor,
+      studentName,
+    };
+  }
+
+  if (!settleable) return null;
+
+  try {
+    // The gateway this payment was created with, not whichever is configured
+    // now — see the note in reconcilePendingPayments.
+    const gateway = await getGateway(payment.provider.toLowerCase());
+    const result = await gateway.verify(reference);
+    if (!result.ok) return { outcome: "still-pending", studentName };
+    return { ...(await settlePayment(reference, result)), studentName };
+  } catch {
+    // A provider that will not answer is not a failed payment. Say nothing
+    // definite rather than telling a parent their money did not arrive.
+    return { outcome: "still-pending", studentName };
+  }
+}
+
+/**
+ * What the parent is told when they come back from paying.
+ *
+ * Written for somebody who has just sent money and wants to know it arrived.
+ * "Still confirming" is a real and common answer for mobile money — the
+ * important part is that it never reads as failure, and never asks them to pay
+ * again.
+ */
+function PaymentOutcome({
+  settlement,
+}: {
+  settlement: Settlement & { studentName?: string };
+}) {
+  const forChild = settlement.studentName ? ` for ${settlement.studentName}` : "";
+
+  switch (settlement.outcome) {
+    case "settled":
+    case "already-settled":
+      return (
+        <Alert tone="success" className="mb-4">
+          <strong>Payment received.</strong> {formatMoney(settlement.amountMinor)}
+          {forChild} has been applied to the oldest unpaid bill first. Your receipt
+          number is <strong>{settlement.receiptNo}</strong> — the figures below
+          already include it.
+        </Alert>
+      );
+
+    case "still-pending":
+      return (
+        <Alert tone="info" className="mb-4">
+          <strong>Still confirming your payment.</strong> Mobile money can take a
+          few minutes to be confirmed by the network. There is no need to pay
+          again — refresh this page shortly, and you will be notified as soon as
+          it clears.
+        </Alert>
+      );
+
+    case "not-successful":
+      return (
+        <Alert tone="warning" className="mb-4">
+          <strong>That payment did not go through</strong>
+          {settlement.reason ? `: ${settlement.reason}` : "."} Nothing has been
+          charged. You can try again, or pay at the school office.
+        </Alert>
+      );
+
+    case "rejected":
+      return (
+        <Alert tone="danger" className="mb-4">
+          <strong>Something is wrong with that payment</strong> and it has been
+          held rather than applied to your account. Please contact the school
+          office and quote the payment you have just made — do not pay again.
+        </Alert>
+      );
+
+    default:
+      return null;
+  }
+}
+
+export default async function GuardianFeesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ ref?: string }>;
+}) {
   const user = await requireUser();
   if (!user.guardianId) return <NotLinked title="Fee Account" />;
 
   const links = await wardsFor(user.guardianId);
   if (!links.length) return <NotLinked title="Fee Account" />;
+
+  // Before the statement is read, so the figures below already include this
+  // payment. Reading them first would show the parent the balance from before
+  // the money they just sent.
+  const { ref } = await searchParams;
+  const settlement = ref ? await settleOnReturn(user.guardianId, ref) : null;
 
   const statements = await Promise.all(
     links.map((link) => getStudentStatement(link.student.id)),
@@ -65,6 +224,8 @@ export default async function GuardianFeesPage() {
           ) : null
         }
       />
+
+      {settlement ? <PaymentOutcome settlement={settlement} /> : null}
 
       <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatCard
