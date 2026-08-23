@@ -385,9 +385,10 @@ model Campus {
   isMain   Boolean @default(false)
   isActive Boolean @default(true)
 
-  classSections ClassSection[]
-  staff         Staff[]
-  students      Student[]
+  classSections  ClassSection[]
+  staff          Staff[]
+  students       Student[]
+  assetLocations AssetLocation[]
 
   @@unique([schoolId, code])
 }
@@ -854,6 +855,10 @@ model Staff {
   exeatsReceived        BoardingExeat[]       @relation("ExeatReceivedBy")
   admissionsAssessed    AdmissionAssessment[] @relation("AdmissionAssessor")
   admissionsInterviewed AdmissionInterview[]  @relation("AdmissionInterviewer")
+
+  assetsHeld       Asset[]      @relation("AssetCustodian")
+  assetsHandedOver AssetEvent[] @relation("AssetFromStaff")
+  assetsReceived   AssetEvent[] @relation("AssetToStaff")
 
   @@index([status])
   @@index([department])
@@ -2606,6 +2611,7 @@ model FileAsset {
   submissionFiles         SubmissionFile[]
   siteMedia               SiteMedia[]
   expenseReceipts         Expense[]                @relation("ExpenseReceipt")
+  assetPhotos             Asset[]                  @relation("AssetPhoto")
 
   @@index([mimeType])
 }
@@ -3865,8 +3871,10 @@ model Vendor {
 
   expenses Expense[]
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  assets            Asset[]
+  assetMaintenances AssetMaintenance[]
 
   @@unique([name])
   @@index([active])
@@ -3949,6 +3957,10 @@ model Expense {
   receipt   FileAsset? @relation("ExpenseReceipt", fields: [receiptId], references: [id], onDelete: SetNull)
 
   notes String?
+
+  /// The things this bill bought, where it bought things that last.
+  assets            Asset[]
+  assetMaintenances AssetMaintenance[] @relation("MaintenanceExpense")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -4492,4 +4504,255 @@ model AdmissionInterview {
 
   @@index([applicationId])
   @@index([interviewerId])
+}
+
+// =============================================================================
+// ASSET REGISTER
+//
+// What the school owns, where it is, who has it, and what it is still worth.
+//
+// The expenditure module has had a CAPITAL category since it was written —
+// "something that lasts: a building, a bus, equipment" — with nothing on the
+// other side of it. A school could record buying a generator and then own no
+// generator. This is the other side: the bill becomes a thing, the thing has a
+// location and a custodian, and when the auditor asks what the school owns
+// there is a register to print rather than a filing cabinet to search.
+// =============================================================================
+
+enum AssetStatus {
+  /// In service, wherever it is.
+  IN_USE
+  /// Held in stores — serviceable, nobody using it.
+  IN_STORE
+  /// Away being fixed. Still owned, still on the register, not available.
+  UNDER_REPAIR
+  /// Cannot be found. Kept at full value until somebody decides otherwise,
+  /// because writing off a thing that later turns up in a cupboard is worse.
+  MISSING
+  /// Sold, given away or scrapped. Off the register's live total, still in it.
+  DISPOSED
+  /// Owned, worthless, not yet disposed of. The broken photocopier in the
+  /// corridor — an auditor wants it named rather than quietly dropped.
+  WRITTEN_OFF
+}
+
+enum AssetCondition {
+  NEW
+  GOOD
+  FAIR
+  POOR
+  /// Beyond repair. Distinct from WRITTEN_OFF, which is a decision rather than
+  /// an observation.
+  UNSERVICEABLE
+}
+
+enum AssetEventKind {
+  ACQUIRED
+  MOVED
+  ASSIGNED
+  RETURNED
+  /// Seen, by a named person, on a date. What a stock-take produces.
+  VERIFIED
+  CONDITION_CHANGED
+  STATUS_CHANGED
+  SERVICED
+  DISPOSED
+}
+
+/// A class of thing, and how its kind loses value.
+model AssetCategory {
+  id   String  @id @default(cuid())
+  name String  @unique
+  /// Two or three letters. Becomes the middle of every tag in the category:
+  /// "STM/ICT/0042".
+  code String?
+
+  /// Straight-line life in years. Null means this kind does not depreciate —
+  /// land, and anything the school has decided not to track that way.
+  usefulLifeYears Int?
+  /// What it is expected to be worth at the end of that life, as a percentage
+  /// of cost. Held as a percentage rather than an amount so it can serve as a
+  /// default for a whole category.
+  residualPercent Int  @default(0)
+
+  active    Boolean @default(true)
+  sortOrder Int     @default(0)
+  notes     String?
+
+  assets Asset[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([active])
+}
+
+/// Somewhere in the school a thing can be.
+model AssetLocation {
+  id       String  @id @default(cuid())
+  name     String
+  building String?
+  room     String?
+
+  campusId String?
+  campus   Campus? @relation(fields: [campusId], references: [id], onDelete: SetNull)
+
+  active    Boolean @default(true)
+  sortOrder Int     @default(0)
+  notes     String?
+
+  assets    Asset[]
+  movedFrom AssetEvent[] @relation("AssetMovedFrom")
+  movedTo   AssetEvent[] @relation("AssetMovedTo")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  /// The real constraint is stronger than this and Prisma cannot express it.
+  /// Postgres treats NULLs as distinct in a unique index, so this alone would
+  /// accept "Science Lab" with no building twice — and a duplicate location
+  /// name is exactly what a stock-take cannot resolve, since the person with
+  /// the clipboard has only the name. The migration applies it over
+  /// COALESCE("building", '') instead.
+  @@unique([name, building])
+  @@index([active])
+}
+
+/// One thing the school owns.
+model Asset {
+  id String @id @default(cuid())
+
+  /// What is written on the sticker. Unique, and the only thing anybody can
+  /// read off the object itself during a stock-take.
+  tag String @unique
+
+  name        String
+  description String?
+
+  categoryId String
+  category   AssetCategory @relation(fields: [categoryId], references: [id])
+
+  serialNumber String?
+  model        String?
+  manufacturer String?
+
+  status    AssetStatus    @default(IN_USE)
+  condition AssetCondition @default(GOOD)
+
+  locationId String?
+  location   AssetLocation? @relation(fields: [locationId], references: [id], onDelete: SetNull)
+
+  /// The member of staff answerable for it: a laptop signed out to a teacher,
+  /// a set of keys, a projector.
+  custodianId String?
+  custodian   Staff?  @relation("AssetCustodian", fields: [custodianId], references: [id], onDelete: SetNull)
+
+  purchasedOn     DateTime?
+  costMinor       Int       @default(0)
+  /// Absolute, in minor units, not a percentage — the category supplies a
+  /// default percentage and this is what was actually decided for this item.
+  residualMinor   Int       @default(0)
+  /// Overrides the category's life for this one item. A laptop bought
+  /// second-hand does not get the category's five years.
+  usefulLifeYears Int?
+
+  vendorId String?
+  vendor   Vendor? @relation(fields: [vendorId], references: [id], onDelete: SetNull)
+
+  /// The bill that bought it. Deliberately NOT unique: one invoice buys thirty
+  /// chairs, and each chair is its own asset with its own tag.
+  expenseId String?
+  expense   Expense? @relation(fields: [expenseId], references: [id], onDelete: SetNull)
+
+  warrantyExpiresOn     DateTime?
+  /// How often it should be serviced. A bus, a generator, a lift.
+  serviceIntervalMonths Int?
+  lastServicedOn        DateTime?
+
+  /// The last time a human confirmed it exists.
+  lastVerifiedOn DateTime?
+
+  disposedOn            DateTime?
+  /// What the school got for it. Compared with the written-down value to give
+  /// the gain or loss an auditor asks for.
+  disposalProceedsMinor Int       @default(0)
+  disposalNote          String?
+
+  photoFileId String?
+  photo       FileAsset? @relation("AssetPhoto", fields: [photoFileId], references: [id], onDelete: SetNull)
+
+  notes String?
+
+  events      AssetEvent[]
+  maintenance AssetMaintenance[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([categoryId])
+  @@index([locationId])
+  @@index([custodianId])
+  @@index([status])
+  @@index([expenseId])
+}
+
+/// Everything that has happened to an asset. Append-only.
+model AssetEvent {
+  id      String @id @default(cuid())
+  assetId String
+  asset   Asset  @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  kind       AssetEventKind
+  occurredOn DateTime
+
+  fromLocationId String?
+  fromLocation   AssetLocation? @relation("AssetMovedFrom", fields: [fromLocationId], references: [id], onDelete: SetNull)
+  toLocationId   String?
+  toLocation     AssetLocation? @relation("AssetMovedTo", fields: [toLocationId], references: [id], onDelete: SetNull)
+
+  fromStaffId String?
+  fromStaff   Staff?  @relation("AssetFromStaff", fields: [fromStaffId], references: [id], onDelete: SetNull)
+  toStaffId   String?
+  toStaff     Staff?  @relation("AssetToStaff", fields: [toStaffId], references: [id], onDelete: SetNull)
+
+  note String?
+
+  /// Denormalised for the same reason AuditLog denormalises its actor: the
+  /// history has to survive the departure of whoever wrote it.
+  recordedById    String?
+  recordedByLabel String?
+
+  createdAt DateTime @default(now())
+
+  @@index([assetId, occurredOn])
+}
+
+/// A service, a repair or an inspection.
+model AssetMaintenance {
+  id      String @id @default(cuid())
+  assetId String
+  asset   Asset  @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  /// SERVICE | REPAIR | INSPECTION
+  kind        String
+  performedOn DateTime
+  /// When the next one is due, where that is known at the time.
+  nextDueOn   DateTime?
+
+  description String
+  costMinor   Int    @default(0)
+
+  vendorId  String?
+  vendor    Vendor?  @relation(fields: [vendorId], references: [id], onDelete: SetNull)
+  /// The bill for it, where one was raised.
+  expenseId String?
+  expense   Expense? @relation("MaintenanceExpense", fields: [expenseId], references: [id], onDelete: SetNull)
+
+  recordedById    String?
+  recordedByLabel String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([assetId, performedOn])
 }

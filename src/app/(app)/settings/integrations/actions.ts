@@ -105,7 +105,7 @@ export async function saveIntegrationAction(
   // Refusing to save a provider whose required fields are blank would be worse
   // than saving it: a school pastes the key on Tuesday and the client ID on
   // Wednesday. The page reports what is still missing instead.
-  const { changed } = await saveIntegrationValues(values, who);
+  const { changed, ignored } = await saveIntegrationValues(values, who);
 
   await db.auditLog.create({
     data: {
@@ -121,6 +121,16 @@ export async function saveIntegrationAction(
   });
 
   revalidatePath("/settings/integrations");
+
+  // Say what did not happen. A save that silently drops half of what was typed
+  // is the same failure in a friendlier costume.
+  if (ignored.length) {
+    return {
+      ok: true,
+      message: `${integration.name} saved. ${ignored.join(", ")} ${ignored.length === 1 ? "was" : "were"} left as ${ignored.length === 1 ? "it is" : "they are"} — the deployment sets ${ignored.length === 1 ? "it" : "them"} in its environment variables, which take precedence over this screen.`,
+    };
+  }
+
   return { ok: true, message: `${integration.name} saved.` };
 }
 

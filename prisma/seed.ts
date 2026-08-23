@@ -166,6 +166,10 @@ async function main() {
   // After payroll: the statement adds the two together, and a demo with one
   // and not the other reads as a school that spends nothing but salaries.
   await seedExpenditure(terms, year.id, roles);
+  // After expenditure, so the furniture on the register can point at the
+  // capital bill that bought it — which is the whole reason the register
+  // exists rather than being a spreadsheet.
+  await seedAssets(staff, school.campuses[0]?.id ?? null);
   await seedBoarding(students, staff, year.id);
   await seedAdmissions(levels, staff, year.id, roles);
 
@@ -255,6 +259,9 @@ async function reset() {
     // so they clear first; a room points at its house.
     "boardingExeat", "boardingAllocation", "boardingRoom", "boardingHouse",
     "payslip", "payrollRun",
+    // Assets before the bills that bought them and the staff who hold them:
+    // an asset points at an expense, a vendor, a location and a custodian.
+    "assetEvent", "assetMaintenance", "asset", "assetLocation", "assetCategory",
     // Expenditure: the bills first, then what they point at. A budget line
     // points at a category too, so both go before it.
     "expense", "budgetLine", "expenseCategory", "vendor",
@@ -5164,6 +5171,357 @@ async function seedAdmissions(
       await db.student.update({
         where: { id: student.id },
         data: { status: "APPLICANT" },
+      });
+    }
+  }
+}
+
+/**
+ * The asset register.
+ *
+ * Seeded so the demo shows the register doing the things a list cannot: a bus
+ * overdue for service, a projector nobody can find, a laptop signed out to a
+ * teacher, something already disposed of at a loss, and a capital bill tied to
+ * the thing it bought. A register full of healthy rows demonstrates nothing.
+ */
+async function seedAssets(staff: StaffRow[], campusId: string | null) {
+  console.log("  Asset register…");
+
+  const categories = await Promise.all(
+    [
+      { name: "Motor vehicles", code: "VEH", usefulLifeYears: 8, residualPercent: 10, sortOrder: 10 },
+      { name: "ICT equipment", code: "ICT", usefulLifeYears: 4, residualPercent: 0, sortOrder: 20 },
+      { name: "Furniture and fittings", code: "FUR", usefulLifeYears: 10, residualPercent: 0, sortOrder: 30 },
+      { name: "Laboratory equipment", code: "LAB", usefulLifeYears: 8, residualPercent: 0, sortOrder: 40 },
+      { name: "Plant and machinery", code: "PLT", usefulLifeYears: 10, residualPercent: 5, sortOrder: 50 },
+      // Land is the case the depreciation code has to get right by doing
+      // nothing at all.
+      { name: "Land and buildings", code: "LND", usefulLifeYears: null, residualPercent: 0, sortOrder: 60 },
+    ].map((category) =>
+      db.assetCategory.create({ data: category, select: { id: true, name: true } }),
+    ),
+  );
+
+  const categoryId = (name: string) => categories.find((entry) => entry.name === name)!.id;
+
+  const locations = await Promise.all(
+    [
+      { name: "Administration block", building: "Admin", sortOrder: 10 },
+      { name: "Science laboratory", building: "Science block", room: "Lab 1", sortOrder: 20 },
+      { name: "ICT laboratory", building: "Science block", room: "Lab 3", sortOrder: 30 },
+      { name: "Assembly hall", building: "Main block", sortOrder: 40 },
+      { name: "School stores", building: "Admin", room: "Store 2", sortOrder: 50 },
+      { name: "Transport yard", building: null, sortOrder: 60 },
+    ].map((location) =>
+      db.assetLocation.create({
+        data: { ...location, campusId },
+        select: { id: true, name: true },
+      }),
+    ),
+  );
+
+  const locationId = (name: string) => locations.find((entry) => entry.name === name)!.id;
+
+  // The bill that bought the furniture, so the loop the register was built to
+  // close is visible in the demo rather than only described.
+  const capitalBill = await db.expense.findFirst({
+    where: { category: { kind: "CAPITAL" } },
+    orderBy: { incurredOn: "desc" },
+    select: { id: true },
+  });
+
+  const bursar = staff.find((entry) => entry.jobTitle?.toLowerCase().includes("bursar"));
+  const teacher = staff.find((entry) => entry.jobTitle?.toLowerCase().includes("teacher"));
+  const head = staff.find((entry) => entry.jobTitle?.toLowerCase().includes("head"));
+
+  const daysAgo = (days: number) => new Date(Date.now() - days * 86_400_000);
+
+  const rows: Array<{
+    tag: string;
+    name: string;
+    category: string;
+    costMinor: number;
+    purchasedOn: Date;
+    location?: string;
+    custodianId?: string | null;
+    status?: "IN_USE" | "IN_STORE" | "UNDER_REPAIR" | "MISSING" | "DISPOSED" | "WRITTEN_OFF";
+    condition?: "NEW" | "GOOD" | "FAIR" | "POOR" | "UNSERVICEABLE";
+    serialNumber?: string;
+    manufacturer?: string;
+    model?: string;
+    usefulLifeYears?: number | null;
+    residualMinor?: number;
+    serviceIntervalMonths?: number;
+    lastServicedOn?: Date | null;
+    lastVerifiedOn?: Date | null;
+    expenseId?: string | null;
+    disposedOn?: Date;
+    disposalProceedsMinor?: number;
+    disposalNote?: string;
+    notes?: string;
+  }> = [
+    {
+      tag: "SMIS/VEH/0001",
+      name: "Toyota Hiace minibus",
+      category: "Motor vehicles",
+      costMinor: 18_000_000,
+      residualMinor: 1_800_000,
+      purchasedOn: daysAgo(1_400),
+      location: "Transport yard",
+      serialNumber: "GR-4821-22",
+      manufacturer: "Toyota",
+      model: "Hiace 2019",
+      serviceIntervalMonths: 6,
+      // Serviced nine months ago on a six-month interval: overdue, and the
+      // demo should show what that looks like.
+      lastServicedOn: daysAgo(270),
+      lastVerifiedOn: daysAgo(40),
+      condition: "FAIR",
+    },
+    {
+      tag: "SMIS/VEH/0002",
+      name: "Toyota Coaster bus",
+      category: "Motor vehicles",
+      costMinor: 32_000_000,
+      residualMinor: 3_200_000,
+      purchasedOn: daysAgo(620),
+      location: "Transport yard",
+      serialNumber: "GT-1177-24",
+      manufacturer: "Toyota",
+      model: "Coaster 2023",
+      serviceIntervalMonths: 6,
+      lastServicedOn: daysAgo(60),
+      lastVerifiedOn: daysAgo(40),
+      condition: "GOOD",
+    },
+    {
+      tag: "SMIS/PLT/0001",
+      name: "Perkins 60kVA generator",
+      category: "Plant and machinery",
+      costMinor: 24_500_000,
+      residualMinor: 1_225_000,
+      purchasedOn: daysAgo(1_100),
+      location: "Administration block",
+      manufacturer: "Perkins",
+      serialNumber: "PK-60-9931",
+      serviceIntervalMonths: 3,
+      lastServicedOn: daysAgo(100),
+      lastVerifiedOn: daysAgo(35),
+      condition: "GOOD",
+    },
+    {
+      tag: "SMIS/ICT/0001",
+      name: "HP ProBook laptop",
+      category: "ICT equipment",
+      costMinor: 1_150_000,
+      purchasedOn: daysAgo(500),
+      location: "Administration block",
+      custodianId: bursar?.id ?? null,
+      serialNumber: "5CD9312QK7",
+      manufacturer: "HP",
+      model: "ProBook 450 G9",
+      lastVerifiedOn: daysAgo(30),
+      condition: "GOOD",
+      notes: "Signed out to the bursar for fee reconciliation off site.",
+    },
+    {
+      tag: "SMIS/ICT/0002",
+      name: "Epson projector",
+      category: "ICT equipment",
+      costMinor: 480_000,
+      purchasedOn: daysAgo(900),
+      location: "Assembly hall",
+      serialNumber: "X2H8811003",
+      manufacturer: "Epson",
+      model: "EB-X49",
+      // Nobody can find it. Kept at full value on purpose.
+      status: "MISSING",
+      condition: "GOOD",
+      lastVerifiedOn: daysAgo(400),
+      notes: "Not found during the end-of-term count. Last seen in the hall.",
+    },
+    {
+      tag: "SMIS/ICT/0003",
+      name: "Dell OptiPlex desktop",
+      category: "ICT equipment",
+      costMinor: 890_000,
+      purchasedOn: daysAgo(1_600),
+      location: "ICT laboratory",
+      serialNumber: "DL7712004",
+      manufacturer: "Dell",
+      model: "OptiPlex 3080",
+      status: "UNDER_REPAIR",
+      condition: "POOR",
+      lastVerifiedOn: daysAgo(20),
+      notes: "Power supply failed. With the supplier.",
+    },
+    {
+      tag: "SMIS/LAB/0001",
+      name: "Binocular microscope",
+      category: "Laboratory equipment",
+      costMinor: 620_000,
+      purchasedOn: daysAgo(750),
+      location: "Science laboratory",
+      custodianId: teacher?.id ?? null,
+      manufacturer: "Olympus",
+      model: "CX23",
+      lastVerifiedOn: daysAgo(25),
+      condition: "GOOD",
+    },
+    {
+      tag: "SMIS/FUR/0001",
+      name: "Staff room conference table",
+      category: "Furniture and fittings",
+      costMinor: 950_000,
+      purchasedOn: daysAgo(300),
+      location: "Administration block",
+      expenseId: capitalBill?.id ?? null,
+      condition: "NEW",
+      lastVerifiedOn: daysAgo(15),
+    },
+    {
+      tag: "SMIS/FUR/0002",
+      name: "Classroom desks (set of 40)",
+      category: "Furniture and fittings",
+      costMinor: 2_400_000,
+      purchasedOn: daysAgo(300),
+      location: "School stores",
+      expenseId: capitalBill?.id ?? null,
+      status: "IN_STORE",
+      condition: "NEW",
+      lastVerifiedOn: daysAgo(15),
+    },
+    {
+      tag: "SMIS/LND/0001",
+      name: "School land, Adenta parcel",
+      category: "Land and buildings",
+      costMinor: 120_000_000,
+      purchasedOn: daysAgo(4_000),
+      usefulLifeYears: null,
+      condition: "GOOD",
+      lastVerifiedOn: daysAgo(200),
+      notes: "Not depreciated. Carried at cost.",
+    },
+    {
+      tag: "SMIS/VEH/0003",
+      name: "Nissan Urvan minibus (former)",
+      category: "Motor vehicles",
+      costMinor: 9_500_000,
+      residualMinor: 950_000,
+      purchasedOn: daysAgo(3_000),
+      status: "DISPOSED",
+      condition: "POOR",
+      disposedOn: daysAgo(90),
+      // Sold for less than the books said it was worth: a loss, which is the
+      // case the disposal arithmetic most needs to demonstrate.
+      disposalProceedsMinor: 700_000,
+      disposalNote: "Sold at auction after the gearbox failed.",
+    },
+  ];
+
+  for (const row of rows) {
+    const asset = await db.asset.create({
+      data: {
+        tag: row.tag,
+        name: row.name,
+        categoryId: categoryId(row.category),
+        costMinor: row.costMinor,
+        residualMinor: row.residualMinor ?? 0,
+        usefulLifeYears: row.usefulLifeYears === undefined ? null : row.usefulLifeYears,
+        purchasedOn: row.purchasedOn,
+        locationId: row.location ? locationId(row.location) : null,
+        custodianId: row.custodianId ?? null,
+        status: (row.status ?? "IN_USE") as never,
+        condition: (row.condition ?? "GOOD") as never,
+        serialNumber: row.serialNumber ?? null,
+        manufacturer: row.manufacturer ?? null,
+        model: row.model ?? null,
+        serviceIntervalMonths: row.serviceIntervalMonths ?? null,
+        lastServicedOn: row.lastServicedOn ?? null,
+        lastVerifiedOn: row.lastVerifiedOn ?? null,
+        expenseId: row.expenseId ?? null,
+        disposedOn: row.disposedOn ?? null,
+        disposalProceedsMinor: row.disposalProceedsMinor ?? 0,
+        disposalNote: row.disposalNote ?? null,
+        notes: row.notes ?? null,
+      },
+      select: { id: true },
+    });
+
+    await db.assetEvent.create({
+      data: {
+        assetId: asset.id,
+        kind: "ACQUIRED",
+        occurredOn: row.purchasedOn,
+        toLocationId: row.location ? locationId(row.location) : null,
+        note: "Entered on the register.",
+        recordedByLabel: head ? `${head.firstName} ${head.lastName}` : "Administrator",
+      },
+    });
+
+    if (row.lastVerifiedOn) {
+      await db.assetEvent.create({
+        data: {
+          assetId: asset.id,
+          kind: "VERIFIED",
+          occurredOn: row.lastVerifiedOn,
+          note:
+            row.status === "MISSING"
+              ? "Could not be found during the end-of-term count."
+              : "Seen and confirmed.",
+          recordedByLabel: bursar ? `${bursar.firstName} ${bursar.lastName}` : "Storekeeper",
+        },
+      });
+    }
+
+    if (row.custodianId) {
+      await db.assetEvent.create({
+        data: {
+          assetId: asset.id,
+          kind: "ASSIGNED",
+          occurredOn: row.purchasedOn,
+          toStaffId: row.custodianId,
+          note: "Signed out.",
+          recordedByLabel: head ? `${head.firstName} ${head.lastName}` : "Administrator",
+        },
+      });
+    }
+
+    if (row.disposedOn) {
+      await db.assetEvent.create({
+        data: {
+          assetId: asset.id,
+          kind: "DISPOSED",
+          occurredOn: row.disposedOn,
+          note: row.disposalNote ?? "Disposed of.",
+          recordedByLabel: head ? `${head.firstName} ${head.lastName}` : "Administrator",
+        },
+      });
+    }
+
+    if (row.lastServicedOn) {
+      await db.assetMaintenance.create({
+        data: {
+          assetId: asset.id,
+          kind: "SERVICE",
+          performedOn: row.lastServicedOn,
+          description:
+            row.category === "Motor vehicles"
+              ? "Oil and filter change, brake pads inspected."
+              : "Routine service and load test.",
+          costMinor: row.category === "Motor vehicles" ? 145_000 : 320_000,
+          recordedByLabel: bursar ? `${bursar.firstName} ${bursar.lastName}` : "Bursar",
+        },
+      });
+
+      await db.assetEvent.create({
+        data: {
+          assetId: asset.id,
+          kind: "SERVICED",
+          occurredOn: row.lastServicedOn,
+          note: "Routine service.",
+          recordedByLabel: bursar ? `${bursar.firstName} ${bursar.lastName}` : "Bursar",
+        },
       });
     }
   }

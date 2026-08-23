@@ -327,11 +327,38 @@ export async function fieldStates(): Promise<Map<string, FieldState>> {
 export async function saveIntegrationValues(
   values: Record<string, string>,
   actor: { userId: string; label?: string | null },
-): Promise<{ changed: string[] }> {
+): Promise<{ changed: string[]; ignored: string[] }> {
   const allowed = new Set(allIntegrationKeys());
   const changed: string[] = [];
+  const ignored: string[] = [];
+
+  /**
+   * A key the environment pins is not written here, and the caller is told.
+   *
+   * This has now been the same mistake three times: a control that looks like
+   * it worked and did nothing. The cure that lasts is not another check in
+   * another action — it is this function refusing, so no future caller can get
+   * it wrong by forgetting. Writing a value the resolver would then ignore is
+   * never what anybody meant.
+   */
+  const pinned = new Set(
+    allIntegrationKeys().filter((key) => {
+      const fromEnv = rawEnv(key);
+      if (!fromEnv) return false;
+      const integration = INTEGRATIONS.find((entry) => entry.providerKey === key);
+      // The provider key has the softer rule — naming the fallback pins nothing.
+      if (integration) {
+        return resolveProvider(integration, fromEnv, null).source === "environment";
+      }
+      return true;
+    }),
+  );
 
   for (const [key, raw] of Object.entries(values)) {
+    if (pinned.has(key)) {
+      ignored.push(key);
+      continue;
+    }
     // An unknown key is a bug or an attempt, never a new setting. The
     // catalogue is the allow-list, so a crafted POST cannot turn this table
     // into arbitrary storage.
@@ -366,5 +393,5 @@ export async function saveIntegrationValues(
   }
 
   clearIntegrationCache();
-  return { changed };
+  return { changed, ignored };
 }

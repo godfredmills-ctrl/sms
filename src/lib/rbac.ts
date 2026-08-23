@@ -130,6 +130,20 @@ export const PERMISSIONS: PermissionDef[] = [
     ["budget.manage", "update", "Set the annual budget"],
   ]),
 
+  // The register is its own group rather than part of finance, because the
+  // people who use it are not only the finance office. A storekeeper moves
+  // things and signs them out; a lab technician verifies what is in the lab.
+  // Neither has any business seeing the fee ledger, and putting the register
+  // inside `finance` would have given it to them along with everything else.
+  ...define("asset", [
+    ["read", "read", "View the asset register"],
+    ["manage", "update", "Add and edit assets, categories and locations"],
+    ["move", "update", "Move assets and assign custody"],
+    ["verify", "update", "Record a physical verification"],
+    ["maintain", "update", "Record servicing and repairs"],
+    ["dispose", "delete", "Dispose of or write off an asset"],
+  ]),
+
   ...define("communication", [
     ["announcement.read", "read", "View announcements"],
     ["announcement.manage", "update", "Create and publish announcements"],
@@ -302,6 +316,7 @@ export const ROLE_PRESETS: RolePreset[] = [
       "finance.expense.read",
       "finance.expense.approve",
       "finance.budget.manage",
+      ...expand("asset"),
       ...expand("boarding"),
       ...expand("admission"),
       "payroll.read",
@@ -347,6 +362,10 @@ export const ROLE_PRESETS: RolePreset[] = [
       "dashboard.view",
       "dashboard.finance",
       ...expand("finance"),
+      // The bursar keeps the register: the bill and the thing it bought are
+      // two halves of the same fact, and separating them is how a school ends
+      // up with a receipt for a generator and no generator.
+      ...expand("asset"),
       "payroll.read",
       "payroll.manage",
       "student.read",

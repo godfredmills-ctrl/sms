@@ -100,6 +100,7 @@ for (const check of [
   ["unreachable actions", "scripts/check-dead-actions.mjs"],
   ["script conditions", "scripts/check-script-conditions.mjs"],
   ["integration reads", "scripts/check-integration-reads.mjs"],
+  ["printed register fits", "scripts/check-register-fit.mjs"],
 ]) {
   run(`Checking ${check[0]}`, check[1], []);
 }
