@@ -157,12 +157,16 @@ export default async function IntegrationsPage() {
         <span className="flex items-start gap-2">
           <ShieldAlert className="mt-0.5 size-4 shrink-0" />
           <span>
-            <strong>Where credentials are kept.</strong> Anything set in the
+            <strong>Where credentials are kept.</strong> A credential set in the
             deployment&rsquo;s environment variables wins and is shown here
-            read-only. Anything you type here is encrypted before it is stored,
-            with a key held in the environment and never in the database — so a
-            database backup contains ciphertext. Secrets are never shown back in
-            full, only enough of one to tell it from another.
+            read-only, with a note saying so. Everything else is set here:
+            encrypted before it is stored, with a key held in the environment and
+            never in the database, so a database backup contains ciphertext.
+            Secrets are never shown back in full, only enough of one to tell it
+            from another. Naming the built-in fallback in the
+            environment&nbsp;— <code>mock</code>, <code>local</code>&nbsp;— does
+            not pin anything, because that means &ldquo;not set up yet&rdquo;
+            rather than a choice.
           </span>
         </span>
       </Alert>

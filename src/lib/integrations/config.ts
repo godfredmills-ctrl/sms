@@ -5,11 +5,14 @@ import { env, rawEnv } from "@/lib/env";
 
 import {
   allIntegrationKeys,
+  INTEGRATIONS,
   asBoolean,
   fieldByKey,
   maskSecret,
   resolve,
+  resolveProvider,
   sourceOf,
+  integrationById,
   type IntegrationId,
   type ValueSource,
 } from "./catalogue";
@@ -32,6 +35,10 @@ import { decryptSecret, encryptSecret } from "./secrets";
  * database says; where the environment is silent, the stored value is used.
  * That way an operator reading the hosting dashboard can trust what they see,
  * and a school with no operator can still configure itself.
+ *
+ * With one exception, for the provider key only: naming the built-in fallback
+ * is not a configuration. See `resolveProvider` in the catalogue for why —
+ * shipping without it locked every deployment out of this screen.
  */
 
 export type ResolvedPayments = {
@@ -132,6 +139,14 @@ function pick(stored: Stored, key: string, fallback = ""): string {
   return resolve(rawEnv(key) || undefined, stored.get(key)?.value, fallback);
 }
 
+/** The provider key, which has its own precedence rule — see resolveProvider. */
+function pickProvider(stored: Stored, id: IntegrationId): string {
+  const integration = integrationById(id)!;
+  const key = integration.providerKey!;
+  return resolveProvider(integration, rawEnv(key) || undefined, stored.get(key)?.value)
+    .value;
+}
+
 // -----------------------------------------------------------------------------
 // Resolution
 // -----------------------------------------------------------------------------
@@ -152,7 +167,7 @@ function build(stored: Stored): ResolvedIntegrations {
 
   return {
     payments: {
-      provider: (pick(stored, "PAYMENT_PROVIDER", "mock") || "mock").toLowerCase(),
+      provider: pickProvider(stored, "payments"),
       paystackSecret: pick(stored, "PAYSTACK_SECRET_KEY"),
       paystackPublic: pick(stored, "PAYSTACK_PUBLIC_KEY"),
       hubtelClientId: pick(stored, "HUBTEL_CLIENT_ID"),
@@ -160,14 +175,14 @@ function build(stored: Stored): ResolvedIntegrations {
       hubtelMerchant: pick(stored, "HUBTEL_MERCHANT_ACCOUNT"),
     },
     sms: {
-      provider: (pick(stored, "SMS_PROVIDER", "mock") || "mock").toLowerCase(),
+      provider: pickProvider(stored, "sms"),
       arkeselKey: pick(stored, "ARKESEL_API_KEY"),
       mnotifyKey: pick(stored, "MNOTIFY_API_KEY"),
       hubtelClientId: pick(stored, "HUBTEL_SMS_CLIENT_ID"),
       hubtelClientSecret: pick(stored, "HUBTEL_SMS_CLIENT_SECRET"),
     },
     email: {
-      provider: (pick(stored, "EMAIL_PROVIDER", "mock") || "mock").toLowerCase(),
+      provider: pickProvider(stored, "email"),
       host: pick(stored, "SMTP_HOST"),
       port: Number.isFinite(port) ? port : 587,
       secure: asBoolean(pick(stored, "SMTP_SECURE"), false),
@@ -257,12 +272,33 @@ export async function fieldStates(): Promise<Map<string, FieldState>> {
   const stored = await readStored();
   const states = new Map<string, FieldState>();
 
+  // Provider keys resolve by their own rule, so the screen agrees with the
+  // dispatcher about which one is pinned and which one may still be chosen.
+  const providerKeys = new Map(
+    INTEGRATIONS.filter((integration) => integration.providerKey).map((integration) => [
+      integration.providerKey!,
+      integration,
+    ]),
+  );
+
   for (const key of allIntegrationKeys()) {
     const fromEnv = rawEnv(key);
     const entry = stored.get(key);
-    const source = sourceOf(fromEnv || undefined, entry?.value);
+
+    const integration = providerKeys.get(key);
+    const resolved = integration
+      ? resolveProvider(integration, fromEnv || undefined, entry?.value)
+      : null;
+
+    const source = resolved
+      ? resolved.source
+      : sourceOf(fromEnv || undefined, entry?.value);
     const isSecret = fieldByKey(key)?.kind === "secret";
-    const value = source === "environment" ? fromEnv : (entry?.value ?? "");
+    const value = resolved
+      ? resolved.value
+      : source === "environment"
+        ? fromEnv
+        : (entry?.value ?? "");
 
     states.set(key, {
       key,

@@ -22,6 +22,7 @@ import {
   maskSecret,
   providerLabel,
   resolve,
+  resolveProvider,
   sourceOf,
 } from "../src/lib/integrations/catalogue";
 // The key is derived lazily and `resetKeyCache` exists for exactly this, so a
@@ -119,6 +120,68 @@ ok("an integration with no provider list accepts anything", isKnownProvider(push
 
 check("a known provider gets its label", providerLabel(sms, "mnotify"), "mNotify");
 check("an unknown provider is shown as typed", providerLabel(sms, "nonsense"), "nonsense");
+
+// --- Provider precedence ------------------------------------------------------
+//
+// The rule that shipped broken. `.env.example` sets PAYMENT_PROVIDER=mock, so
+// every school that copied it had the provider selector pinned read-only on
+// the page whose whole purpose is to choose a provider.
+
+check(
+  "the fallback provider in the environment does not pin the selector",
+  resolveProvider(payments, "mock", null),
+  { value: "mock", source: "unset" },
+);
+check(
+  "a stored provider beats the fallback in the environment",
+  resolveProvider(payments, "mock", "paystack"),
+  { value: "paystack", source: "database" },
+);
+check(
+  "a real provider in the environment does pin it",
+  resolveProvider(payments, "paystack", "hubtel"),
+  { value: "paystack", source: "environment" },
+);
+check(
+  "case and padding in the environment do not defeat the rule",
+  resolveProvider(payments, "  MOCK  ", "paystack"),
+  { value: "paystack", source: "database" },
+);
+check(
+  "nothing anywhere resolves to the fallback, still unpinned",
+  resolveProvider(payments, undefined, null),
+  { value: "mock", source: "unset" },
+);
+check(
+  "storage uses its own fallback, not mock",
+  resolveProvider(integrationById("storage")!, "local", null),
+  { value: "local", source: "unset" },
+);
+check(
+  "a real storage driver in the environment pins it",
+  resolveProvider(integrationById("storage")!, "s3", null),
+  { value: "s3", source: "environment" },
+);
+// An unrecognised name must still be reported as coming from the environment,
+// so the page can say "this is what your deployment set, and it is wrong"
+// rather than quietly showing the fallback.
+check(
+  "a typo in the environment is still pinned, so it can be reported",
+  resolveProvider(payments, "paystakc", null),
+  { value: "paystakc", source: "environment" },
+);
+
+ok(
+  "every integration with a provider list names its fallback",
+  INTEGRATIONS.every(
+    (integration) =>
+      integration.providers.length === 0 ||
+      (Boolean(integration.fallbackProvider) &&
+        integration.providers.some(
+          (provider) => provider.value === integration.fallbackProvider,
+        )),
+  ),
+);
 
 // -----------------------------------------------------------------------------
 // Fields

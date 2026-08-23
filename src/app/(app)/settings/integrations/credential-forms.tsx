@@ -183,7 +183,19 @@ export function IntegrationForm({
         <input type="hidden" name="integration" value={integration.id} />
 
         {integration.providerKey ? (
-          <Field label="Provider" htmlFor={integration.providerKey}>
+          <Field
+            label="Provider"
+            htmlFor={integration.providerKey}
+            // A control that cannot be used must say why, next to itself. A
+            // greyed-out box with no explanation reads as a broken page, and
+            // the person looking at it tries again and then telephones
+            // somebody.
+            hint={
+              providerPinned
+                ? `${integration.providerKey} is set in the deployment's environment variables, which take precedence over this screen. Change it there, or remove it to choose here.`
+                : undefined
+            }
+          >
             <Select
               id={integration.providerKey}
               name={integration.providerKey}

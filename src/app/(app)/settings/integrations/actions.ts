@@ -12,6 +12,7 @@ import {
   type IntegrationId,
 } from "@/lib/integrations/catalogue";
 import {
+  fieldStates,
   integrationConfig,
   providerInUse,
   saveIntegrationValues,
@@ -203,6 +204,21 @@ export async function generateVapidKeysAction(
     who = await actor("settings.integration.manage");
   } catch (error) {
     return { error: (error as Error).message };
+  }
+
+  // Refuse rather than pretend. The environment wins over anything stored, so
+  // generating a pair while these are pinned would save keys nothing would
+  // ever use, report success, and leave the page showing the old ones — the
+  // button appearing to work being worse than the button being unavailable.
+  const states = await fieldStates();
+  const pinned = ["NEXT_PUBLIC_VAPID_PUBLIC_KEY", "VAPID_PRIVATE_KEY"].filter(
+    (key) => states.get(key)?.source === "environment",
+  );
+
+  if (pinned.length) {
+    return {
+      error: `${pinned.join(" and ")} ${pinned.length === 1 ? "is" : "are"} set in the deployment's environment variables, which take precedence over anything saved here. Generate the pair with \`npm run setup:integrations\`, or remove those variables to manage the keys from this screen.`,
+    };
   }
 
   const keys = webpush.generateVAPIDKeys();

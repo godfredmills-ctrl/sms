@@ -45,6 +45,12 @@ export type Integration = {
   blurb: string;
   /** The variable naming which provider is in use, when there is a choice. */
   providerKey?: string;
+  /**
+   * The provider that means "nothing is set up yet" — the logger, the
+   * simulator, the local disk. Named explicitly rather than taken as the first
+   * in the list, because the rule below turns on it.
+   */
+  fallbackProvider?: string;
   providers: ProviderChoice[];
   fields: Field[];
   /** Something true about this integration that is not a field. */
@@ -66,6 +72,7 @@ export const INTEGRATIONS: Integration[] = [
     blurb:
       "How a parent pays fees online. Without it the portal still shows what is owed, and the bursar still records cash at the desk.",
     providerKey: "PAYMENT_PROVIDER",
+    fallbackProvider: "mock",
     providers: [
       {
         value: "mock",
@@ -135,6 +142,7 @@ export const INTEGRATIONS: Integration[] = [
     blurb:
       "Fee reminders, absence alerts and announcements to a parent's phone. The one channel that reaches every family in Ghana.",
     providerKey: "SMS_PROVIDER",
+    fallbackProvider: "mock",
     providers: [
       {
         value: "mock",
@@ -202,6 +210,7 @@ export const INTEGRATIONS: Integration[] = [
     blurb:
       "Statements, report cards, invitations and password resets. Anything that needs an attachment or more than 160 characters.",
     providerKey: "EMAIL_PROVIDER",
+    fallbackProvider: "mock",
     providers: [
       {
         value: "mock",
@@ -323,6 +332,7 @@ export const INTEGRATIONS: Integration[] = [
     blurb:
       "Where uploaded photographs, medical forms and signed documents are kept.",
     providerKey: "STORAGE_DRIVER",
+    fallbackProvider: "local",
     providers: [
       {
         value: "local",
@@ -442,6 +452,41 @@ export function sourceOf(
   if (envValue !== undefined && envValue.trim() !== "") return "environment";
   if (dbValue !== null && dbValue !== undefined && dbValue.trim() !== "") return "database";
   return "unset";
+}
+
+/**
+ * Which provider is in use, and whether the screen may change it.
+ *
+ * Separate from `resolve` because the provider key needs one extra rule, and
+ * getting it wrong locked every deployment out of this feature on the first
+ * day it shipped.
+ *
+ * `.env.example` ships `PAYMENT_PROVIDER=mock`, `SMS_PROVIDER=mock` and
+ * `EMAIL_PROVIDER=mock`, so every school that copies it — which is every
+ * school — has those variables set. Under the plain rule that any non-empty
+ * environment value wins, the provider selector was pinned read-only on the
+ * page whose entire purpose is to choose a provider. The one control that had
+ * to work was the one that could not.
+ *
+ * So: naming the fallback provider is not a configuration. `mock` and `local`
+ * mean "nothing is set up yet", which is the state this screen exists to move
+ * a school out of. Naming a real provider still pins it, because that is a
+ * deployment saying something deliberate.
+ */
+export function resolveProvider(
+  integration: Integration,
+  envValue: string | undefined,
+  dbValue: string | null | undefined,
+): { value: string; source: ValueSource } {
+  const fallback = (integration.fallbackProvider ?? "").toLowerCase();
+  const fromEnv = (envValue ?? "").trim().toLowerCase();
+  const fromDb = (dbValue ?? "").trim().toLowerCase();
+
+  if (fromEnv && fromEnv !== fallback) {
+    return { value: fromEnv, source: "environment" };
+  }
+  if (fromDb) return { value: fromDb, source: "database" };
+  return { value: fallback, source: "unset" };
 }
 
 export function resolve(
