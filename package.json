@@ -36,6 +36,7 @@
     "admissions:check": "tsx scripts/check-admissions.ts",
     "integrations:check": "tsx --conditions=react-server scripts/check-integrations.ts",
     "assets:check": "tsx scripts/check-assets.ts",
+    "stock:check": "tsx scripts/check-stock.ts",
     "setup:integrations": "node scripts/setup-integrations.mjs"
   },
   "prisma": {

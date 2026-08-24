@@ -413,6 +413,21 @@ export const STAFF_NAVIGATION: NavGroup[] = [
         permissions: ["transport.read"],
       },
       {
+        label: "Store",
+        href: "/stores",
+        icon: "Package",
+        permissions: ["stock.read"],
+        children: [
+          { label: "Stock", href: "/stores", icon: "Package" },
+          {
+            label: "Categories",
+            href: "/stores/categories",
+            icon: "Tags",
+            permissions: ["stock.manage"],
+          },
+        ],
+      },
+      {
         label: "Assets",
         href: "/assets",
         icon: "Boxes",

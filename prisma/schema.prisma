@@ -856,9 +856,10 @@ model Staff {
   admissionsAssessed    AdmissionAssessment[] @relation("AdmissionAssessor")
   admissionsInterviewed AdmissionInterview[]  @relation("AdmissionInterviewer")
 
-  assetsHeld       Asset[]      @relation("AssetCustodian")
-  assetsHandedOver AssetEvent[] @relation("AssetFromStaff")
-  assetsReceived   AssetEvent[] @relation("AssetToStaff")
+  assetsHeld       Asset[]         @relation("AssetCustodian")
+  assetsHandedOver AssetEvent[]    @relation("AssetFromStaff")
+  assetsReceived   AssetEvent[]    @relation("AssetToStaff")
+  stockIssuedTo    StockMovement[] @relation("StockIssuedTo")
 
   @@index([status])
   @@index([department])
@@ -3875,6 +3876,7 @@ model Vendor {
   updatedAt         DateTime           @updatedAt
   assets            Asset[]
   assetMaintenances AssetMaintenance[]
+  stockMovements    StockMovement[]
 
   @@unique([name])
   @@index([active])
@@ -3961,6 +3963,7 @@ model Expense {
   /// The things this bill bought, where it bought things that last.
   assets            Asset[]
   assetMaintenances AssetMaintenance[] @relation("MaintenanceExpense")
+  stockMovements    StockMovement[]    @relation("StockExpense")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -4601,9 +4604,10 @@ model AssetLocation {
   sortOrder Int     @default(0)
   notes     String?
 
-  assets    Asset[]
-  movedFrom AssetEvent[] @relation("AssetMovedFrom")
-  movedTo   AssetEvent[] @relation("AssetMovedTo")
+  assets     Asset[]
+  stockItems StockItem[]
+  movedFrom  AssetEvent[] @relation("AssetMovedFrom")
+  movedTo    AssetEvent[] @relation("AssetMovedTo")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -4755,4 +4759,156 @@ model AssetMaintenance {
   updatedAt DateTime @updatedAt
 
   @@index([assetId, performedOn])
+}
+
+// =============================================================================
+// SCHOOL STORE
+//
+// The other half of what a school owns. The asset register holds the things
+// that last — the bus, the generator, the laboratory microscopes. This holds
+// the things that get used up: exercise books, chalk, cleaning materials, and
+// the rice and oil the dining hall cooks with.
+//
+// They are separate models rather than one because they answer different
+// questions. An asset is a particular thing with a tag on it, and the question
+// is where it is and what it is now worth. A stock item is a quantity, and the
+// question is how much is left and when to buy more. Forcing both through one
+// table would mean a register row for every sack of rice.
+//
+// Locations are shared with the asset register on purpose: a store room is a
+// store room, and two lists of the school's rooms would be two answers to the
+// same question.
+// =============================================================================
+
+enum StockMovementKind {
+  /// What was already there when the store was first counted.
+  OPENING
+  /// Delivered by a supplier, against a bill.
+  RECEIPT
+  /// Given back unused. Comes in at the running average, never re-purchased.
+  RETURN
+  /// Given out to a department or a person, against a voucher.
+  ISSUE
+  /// Spoiled, expired, broken or stolen.
+  WASTE
+  /// A count found more than the book said.
+  ADJUSTMENT_UP
+  /// A count found less than the book said.
+  ///
+  /// Two kinds rather than one carrying a sign: the direction of a movement is
+  /// then a property of its kind and nothing else, so no stored row can say
+  /// "issue, +5" and be read one way by the balance and another by the screen.
+  ADJUSTMENT_DOWN
+}
+
+model StockCategory {
+  id   String  @id @default(cuid())
+  name String  @unique
+  /// Two or three letters, used in the item code: "STM/STA/0012".
+  code String?
+
+  active    Boolean @default(true)
+  sortOrder Int     @default(0)
+  notes     String?
+
+  items StockItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([active])
+}
+
+/// One thing the store keeps a quantity of.
+model StockItem {
+  id   String @id @default(cuid())
+  /// What is written on the shelf label.
+  code String @unique
+  name String
+
+  description String?
+
+  categoryId String
+  category   StockCategory @relation(fields: [categoryId], references: [id])
+
+  /// "sack", "ream", "box", "litre", "each". Free text because a school store
+  /// invents units the moment a supplier does.
+  unit String @default("each")
+
+  /// Buy more at or below this. Null means nobody has decided — which the
+  /// store reports as untracked rather than as comfortable.
+  reorderLevel    Decimal? @db.Decimal(12, 3)
+  /// Buy back up to this. Falls back to the reorder level.
+  reorderQuantity Decimal? @db.Decimal(12, 3)
+
+  /// Where it is kept. Shared with the asset register.
+  locationId String?
+  location   AssetLocation? @relation(fields: [locationId], references: [id], onDelete: SetNull)
+
+  /// Food, medicines, chemicals — anything with a date on it.
+  perishable Boolean   @default(false)
+  /// The date on what is currently on the shelf. Deliberately one date rather
+  /// than a batch table: a school store issues from the open sack, and asking
+  /// a storekeeper to track batches is asking for a register nobody keeps.
+  expiresOn  DateTime?
+
+  active Boolean @default(true)
+  notes  String?
+
+  movements StockMovement[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([categoryId])
+  @@index([locationId])
+  @@index([active])
+}
+
+/// Something going onto or off the shelf. Append-only: a correction is another
+/// movement, never an edit, because the balance is the sum of the history.
+model StockMovement {
+  id     String    @id @default(cuid())
+  itemId String
+  item   StockItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  kind StockMovementKind
+
+  /// Always positive. The kind decides the direction — see the enum.
+  ///
+  /// The migration adds a CHECK (quantity > 0) that Prisma cannot express, so
+  /// the database itself refuses the row that would otherwise be readable two
+  /// ways.
+  quantity Decimal @db.Decimal(12, 3)
+
+  /// What one whole unit cost, in minor units. Only meaningful coming in;
+  /// anything going out is valued at the running average.
+  unitCostMinor Int?
+
+  occurredOn DateTime
+
+  /// The voucher number a storekeeper writes on the slip: "SIV/2026/0041".
+  reference String?
+
+  /// Who took it, and for what part of the school.
+  issuedToId   String?
+  issuedTo     Staff?  @relation("StockIssuedTo", fields: [issuedToId], references: [id], onDelete: SetNull)
+  issuedToDept String?
+
+  vendorId  String?
+  vendor    Vendor?  @relation(fields: [vendorId], references: [id], onDelete: SetNull)
+  /// The bill it came in on.
+  expenseId String?
+  expense   Expense? @relation("StockExpense", fields: [expenseId], references: [id], onDelete: SetNull)
+
+  note String?
+
+  recordedById    String?
+  recordedByLabel String?
+
+  createdAt DateTime @default(now())
+
+  @@index([itemId, occurredOn])
+  @@index([kind])
+  @@index([reference])
 }

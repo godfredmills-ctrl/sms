@@ -170,6 +170,9 @@ async function main() {
   // capital bill that bought it — which is the whole reason the register
   // exists rather than being a spreadsheet.
   await seedAssets(staff, school.campuses[0]?.id ?? null);
+  // After assets, because the store is kept in one of the locations the asset
+  // register created — the two share them on purpose.
+  await seedStore(staff);
   await seedBoarding(students, staff, year.id);
   await seedAdmissions(levels, staff, year.id, roles);
 
@@ -259,8 +262,12 @@ async function reset() {
     // so they clear first; a room points at its house.
     "boardingExeat", "boardingAllocation", "boardingRoom", "boardingHouse",
     "payslip", "payrollRun",
+    // The store before the locations it is kept in and the bills it came in
+    // on. Movements before items, because the balance is the history.
+    "stockMovement", "stockItem", "stockCategory",
     // Assets before the bills that bought them and the staff who hold them:
     // an asset points at an expense, a vendor, a location and a custodian.
+    // Locations come after both, since stock and assets share them.
     "assetEvent", "assetMaintenance", "asset", "assetLocation", "assetCategory",
     // Expenditure: the bills first, then what they point at. A budget line
     // points at a category too, so both go before it.
@@ -5521,6 +5528,221 @@ async function seedAssets(staff: StaffRow[], campusId: string | null) {
           occurredOn: row.lastServicedOn,
           note: "Routine service.",
           recordedByLabel: bursar ? `${bursar.firstName} ${bursar.lastName}` : "Bursar",
+        },
+      });
+    }
+  }
+}
+
+/**
+ * The school store.
+ *
+ * Seeded so the demo shows the things a list cannot: an item that has run out,
+ * one below its reorder level, a bag of rice past its date with stock still on
+ * the shelf, an item nobody set a reorder level for, and a count that found
+ * less than the book said. A store of comfortable rows demonstrates nothing.
+ */
+async function seedStore(staff: StaffRow[]) {
+  console.log("  School store…");
+
+  const categories = await Promise.all(
+    [
+      { name: "Stationery", code: "STA", sortOrder: 10 },
+      { name: "Provisions", code: "PRV", sortOrder: 20 },
+      { name: "Cleaning materials", code: "CLN", sortOrder: 30 },
+      { name: "Medical supplies", code: "MED", sortOrder: 40 },
+    ].map((category) =>
+      db.stockCategory.create({ data: category, select: { id: true, name: true } }),
+    ),
+  );
+
+  const categoryId = (name: string) => categories.find((entry) => entry.name === name)!.id;
+
+  const stores = await db.assetLocation.findFirst({
+    where: { name: "School stores" },
+    select: { id: true },
+  });
+
+  const bursar = staff.find((entry) => entry.jobTitle?.toLowerCase().includes("bursar"));
+  const matron = staff.find((entry) => entry.jobTitle?.toLowerCase().includes("matron"));
+  const keeper = bursar ?? staff[0];
+  const keeperLabel = keeper ? `${keeper.firstName} ${keeper.lastName}` : "Storekeeper";
+
+  const daysAgo = (days: number) => new Date(Date.now() - days * 86_400_000);
+  const daysAhead = (days: number) => new Date(Date.now() + days * 86_400_000);
+
+  type Line = {
+    code: string;
+    name: string;
+    category: string;
+    unit: string;
+    reorderLevel?: number | null;
+    reorderQuantity?: number | null;
+    perishable?: boolean;
+    expiresOn?: Date | null;
+    notes?: string;
+    movements: Array<{
+      kind:
+        | "OPENING"
+        | "RECEIPT"
+        | "RETURN"
+        | "ISSUE"
+        | "WASTE"
+        | "ADJUSTMENT_UP"
+        | "ADJUSTMENT_DOWN";
+      quantity: number;
+      unitCostMinor?: number;
+      daysAgo: number;
+      reference?: string;
+      dept?: string;
+      note?: string;
+    }>;
+  };
+
+  const lines: Line[] = [
+    {
+      code: "SMIS/STA/0001",
+      name: "Exercise books, 80 leaves",
+      category: "Stationery",
+      unit: "dozen",
+      reorderLevel: 20,
+      reorderQuantity: 100,
+      movements: [
+        { kind: "OPENING", quantity: 60, unitCostMinor: 2_400, daysAgo: 180 },
+        { kind: "RECEIPT", quantity: 100, unitCostMinor: 2_600, daysAgo: 90, reference: "DN-3312" },
+        { kind: "ISSUE", quantity: 45, daysAgo: 60, reference: "SIV/2026/0001", dept: "JHS 1" },
+        { kind: "ISSUE", quantity: 80, daysAgo: 20, reference: "SIV/2026/0002", dept: "Primary" },
+      ],
+    },
+    {
+      code: "SMIS/STA/0002",
+      name: "Chalk, white",
+      category: "Stationery",
+      unit: "box",
+      reorderLevel: 10,
+      reorderQuantity: 40,
+      // Below the reorder level: the store should be asking for more.
+      movements: [
+        { kind: "RECEIPT", quantity: 40, unitCostMinor: 1_500, daysAgo: 120, reference: "DN-3290" },
+        { kind: "ISSUE", quantity: 33, daysAgo: 30, reference: "SIV/2026/0003", dept: "All classes" },
+      ],
+    },
+    {
+      code: "SMIS/STA/0003",
+      name: "A4 paper",
+      category: "Stationery",
+      unit: "ream",
+      reorderLevel: 15,
+      reorderQuantity: 60,
+      // Run out entirely.
+      movements: [
+        { kind: "RECEIPT", quantity: 50, unitCostMinor: 4_800, daysAgo: 150, reference: "DN-3255" },
+        { kind: "ISSUE", quantity: 30, daysAgo: 80, reference: "SIV/2026/0004", dept: "Office" },
+        { kind: "ISSUE", quantity: 20, daysAgo: 10, reference: "SIV/2026/0005", dept: "Examinations" },
+      ],
+    },
+    {
+      code: "SMIS/PRV/0001",
+      name: "Rice, perfumed",
+      category: "Provisions",
+      unit: "sack",
+      reorderLevel: 8,
+      reorderQuantity: 30,
+      perishable: true,
+      expiresOn: daysAhead(120),
+      movements: [
+        { kind: "RECEIPT", quantity: 30, unitCostMinor: 62_000, daysAgo: 45, reference: "DN-3401" },
+        { kind: "ISSUE", quantity: 6, daysAgo: 30, reference: "SIV/2026/0006", dept: "Dining hall" },
+        { kind: "ISSUE", quantity: 6, daysAgo: 21, reference: "SIV/2026/0007", dept: "Dining hall" },
+        { kind: "ISSUE", quantity: 6, daysAgo: 14, reference: "SIV/2026/0008", dept: "Dining hall" },
+        // The count found less than the book said. Recorded, not hidden.
+        {
+          kind: "ADJUSTMENT_DOWN",
+          quantity: 1,
+          daysAgo: 7,
+          note: "Counted 11 sacks against 12 on the book. End-of-month count.",
+        },
+      ],
+    },
+    {
+      code: "SMIS/PRV/0002",
+      name: "Cooking oil",
+      category: "Provisions",
+      unit: "litre",
+      reorderLevel: 20,
+      reorderQuantity: 80,
+      perishable: true,
+      // Already out of date, with stock still on the shelf.
+      expiresOn: daysAgo(9),
+      movements: [
+        { kind: "RECEIPT", quantity: 80, unitCostMinor: 2_200, daysAgo: 200, reference: "DN-3180" },
+        { kind: "ISSUE", quantity: 42.5, daysAgo: 120, reference: "SIV/2026/0009", dept: "Dining hall" },
+      ],
+    },
+    {
+      code: "SMIS/CLN/0001",
+      name: "Disinfectant",
+      category: "Cleaning materials",
+      unit: "litre",
+      // Deliberately no reorder level: the store should report it as untracked
+      // rather than as comfortable.
+      reorderLevel: null,
+      movements: [
+        { kind: "RECEIPT", quantity: 60, unitCostMinor: 1_800, daysAgo: 70, reference: "DN-3350" },
+        { kind: "ISSUE", quantity: 12.5, daysAgo: 40, reference: "SIV/2026/0010", dept: "Grounds" },
+        { kind: "WASTE", quantity: 2, daysAgo: 25, note: "Container split in the store." },
+      ],
+    },
+    {
+      code: "SMIS/MED/0001",
+      name: "Paracetamol 500mg",
+      category: "Medical supplies",
+      unit: "pack",
+      reorderLevel: 10,
+      reorderQuantity: 40,
+      perishable: true,
+      expiresOn: daysAhead(20),
+      movements: [
+        { kind: "RECEIPT", quantity: 40, unitCostMinor: 900, daysAgo: 100, reference: "DN-3301" },
+        { kind: "ISSUE", quantity: 14, daysAgo: 50, reference: "SIV/2026/0011", dept: "Clinic" },
+        { kind: "RETURN", quantity: 2, daysAgo: 44, note: "Unopened, returned by the clinic." },
+      ],
+    },
+  ];
+
+  for (const line of lines) {
+    const item = await db.stockItem.create({
+      data: {
+        code: line.code,
+        name: line.name,
+        categoryId: categoryId(line.category),
+        unit: line.unit,
+        reorderLevel: line.reorderLevel ?? null,
+        reorderQuantity: line.reorderQuantity ?? null,
+        locationId: stores?.id ?? null,
+        perishable: line.perishable ?? false,
+        expiresOn: line.expiresOn ?? null,
+        notes: line.notes ?? null,
+      },
+      select: { id: true },
+    });
+
+    for (const movement of line.movements) {
+      await db.stockMovement.create({
+        data: {
+          itemId: item.id,
+          kind: movement.kind,
+          quantity: movement.quantity,
+          unitCostMinor: movement.unitCostMinor ?? null,
+          occurredOn: daysAgo(movement.daysAgo),
+          reference: movement.reference ?? null,
+          issuedToId:
+            movement.kind === "ISSUE" && movement.dept === "Dining hall"
+              ? (matron?.id ?? null)
+              : null,
+          issuedToDept: movement.dept ?? null,
+          note: movement.note ?? null,
+          recordedByLabel: keeperLabel,
         },
       });
     }

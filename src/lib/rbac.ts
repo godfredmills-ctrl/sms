@@ -144,6 +144,18 @@ export const PERMISSIONS: PermissionDef[] = [
     ["dispose", "delete", "Dispose of or write off an asset"],
   ]),
 
+  // Taking goods out of the store and correcting the book after a count are
+  // deliberately different permissions. A storekeeper issues all day; the
+  // person who can quietly write off a shortage should be somebody else, or a
+  // sack of rice a week disappears into an adjustment nobody reads.
+  ...define("stock", [
+    ["read", "read", "View the school store"],
+    ["manage", "update", "Add and edit stock items and categories"],
+    ["receive", "create", "Record deliveries into the store"],
+    ["issue", "create", "Issue goods out of the store"],
+    ["adjust", "update", "Record a count and write off shortages"],
+  ]),
+
   ...define("communication", [
     ["announcement.read", "read", "View announcements"],
     ["announcement.manage", "update", "Create and publish announcements"],
@@ -317,6 +329,7 @@ export const ROLE_PRESETS: RolePreset[] = [
       "finance.expense.approve",
       "finance.budget.manage",
       ...expand("asset"),
+      ...expand("stock"),
       ...expand("boarding"),
       ...expand("admission"),
       "payroll.read",
@@ -366,6 +379,7 @@ export const ROLE_PRESETS: RolePreset[] = [
       // two halves of the same fact, and separating them is how a school ends
       // up with a receipt for a generator and no generator.
       ...expand("asset"),
+      ...expand("stock"),
       "payroll.read",
       "payroll.manage",
       "student.read",
