@@ -99,59 +99,48 @@ export function AppShell({
       <aside
         className={cn(
           "sidebar fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r",
+          // The collapse control sits half outside the panel.
+          "lg:overflow-visible",
           width,
           "transition-[width,transform] duration-200 lg:translate-x-0",
           mobileOpen ? "translate-x-0" : "-translate-x-full",
         )}
       >
         {/* ---------------------------------------------------------------- */}
-        {/* Brand                                                             */}
+        {/* Who is signed in                                                  */}
         {/* ---------------------------------------------------------------- */}
+        {/*
+          The person, not the school.
+
+          The school's name and crest moved to the header. A sidebar tells you
+          where you can go, and the first useful thing at the top of it is
+          which account you are going there as: on a shared office machine that
+          is the question people actually have, and it was previously answered
+          only by a small avatar in the far corner.
+        */}
         <div
           className={cn(
-            "flex h-16 shrink-0 items-center gap-2.5 border-b px-4",
+            "flex h-[76px] shrink-0 items-center gap-3 px-4",
             collapsed && "lg:justify-center lg:px-2",
           )}
         >
-          <Link href="/" className="flex min-w-0 items-center gap-2.5">
-            {schoolLogo ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={schoolLogo}
-                alt=""
-                className="size-9 shrink-0 rounded-lg object-contain"
-              />
-            ) : (
-              <span
-                className="flex size-9 shrink-0 items-center justify-center rounded-lg text-sm font-bold text-white"
-                style={{ background: "var(--sidebar-active-bg)" }}
-              >
-                {schoolName.slice(0, 2).toUpperCase()}
+          <Link
+            href="/account"
+            className="flex min-w-0 items-center gap-3 rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-white/40"
+            aria-label="Your profile"
+          >
+            <span className="shrink-0 rounded-full ring-2 ring-white/25">
+              <Avatar name={user.fullName} src={user.avatarUrl} size={38} />
+            </span>
+            <span className={cn("min-w-0", collapsed && "lg:hidden")}>
+              <span className="block truncate text-[10px] font-semibold tracking-wider text-[var(--sidebar-faint)] uppercase">
+                {user.roleNames[0] ?? "Member"}
               </span>
-            )}
-            <span
-              className={cn(
-                "min-w-0 truncate text-sm font-semibold",
-                collapsed && "lg:hidden",
-              )}
-            >
-              {schoolName}
+              <span className="block truncate text-sm font-semibold">
+                {user.fullName}
+              </span>
             </span>
           </Link>
-
-          {/* Desktop collapse control */}
-          <button
-            type="button"
-            onClick={toggleCollapsed}
-            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-            className={cn(
-              "ml-auto hidden size-6 items-center justify-center rounded-full border",
-              "text-[var(--sidebar-muted)] hover:bg-[var(--sidebar-hover)] hover:text-[var(--sidebar-text)]",
-              collapsed ? "lg:hidden" : "lg:flex",
-            )}
-          >
-            <ChevronLeft className="size-3.5" />
-          </button>
 
           <button
             type="button"
@@ -163,19 +152,30 @@ export function AppShell({
           </button>
         </div>
 
-        {/* Expand control, only meaningful once collapsed */}
-        {collapsed ? (
-          <div className="hidden justify-center py-2 lg:flex">
-            <button
-              type="button"
-              onClick={toggleCollapsed}
-              aria-label="Expand sidebar"
-              className="flex size-7 items-center justify-center rounded-full border text-[var(--sidebar-muted)] hover:bg-[var(--sidebar-hover)] hover:text-[var(--sidebar-text)]"
-            >
-              <ChevronRight className="size-3.5" />
-            </button>
-          </div>
-        ) : null}
+        {/*
+          The collapse control, on the edge rather than in the header.
+
+          It sits half outside the sidebar so it is in the same place whether
+          the rail is open or shut. Inside the header it had to be two separate
+          buttons that swapped places, and the expanded one disappeared at the
+          moment somebody wanted to undo what they had just done.
+        */}
+        <button
+          type="button"
+          onClick={toggleCollapsed}
+          aria-label={collapsed ? "Expand the menu" : "Collapse the menu"}
+          className={cn(
+            "absolute top-[30px] -right-3 z-10 hidden size-6 items-center justify-center rounded-full",
+            "border border-[var(--sidebar-line)] bg-[var(--sidebar-flyout)] text-[var(--sidebar-muted)] shadow-sm",
+            "transition-colors hover:text-[var(--sidebar-text)] lg:flex",
+          )}
+        >
+          {collapsed ? (
+            <ChevronRight className="size-3.5" />
+          ) : (
+            <ChevronLeft className="size-3.5" />
+          )}
+        </button>
 
         {/* ---------------------------------------------------------------- */}
         {/* Navigation                                                        */}
@@ -216,25 +216,24 @@ export function AppShell({
             <Link
               href="/help"
               aria-label="Help centre"
-              className="mx-auto hidden size-10 items-center justify-center rounded-lg bg-[var(--sidebar-hover)] text-[var(--sidebar-text)] lg:flex"
+              className="mx-auto hidden size-10 items-center justify-center rounded-xl bg-[var(--sidebar-hover)] text-[var(--sidebar-text)] transition-colors hover:bg-[var(--sidebar-active-bg)] lg:flex"
             >
               <LifeBuoy className="size-5" />
             </Link>
           ) : (
-            <Link
-              href="/help"
-              className="flex items-center gap-3 rounded-xl border p-3 transition-colors hover:bg-[var(--sidebar-hover)]"
-            >
-              <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-[var(--sidebar-hover)]">
-                <LifeBuoy className="size-5" />
-              </span>
-              <span className="min-w-0">
-                <span className="block text-sm font-medium">Need help?</span>
-                <span className="block text-xs text-[var(--sidebar-faint)]">
-                  Go to Help Centre →
-                </span>
-              </span>
-            </Link>
+            <div className="rounded-2xl bg-[var(--sidebar-hover)] p-4 text-center">
+              <p className="text-sm font-semibold">Stuck on something?</p>
+              <p className="mt-1 text-xs leading-relaxed text-[var(--sidebar-faint)]">
+                The help centre covers every screen, step by step.
+              </p>
+              <Link
+                href="/help"
+                className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-xl bg-white px-3 py-2 text-xs font-semibold text-[var(--sidebar-bg)] transition-opacity hover:opacity-90"
+              >
+                <LifeBuoy className="size-3.5" />
+                Open the help centre
+              </Link>
+            </div>
           )}
         </div>
       </aside>
@@ -261,6 +260,34 @@ export function AppShell({
           >
             <Menu className="size-5" />
           </button>
+
+          {/* The school's flag, moved here from the top of the sidebar so that
+              the sidebar can lead with the person signed in. It stays visible
+              when the rail is collapsed, which it did not before. */}
+          <Link
+            href="/"
+            className="flex shrink-0 items-center gap-2.5"
+            aria-label={schoolName}
+          >
+            {schoolLogo ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={schoolLogo}
+                alt=""
+                className="size-8 shrink-0 rounded-lg object-contain"
+              />
+            ) : (
+              <span
+                className="flex size-8 shrink-0 items-center justify-center rounded-lg text-xs font-bold text-white"
+                style={{ background: "var(--sidebar-bg)" }}
+              >
+                {schoolName.slice(0, 2).toUpperCase()}
+              </span>
+            )}
+            <span className="hidden max-w-44 truncate text-sm font-semibold md:block">
+              {schoolName}
+            </span>
+          </Link>
 
           <Link
             href="/search"

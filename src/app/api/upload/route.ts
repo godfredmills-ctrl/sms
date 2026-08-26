@@ -61,10 +61,26 @@ export async function POST(request: Request) {
   const purpose = String(form.get("purpose") ?? "");
   const isMessageAttachment = purpose === "message";
 
+  /**
+   * A person's own photograph, from the profile screen.
+   *
+   * Needs no permission beyond being signed in. Every other upload here files
+   * something into the school's cabinet or publishes it, and is gated
+   * accordingly, but a guardian holds none of those permissions and a pupil
+   * holds fewer still. Refusing them their own face would mean the profile
+   * screen offers a control that answers 403 for most of the people who have
+   * one.
+   *
+   * It arrives already cropped to a square by the browser, so the size cap is
+   * far below the general one: anything larger is not a portrait.
+   */
+  const isAvatar = purpose === "avatar";
+  const AVATAR_MAX_BYTES = 2 * 1024 * 1024;
+
   if (isMessageAttachment && !user.permissions.has("communication.message")) {
     return NextResponse.json({ error: "You cannot send messages." }, { status: 403 });
   }
-  if (!isMessageAttachment && !mayUpload) {
+  if (!isMessageAttachment && !isAvatar && !mayUpload) {
     return NextResponse.json({ error: "You cannot upload documents." }, { status: 403 });
   }
 
@@ -76,6 +92,21 @@ export async function POST(request: Request) {
   if (file.size === 0) {
     return NextResponse.json({ error: "That file is empty." }, { status: 400 });
   }
+  if (isAvatar) {
+    if (!(file.type || "").startsWith("image/")) {
+      return NextResponse.json(
+        { error: "A profile picture has to be an image." },
+        { status: 415 },
+      );
+    }
+    if (file.size > AVATAR_MAX_BYTES) {
+      return NextResponse.json(
+        { error: "That picture is too large. Crop it and try again." },
+        { status: 413 },
+      );
+    }
+  }
+
   if (file.size > MAX_UPLOAD_BYTES) {
     return NextResponse.json(
       { error: `Files must be under ${Math.round(MAX_UPLOAD_BYTES / 1024 / 1024)}MB.` },
@@ -111,9 +142,10 @@ export async function POST(request: Request) {
 
   // Ignored entirely for a message attachment: these are the fields that
   // would file something into the school's cabinet or publish it.
-  const folderId = isMessageAttachment
-    ? null
-    : String(form.get("folderId") ?? "") || null;
+  const folderId =
+    isMessageAttachment || isAvatar
+      ? null
+      : String(form.get("folderId") ?? "") || null;
   const title = String(form.get("title") ?? "").trim() || file.name;
   const description = String(form.get("description") ?? "").trim() || null;
   const tags = String(form.get("tags") ?? "")
@@ -129,11 +161,15 @@ export async function POST(request: Request) {
       buffer,
       originalName: file.name,
       mimeType: file.type || "application/octet-stream",
-      folder: folderId ? `documents/${slugify(title).slice(0, 24)}` : "documents",
+      folder: isAvatar
+        ? "avatars"
+        : folderId
+          ? `documents/${slugify(title).slice(0, 24)}`
+          : "documents",
       uploadedById: user.id,
     });
 
-    if (!isMessageAttachment && String(form.get("visibility") ?? "") === "public") {
+    if (!isMessageAttachment && !isAvatar && String(form.get("visibility") ?? "") === "public") {
       if (!stored.mimeType.startsWith("image/")) {
         return NextResponse.json(
           { error: "Only images can be published." },

@@ -1,9 +1,10 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { KeyRound, Save } from "lucide-react";
 
+import { AvatarEditor } from "@/components/avatar-editor";
 import { Alert, Button, CardBody, Field, Input } from "@/components/ui";
 
 import {
