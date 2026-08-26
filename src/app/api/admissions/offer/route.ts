@@ -163,7 +163,7 @@ export async function GET(request: Request) {
 
   if (application.acceptedOn) {
     body.push(
-      `> Accepted on ${formatDate(application.acceptedOn, "long")}. Thank you — we look forward to welcoming ${application.student.firstName}.`,
+      `> Accepted on ${formatDate(application.acceptedOn, "long")}. Thank you: we look forward to welcoming ${application.student.firstName}.`,
       "",
     );
   } else if (application.declinedOn) {

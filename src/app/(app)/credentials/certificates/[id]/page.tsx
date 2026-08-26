@@ -56,7 +56,7 @@ export default async function CertificatePage({
             {certificate.serialNumber}
           </p>
           <p className="no-print mt-0.5 text-xs text-[var(--text-subtle)]">
-            The PDF is laid out by your &quot;{certificate.template.name}&quot; template —
+            The PDF is laid out by your &quot;{certificate.template.name}&quot; template:
             switch below to see it
           </p>
         </div>
@@ -88,7 +88,7 @@ export default async function CertificatePage({
 
       {certificate.revokedAt ? (
         <Alert tone="danger" title="This certificate has been revoked" className="no-print mb-4">
-          {certificate.revokeReason} — revoked {formatDate(certificate.revokedAt)}.
+          {certificate.revokeReason}: revoked {formatDate(certificate.revokedAt)}.
         </Alert>
       ) : null}
 

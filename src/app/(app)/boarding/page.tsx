@@ -77,7 +77,7 @@ export default async function BoardingPage() {
     <>
       <PageHeader
         title="Boarding"
-        description={`${year.name}. Beds, and who is off the premises — which is the half somebody asks about in a hurry.`}
+        description={`${year.name}. Beds, and who is off the premises: which is the half somebody asks about in a hurry.`}
         action={
           userCan(user, "boarding.gate") || userCan(user, "boarding.exeat.request") ? (
             <LinkButton href="/boarding/exeat" size="sm">
@@ -126,7 +126,7 @@ export default async function BoardingPage() {
           <ul className="mt-1 space-y-1">
             {overdue.map((exeat) => (
               <li key={exeat.id}>
-                <span className="font-medium">{listName(exeat.student)}</span> — due back{" "}
+                <span className="font-medium">{listName(exeat.student)}</span>: due back{" "}
                 {relativeTime(exeat.dueBackAt)}, with {exeat.releasedToName}
                 {exeat.releasedToPhone ? ` (${exeat.releasedToPhone})` : ""}, at{" "}
                 {exeat.destination}.

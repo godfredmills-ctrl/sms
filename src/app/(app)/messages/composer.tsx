@@ -298,7 +298,7 @@ export function NewConversation({ people }: { people: SelectOption[] }) {
               <Field
                 label="Bcc"
                 htmlFor="bccIds"
-                hint="Nobody but you sees these names — not even each other."
+                hint="Nobody but you sees these names: not even each other."
               >
                 <SearchableSelect
                   id="bccIds"

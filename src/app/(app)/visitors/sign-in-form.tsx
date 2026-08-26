@@ -64,7 +64,7 @@ export function SignInForm({
           <Alert tone="success">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <span>
-                Signed in — pass <strong className="numeric">{state.passNo}</strong>.
+                Signed in: pass <strong className="numeric">{state.passNo}</strong>.
               </span>
               <LinkButton
                 href={`/api/visitor-passes?id=${state.visitorId}`}

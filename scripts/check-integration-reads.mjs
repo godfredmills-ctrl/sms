@@ -49,7 +49,7 @@ const STORED_KEYS = [...catalogue.matchAll(/key:\s*"([A-Z0-9_]+)"/g)].map(
 
 if (STORED_KEYS.length < 10) {
   console.error(
-    `Read only ${STORED_KEYS.length} keys out of the catalogue — the guard is not seeing it. Has the field shape changed?`,
+    `Read only ${STORED_KEYS.length} keys out of the catalogue: the guard is not seeing it. Has the field shape changed?`,
   );
   process.exit(1);
 }
@@ -117,7 +117,7 @@ if (offences.length) {
     "\nUse `const { sms } = await integrationConfig()` from @/lib/integrations/config.",
   );
   console.error(
-    "The environment still wins where it is set — the resolver is what applies that rule.\n",
+    "The environment still wins where it is set: the resolver is what applies that rule.\n",
   );
   process.exit(1);
 }

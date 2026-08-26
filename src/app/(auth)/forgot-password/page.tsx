@@ -27,7 +27,7 @@ export default function ForgotPasswordPage() {
         <ForgotPasswordForm />
 
         <p className="mt-4 text-xs text-[var(--text-subtle)]">
-          No message after a few minutes? The school office can reset it in person —
+          No message after a few minutes? The school office can reset it in person:
           the front desk issues a temporary password on the spot.
         </p>
 

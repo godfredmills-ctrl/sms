@@ -235,7 +235,7 @@ export async function emailReportCardsAction(
   if (!cards.length) {
     return {
       error:
-        "No published report cards for that class and term. Publish them first — a draft is not something to email home.",
+        "No published report cards for that class and term. Publish them first: a draft is not something to email home.",
     };
   }
 
@@ -250,7 +250,7 @@ export async function emailReportCardsAction(
       );
 
     if (!addresses.length) {
-      skipped.push(`${card.student.firstName} ${card.student.lastName} — no email`);
+      skipped.push(`${card.student.firstName} ${card.student.lastName}: no email`);
       continue;
     }
 
@@ -262,14 +262,14 @@ export async function emailReportCardsAction(
     }
 
     if (!pdf) {
-      skipped.push(`${card.student.firstName} ${card.student.lastName} — render failed`);
+      skipped.push(`${card.student.firstName} ${card.student.lastName}: render failed`);
       continue;
     }
 
     for (const guardian of addresses) {
       const result = await sendEmail({
         to: guardian.email,
-        subject: `${card.term.name} report card — ${card.student.firstName} ${card.student.lastName}`,
+        subject: `${card.term.name} report card, ${card.student.firstName} ${card.student.lastName}`,
         html: `<p>Dear ${guardian.firstName},</p>
 <p>Please find attached the ${card.term.name} report card for ${card.student.firstName} ${card.student.lastName} (${card.student.admissionNo}), ${card.academicYear.name}.</p>
 <p>You can also view it any time in the parent portal.</p>`,

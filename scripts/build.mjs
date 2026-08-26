@@ -101,6 +101,7 @@ for (const check of [
   ["script conditions", "scripts/check-script-conditions.mjs"],
   ["integration reads", "scripts/check-integration-reads.mjs"],
   ["printed register fits", "scripts/check-register-fit.mjs"],
+  ["house style dashes", "scripts/check-dashes.mjs"],
 ]) {
   run(`Checking ${check[0]}`, check[1], []);
 }

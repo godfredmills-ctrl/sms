@@ -124,7 +124,7 @@ export async function GET(request: Request) {
     return {
       name: listName(entry.student),
       admissionNo: entry.student.admissionNo,
-      className: section ? `${section.classLevel.name} ${section.name}` : "—",
+      className: section ? `${section.classLevel.name} ${section.name}` : "-",
       collectedBy: entry.collectedBy,
       guardianName: guardian ? `${guardian.firstName} ${guardian.lastName}` : null,
       guardianPhone: guardian?.phone ?? null,

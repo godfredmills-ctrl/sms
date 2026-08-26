@@ -296,7 +296,7 @@ export async function createGuardianLoginAction(
   if (guardian.userId) return { error: "This guardian already has an account." };
   if (!guardian.students.length) {
     return {
-      error: "Link at least one ward first — a guardian portal with no children shows nothing.",
+      error: "Link at least one ward first: a guardian portal with no children shows nothing.",
     };
   }
 

@@ -335,20 +335,20 @@ export function ComposeForm({
         <Card className="lg:sticky lg:top-20">
           <CardHeader title="Before you send" />
           <CardBody className="space-y-3 text-sm">
-            <Row label="Matched" value={preview ? String(preview.recipients) : "—"} />
+            <Row label="Matched" value={preview ? String(preview.recipients) : "-"} />
             <Row
               label="Reachable"
-              value={preview ? String(preview.reachable) : "—"}
+              value={preview ? String(preview.reachable) : "-"}
               tone={
                 preview && preview.reachable < preview.recipients ? "warning" : undefined
               }
             />
             {channel === "SMS" ? (
               <>
-                <Row label="Segments" value={preview ? String(preview.segments) : "—"} />
+                <Row label="Segments" value={preview ? String(preview.segments) : "-"} />
                 <Row
                   label="Estimated cost"
-                  value={preview ? formatMoney(preview.costMinor) : "—"}
+                  value={preview ? formatMoney(preview.costMinor) : "-"}
                   emphasis
                 />
               </>

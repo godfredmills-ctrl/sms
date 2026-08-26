@@ -99,7 +99,7 @@ export default async function StudentAssignmentsPage() {
         />
         <StatCard
           label="Average mark"
-          value={average === null ? "—" : `${average.toFixed(1)}%`}
+          value={average === null ? "-" : `${average.toFixed(1)}%`}
           hint={`${gradedEntries.length} marked`}
           tone="success"
           icon={<CheckCircle2 className="size-4" />}
@@ -109,7 +109,7 @@ export default async function StudentAssignmentsPage() {
       {overdue.length ? (
         <Alert tone="danger" className="mb-4">
           {overdue.length} assignment{overdue.length === 1 ? " is" : "s are"} past the
-          due date and not handed in. Late work may lose marks — check with your
+          due date and not handed in. Late work may lose marks: check with your
           teacher.
         </Alert>
       ) : null}

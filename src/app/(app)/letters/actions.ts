@@ -267,7 +267,7 @@ export async function deleteDocumentAction(formData: FormData): Promise<WritingS
       entity: "WrittenDocument",
       entityId: id,
       // The first line of what was deleted, so the log says what was lost.
-      summary: `Deleted draft: ${document.title.slice(0, 60)} — ${markdownToText(
+      summary: `Deleted draft: ${document.title.slice(0, 60)}, ${markdownToText(
         document.body,
       ).slice(0, 80)}`,
     },

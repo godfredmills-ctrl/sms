@@ -175,13 +175,13 @@ export default async function HousesPage() {
     <>
       <PageHeader
         title="Houses &amp; rooms"
-        description={`${year.name}. A room's capacity is beds — the free-text fields this replaced could say thirty children were in a room that sleeps eight, because nothing counted.`}
+        description={`${year.name}. A room's capacity is beds: the free-text fields this replaced could say thirty children were in a room that sleeps eight, because nothing counted.`}
       />
       {waiting.length ? (
         <Alert tone="info" className="mb-4">
           {waiting.length} boarder{waiting.length === 1 ? " has" : "s have"} no bed. They
           are listed first when you allocate. A child already in a room is moved by
-          allocating them again, which closes the old row rather than deleting it — the
+          allocating them again, which closes the old row rather than deleting it: the
           picker says where each one is now.
         </Alert>
       ) : null}

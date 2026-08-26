@@ -114,7 +114,7 @@ export default async function TransportPage() {
 
       {overCapacity.length ? (
         <Alert tone="danger" title="A route has more children than seats" className="mb-4">
-          {overCapacity.map((route) => `${route.code} (${route.name})`).join(", ")} —
+          {overCapacity.map((route) => `${route.code} (${route.name})`).join(", ")}:
           add a bus or move children to another route. The manifest will print
           every name either way.
         </Alert>
@@ -204,7 +204,7 @@ export default async function TransportPage() {
                             href={`/transport/${route.id}`}
                             className="font-medium hover:text-[var(--primary)]"
                           >
-                            {route.code} — {route.name}
+                            {route.code}: {route.name}
                           </Link>
                           {route.isActive ? null : (
                             <Badge tone="neutral">Not running</Badge>
@@ -328,7 +328,7 @@ export default async function TransportPage() {
               <VehicleForm
                 routes={routes.map((route) => ({
                   value: route.id,
-                  label: `${route.code} — ${route.name}`,
+                  label: `${route.code}, ${route.name}`,
                 }))}
                 staff={staff.map((person) => ({
                   value: person.id,

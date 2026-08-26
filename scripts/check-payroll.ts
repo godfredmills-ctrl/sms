@@ -24,7 +24,7 @@ function check(label: string, actual: number, expected: number) {
   if (!ok) failures += 1;
   console.log(
     `  [${ok ? "  ok  " : " FAIL "}] ${label}: ${(actual / 100).toFixed(2)}` +
-      (ok ? "" : `  — expected ${(expected / 100).toFixed(2)}`),
+      (ok ? "" : ` : expected ${(expected / 100).toFixed(2)}`),
   );
 }
 

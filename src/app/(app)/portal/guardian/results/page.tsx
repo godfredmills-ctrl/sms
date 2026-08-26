@@ -149,20 +149,20 @@ export default async function GuardianResultsPage() {
                                     : "text-[var(--warning)]"
                               }`}
                             >
-                              {score?.toFixed(1) ?? "—"}
+                              {score?.toFixed(1) ?? "-"}
                             </td>
                             <td className="py-1.5 pr-3">
                               {line.grade ? (
                                 <Badge tone="neutral">{line.grade}</Badge>
                               ) : (
-                                "—"
+                                "-"
                               )}
                             </td>
                             <td className="numeric py-1.5 pr-3 text-right text-[var(--text-muted)]">
-                              {average?.toFixed(1) ?? "—"}
+                              {average?.toFixed(1) ?? "-"}
                             </td>
                             <td className="py-1.5 text-[var(--text-muted)]">
-                              {line.remark ?? "—"}
+                              {line.remark ?? "-"}
                             </td>
                           </tr>
                         );

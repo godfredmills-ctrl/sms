@@ -114,10 +114,10 @@ export async function GET(request: Request) {
         tag: row.tag,
         name: row.name,
         category: row.categoryName,
-        location: row.locationName ?? "—",
-        custodian: row.custodianName ?? "—",
+        location: row.locationName ?? "-",
+        custodian: row.custodianName ?? "-",
         state: `${statusLabel(row.status)} · ${conditionLabel(row.condition)}`,
-        purchased: row.purchasedOn ? formatDate(row.purchasedOn) : "—",
+        purchased: row.purchasedOn ? formatDate(row.purchasedOn) : "-",
         cost: formatMoney(row.costMinor, "GHS", { withSymbol: false }),
         depreciation: row.notDepreciated
           ? "not depreciated"

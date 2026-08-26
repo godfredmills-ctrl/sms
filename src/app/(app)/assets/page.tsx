@@ -128,7 +128,7 @@ export default async function AssetsPage({
 
       {!lists.categories.length ? (
         <Alert tone="info" className="mb-4">
-          There are no asset categories yet, and every asset needs one — the
+          There are no asset categories yet, and every asset needs one: the
           category decides how a thing loses value.{" "}
           {mayManage ? (
             <Link href="/assets/categories" className="font-medium underline">
@@ -183,7 +183,7 @@ export default async function AssetsPage({
                 register.
               </strong>{" "}
               The school approved money for something lasting and no such thing was
-              entered — which is the difference between its accounts and its
+              entered: which is the difference between its accounts and its
               property. Most recent:{" "}
               {unrecordedCapital
                 .slice(0, 3)
@@ -329,10 +329,10 @@ export default async function AssetsPage({
                       </span>
                     </td>
                     <td className="px-3 py-2 text-xs text-[var(--text-muted)]">
-                      {row.locationName ?? "—"}
+                      {row.locationName ?? "-"}
                     </td>
                     <td className="px-3 py-2 text-xs text-[var(--text-muted)]">
-                      {row.custodianName ?? "—"}
+                      {row.custodianName ?? "-"}
                     </td>
                     <td className="px-3 py-2">
                       <span className="flex flex-wrap items-center gap-1">
@@ -372,7 +372,7 @@ export default async function AssetsPage({
                       {row.status === "DISPOSED" ? (
                         <span className="text-[var(--text-subtle)]">disposed</span>
                       ) : row.notDepreciated ? (
-                        <span title="Not depreciated — carried at cost">
+                        <span title="Not depreciated: carried at cost">
                           {formatMoney(row.netBookMinor)}
                         </span>
                       ) : (
@@ -395,7 +395,7 @@ export default async function AssetsPage({
           description={
             filter.search || filter.status || filter.categoryId || filter.needsAttention
               ? "Clear the filters to see everything the school owns."
-              : "Add the things the school owns — the buses, the generator, the laptops, the laboratory equipment — and the register will value them and tell you when they are due for service."
+              : "Add the things the school owns: the buses, the generator, the laptops, the laboratory equipment: and the register will value them and tell you when they are due for service."
           }
         />
       )}

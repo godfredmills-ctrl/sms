@@ -100,7 +100,7 @@ console.error(
   "\n  In a \"use server\" module an export exists to be invoked from the client.",
 );
 console.error("  One with no caller is a capability the system appears to have and");
-console.error("  does not — and it type-checks, builds, and reads as finished work.\n");
+console.error("  does not: and it type-checks, builds, and reads as finished work.\n");
 
 for (const problem of problems) {
   console.error(`    ${problem.file}:${problem.line}`);

@@ -113,7 +113,7 @@ export async function saveScores(
         // "a mark is out of range" is not something anybody can act on.
         return {
           ok: false,
-          error: `${nameOf.get(entry.studentId) ?? "A pupil"} has ${entry.score} in "${assessment.title}", which is outside 0–${max}.`,
+          error: `${nameOf.get(entry.studentId) ?? "A pupil"} has ${entry.score} in "${assessment.title}", which is outside 0-${max}.`,
         };
       }
     }

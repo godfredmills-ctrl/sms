@@ -58,7 +58,7 @@ export function EnterCandidates({
         >
           {levels.map((level) => (
             <option key={level.id} value={level.id}>
-              {level.name} — {level.entered} of {level.enrolled} entered
+              {level.name}: {level.entered} of {level.enrolled} entered
             </option>
           ))}
         </Select>

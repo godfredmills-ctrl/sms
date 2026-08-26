@@ -144,7 +144,7 @@ export function PromotionForm({
                   hint={
                     targets.length
                       ? undefined
-                      : "No class exists at the next level — create it under Class sections first."
+                      : "No class exists at the next level: create it under Class sections first."
                   }
                 >
                   <SearchableSelect

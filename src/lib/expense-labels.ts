@@ -90,7 +90,7 @@ export const CATEGORY_KINDS = [
   {
     value: "OPERATING",
     label: "Operating",
-    description: "The running of the school — utilities, materials, upkeep.",
+    description: "The running of the school: utilities, materials, upkeep.",
   },
   {
     value: "CAPITAL",
@@ -100,6 +100,6 @@ export const CATEGORY_KINDS = [
   {
     value: "STAFF",
     label: "Staff",
-    description: "Paid to or for staff outside the payroll run — training, allowances.",
+    description: "Paid to or for staff outside the payroll run: training, allowances.",
   },
 ] as const;

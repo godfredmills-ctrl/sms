@@ -36,7 +36,7 @@ export function PortalLogin({
     return (
       <Alert tone="success" title="Portal login created">
         <p className="mb-2 text-sm">
-          Write these down now — the password is not shown again, and {firstName} will
+          Write these down now: the password is not shown again, and {firstName} will
           be asked to change it at first sign-in.
         </p>
         <dl className="grid grid-cols-[7rem_1fr] gap-y-1 text-sm">

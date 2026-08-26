@@ -80,7 +80,7 @@ function requestShape(model: string, effort: Effort) {
 
 /** Instruction used when the model cannot be constrained by a schema. */
 function jsonInstruction(schema: Record<string, unknown>): string {
-  return `\n\nRespond with a single JSON object that conforms to this JSON Schema. Output only the JSON — no explanation, no markdown, no code fences.\n\n${JSON.stringify(
+  return `\n\nRespond with a single JSON object that conforms to this JSON Schema. Output only the JSON: no explanation, no markdown, no code fences.\n\n${JSON.stringify(
     schema,
   )}`;
 }

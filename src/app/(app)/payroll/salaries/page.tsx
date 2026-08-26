@@ -177,10 +177,10 @@ export default async function SalariesPage() {
                           className="numeric px-3 py-2.5 text-right text-[var(--text-muted)]"
                           title={allowances.map((entry) => entry.name).join(", ") || undefined}
                         >
-                          {allowanceTotal ? formatMoney(allowanceTotal, "GHS") : "—"}
+                          {allowanceTotal ? formatMoney(allowanceTotal, "GHS") : "-"}
                         </td>
                         <td className="numeric px-3 py-2.5 text-right font-semibold">
-                          {figures ? formatMoney(figures.netMinor, "GHS") : "—"}
+                          {figures ? formatMoney(figures.netMinor, "GHS") : "-"}
                         </td>
                         <td className="px-5 py-2.5">
                           {member.bankAccountNo ? (
@@ -196,7 +196,7 @@ export default async function SalariesPage() {
                           ) : member.basicSalaryMinor !== null ? (
                             <Badge tone="warning">Cash</Badge>
                           ) : (
-                            <span className="text-xs text-[var(--text-subtle)]">—</span>
+                            <span className="text-xs text-[var(--text-subtle)]">-</span>
                           )}
                         </td>
                       </tr>
@@ -213,7 +213,7 @@ export default async function SalariesPage() {
             <Card className="lg:sticky lg:top-20">
               <CardHeader
                 title="Set compensation"
-                description="Applies to the next run — payslips already issued keep their figures."
+                description="Applies to the next run: payslips already issued keep their figures."
               />
               <SalaryForm
                 staff={staff.map((member) => ({

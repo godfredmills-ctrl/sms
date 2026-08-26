@@ -52,7 +52,7 @@ function when(startsAt: Date, durationMins: number): string {
     weekday: "short",
     day: "numeric",
     month: "short",
-  })} · ${time(startsAt)} – ${time(end)}`;
+  })} · ${time(startsAt)} to ${time(end)}`;
 }
 
 export default async function ExamSessionPage({
@@ -173,7 +173,7 @@ export default async function ExamSessionPage({
           session.term
             ? `${session.term.name}, ${session.term.academicYear.name}`
             : null,
-          `${formatDate(session.startsOn)} – ${formatDate(session.endsOn)}`,
+          `${formatDate(session.startsOn)} to ${formatDate(session.endsOn)}`,
         ]
           .filter(Boolean)
           .join("  ·  ")}
@@ -293,7 +293,7 @@ export default async function ExamSessionPage({
                                 className="font-medium hover:text-[var(--primary)]"
                               >
                                 {paper.subject.name}
-                                {paper.title ? ` — ${paper.title}` : ""}
+                                {paper.title ? `, ${paper.title}` : ""}
                               </Link>
                               <Badge tone="neutral">{paper.classLevel.name}</Badge>
                               {paper._count.seats === 0 ? (

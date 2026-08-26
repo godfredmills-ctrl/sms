@@ -126,7 +126,7 @@ export async function buildReportCardPdf(id: string): Promise<Buffer | null> {
     {
       label: "Position",
       value: card.positionInClass
-        ? `${ordinal(card.positionInClass)} of ${card.classSize ?? "—"}`
+        ? `${ordinal(card.positionInClass)} of ${card.classSize ?? "-"}`
         : "Not ranked",
     },
     {
@@ -145,14 +145,14 @@ export async function buildReportCardPdf(id: string): Promise<Buffer | null> {
   const summary = [
     {
       label: "Average",
-      value: card.averageScore ? `${toNumber(card.averageScore)?.toFixed(1)}%` : "—",
+      value: card.averageScore ? `${toNumber(card.averageScore)?.toFixed(1)}%` : "-",
     },
-    { label: "Total", value: toNumber(card.totalScore)?.toFixed(0) ?? "—" },
+    { label: "Total", value: toNumber(card.totalScore)?.toFixed(0) ?? "-" },
     ...(card.overallGrade ? [{ label: "Grade", value: card.overallGrade }] : []),
     ...(card.aggregate !== null
       ? [{ label: "Aggregate", value: String(card.aggregate) }]
       : []),
-    ...(card.gpa ? [{ label: "GPA", value: toNumber(card.gpa)?.toFixed(2) ?? "—" }] : []),
+    ...(card.gpa ? [{ label: "GPA", value: toNumber(card.gpa)?.toFixed(2) ?? "-" }] : []),
   ];
 
   return renderReportCardPdf({
@@ -164,7 +164,7 @@ export async function buildReportCardPdf(id: string): Promise<Buffer | null> {
       motto: school?.motto ?? undefined,
     },
     crest,
-    heading: `TERMINAL REPORT — ${card.term.name.toUpperCase()}, ${card.academicYear.name}`,
+    heading: `TERMINAL REPORT, ${card.term.name.toUpperCase()}, ${card.academicYear.name}`,
     student: {
       name: fullName(card.student),
       admissionNo: card.student.admissionNo,
@@ -178,10 +178,10 @@ export async function buildReportCardPdf(id: string): Promise<Buffer | null> {
       // which is what an absence printed as before the weighting was fixed.
       ca: formatScoreCell(toNumber(line.caScore), { absent: line.caAbsent }),
       exam: formatScoreCell(toNumber(line.examScore), { absent: line.examAbsent }),
-      total: toNumber(line.totalScore)?.toFixed(1) ?? "—",
-      grade: line.grade ?? "—",
-      position: line.position ? ordinal(line.position) : "—",
-      classAverage: toNumber(line.classAverage)?.toFixed(1) ?? "—",
+      total: toNumber(line.totalScore)?.toFixed(1) ?? "-",
+      grade: line.grade ?? "-",
+      position: line.position ? ordinal(line.position) : "-",
+      classAverage: toNumber(line.classAverage)?.toFixed(1) ?? "-",
       remark: line.remark ?? "",
     })),
     summary,
@@ -203,7 +203,7 @@ export async function buildReportCardPdf(id: string): Promise<Buffer | null> {
       },
     ],
     footer: `${card.student.admissionNo} · ${card.term.name} ${card.academicYear.name} · Generated ${formatDate(new Date())} from ${env.appUrl}${
-      card.status === "PUBLISHED" ? "" : " · DRAFT — not for distribution"
+      card.status === "PUBLISHED" ? "" : " · DRAFT: not for distribution"
     }`,
   });
 }

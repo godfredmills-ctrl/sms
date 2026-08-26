@@ -162,7 +162,7 @@ export default async function MarkSheetPage({
         <StatCard label="Assessments" value={assessments.length} tone="info" />
         <StatCard
           label="Marks entered"
-          value={expected ? `${Math.round((entered / expected) * 100)}%` : "—"}
+          value={expected ? `${Math.round((entered / expected) * 100)}%` : "-"}
           hint={`${entered} of ${expected}`}
           tone={entered >= expected && expected > 0 ? "success" : "warning"}
         />

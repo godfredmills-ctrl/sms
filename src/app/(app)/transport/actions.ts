@@ -55,7 +55,7 @@ export async function saveRouteAction(
   const code = text(formData, "code").toUpperCase();
   const name = text(formData, "name");
 
-  if (!code) return { error: "Give the route a short code — R3, Airport." };
+  if (!code) return { error: "Give the route a short code: R3, Airport." };
   if (!name) return { error: "What is the route called?" };
 
   const clash = await db.transportRoute.findUnique({
@@ -142,7 +142,7 @@ export async function saveRouteAction(
       action: id ? "transport.route.update" : "transport.route.create",
       entity: "TransportRoute",
       entityId: route.id,
-      summary: `${id ? "Edited" : "Created"} route ${code} — ${name}`,
+      summary: `${id ? "Edited" : "Created"} route ${code}, ${name}`,
     },
   });
 
@@ -304,7 +304,7 @@ export async function assignTransportAction(
   if (!studentId) return { error: "Which child?" };
   if (!routeId) return { error: "Which route?" };
   if (!DIRECTIONS.some((entry) => entry.value === direction)) {
-    return { error: "Morning, afternoon, or both — pick one." };
+    return { error: "Morning, afternoon, or both: pick one." };
   }
 
   const [student, route] = await Promise.all([

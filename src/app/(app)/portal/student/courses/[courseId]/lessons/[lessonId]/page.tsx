@@ -147,7 +147,7 @@ export default async function LessonPage({
 
             {!lesson.content && !lesson.videoUrl && !lesson.externalUrl ? (
               <p className="text-sm text-[var(--text-muted)]">
-                This lesson has no written content — check the resources panel.
+                This lesson has no written content: check the resources panel.
               </p>
             ) : null}
           </CardBody>

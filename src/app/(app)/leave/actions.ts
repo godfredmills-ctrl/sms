@@ -125,7 +125,7 @@ export async function requestLeaveAction(
   revalidatePath("/leave");
   return {
     ok: true,
-    message: `Requested — ${days} working day${days === 1 ? "" : "s"}. You will be notified when it is decided.`,
+    message: `Requested, ${days} working day${days === 1 ? "" : "s"}. You will be notified when it is decided.`,
   };
 }
 

@@ -684,11 +684,11 @@ export async function runFeeReminders(): Promise<{
     const body =
       rule.template?.smsBody ??
       rule.template?.body ??
-      "Dear Parent/Guardian, the outstanding balance for {{student.fullName}} ({{student.class}}) is {{invoice.balance}}, due {{invoice.dueDate}}. Kindly settle at your earliest convenience. Thank you — {{school.name}}";
+      "Dear Parent/Guardian, the outstanding balance for {{student.fullName}} ({{student.class}}) is {{invoice.balance}}, due {{invoice.dueDate}}. Kindly settle at your earliest convenience. Thank you: {{school.name}}";
 
     for (const channel of rule.channels) {
       const job = await createCommunicationJob({
-        title: `${rule.name} — ${formatDate(now)}`,
+        title: `${rule.name}, ${formatDate(now)}`,
         channel,
         subject: "School Fees Reminder",
         body,

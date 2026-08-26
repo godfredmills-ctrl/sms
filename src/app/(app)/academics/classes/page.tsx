@@ -275,7 +275,7 @@ export default async function ClassesPage() {
             <Card>
               <CardHeader
                 title="Assign a subject"
-                description="Creates the class–subject–teacher link the gradebook and register work from."
+                description="Creates the class-subject-teacher link the gradebook and register work from."
               />
               <OfferingForm
                 sections={sections.map((section) => ({

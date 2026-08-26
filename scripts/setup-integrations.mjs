@@ -174,7 +174,7 @@ for (const [key, bytes, what] of [
       : "was not set";
 
   if (CHECK_ONLY) {
-    line("warn", key, `${why} — ${what}`);
+    line("warn", key, `${why}, ${what}`);
     continue;
   }
 
@@ -190,7 +190,7 @@ const privateKey = current("VAPID_PRIVATE_KEY");
 if (publicKey.value && privateKey.value && !FORCE) {
   line("ok", "Push notifications", `key pair already set (${publicKey.source})`);
 } else if (CHECK_ONLY) {
-  line("warn", "Push notifications", "no key pair — push is off, and it costs nothing to turn on");
+  line("warn", "Push notifications", "no key pair: push is off, and it costs nothing to turn on");
 } else {
   const keys = webpush.generateVAPIDKeys();
   setValue("NEXT_PUBLIC_VAPID_PUBLIC_KEY", keys.publicKey);
@@ -198,7 +198,7 @@ if (publicKey.value && privateKey.value && !FORCE) {
   if (!current("VAPID_SUBJECT").value) {
     setValue("VAPID_SUBJECT", "mailto:admin@school.edu.gh");
   }
-  line("done", "Push notifications", "generated a VAPID key pair — push is now available");
+  line("done", "Push notifications", "generated a VAPID key pair: push is now available");
 }
 
 // --- Storage -------------------------------------------------------------------
@@ -212,7 +212,7 @@ if (driver === "local") {
     line(
       "warn",
       "File storage",
-      `local, at ${dir} — a relative path lives inside the container, so every upload is lost on redeploy. Point it at a mounted volume, or use S3.`,
+      `local, at ${dir}: a relative path lives inside the container, so every upload is lost on redeploy. Point it at a mounted volume, or use S3.`,
     );
   }
 } else {
@@ -236,7 +236,7 @@ const ACCOUNT_NEEDED = [
       paystack: ["PAYSTACK_SECRET_KEY"],
       hubtel: ["HUBTEL_CLIENT_ID", "HUBTEL_CLIENT_SECRET", "HUBTEL_MERCHANT_ACCOUNT"],
     },
-    fallback: "the test gateway — fees are recorded, no money moves",
+    fallback: "the test gateway: fees are recorded, no money moves",
     signUp: "https://dashboard.paystack.com",
   },
   {
@@ -255,7 +255,7 @@ const ACCOUNT_NEEDED = [
     providerKey: "EMAIL_PROVIDER",
     providers: { smtp: ["SMTP_HOST"] },
     fallback: "logged to the console, never sent",
-    signUp: "any mail host — Google Workspace, Zoho, Brevo",
+    signUp: "any mail host: Google Workspace, Zoho, Brevo",
   },
 ];
 
@@ -272,7 +272,7 @@ for (const integration of ACCOUNT_NEEDED) {
     line(
       "warn",
       integration.name,
-      `"${chosen}" is not a provider this system knows — nothing will be sent`,
+      `"${chosen}" is not a provider this system knows: nothing will be sent`,
     );
     continue;
   }
@@ -285,7 +285,7 @@ for (const integration of ACCOUNT_NEEDED) {
 // --- AI --------------------------------------------------------------------------
 
 const aiKey = current("ANTHROPIC_API_KEY").value;
-if (!aiKey) line("--", "AI insights", "no API key — every AI feature is off, nothing else changes");
+if (!aiKey) line("--", "AI insights", "no API key: every AI feature is off, nothing else changes");
 else line("ok", "AI insights", `key set, model ${current("ANTHROPIC_MODEL").value || "claude-opus-5"}`);
 
 // -----------------------------------------------------------------------------
@@ -309,6 +309,6 @@ if (pending.size) {
 
 console.log("");
 console.log("  Anything above that needs an account is set from Settings →");
-console.log("  Integrations inside the app — no redeploy, and each one has a");
+console.log("  Integrations inside the app: no redeploy, and each one has a");
 console.log("  Test button that contacts the provider for real.");
 console.log("");

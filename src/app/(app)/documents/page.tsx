@@ -157,7 +157,7 @@ export default async function DocumentsPage() {
     <>
       <PageHeader
         title="Document Cabinet"
-        description="Policies, circulars, minutes and records — with access control and previews."
+        description="Policies, circulars, minutes and records: with access control and previews."
       />
 
       <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">

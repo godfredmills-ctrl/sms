@@ -92,7 +92,7 @@ export default async function GuardianPaymentsPage() {
       <Card>
         <CardHeader
           title="Receipts"
-          description="Each payment is applied to one or more invoices — the breakdown is shown against every receipt."
+          description="Each payment is applied to one or more invoices: the breakdown is shown against every receipt."
         />
         {payments.length ? (
           <ul className="divide-y divide-[var(--border)]">
@@ -126,14 +126,14 @@ export default async function GuardianPaymentsPage() {
                               {allocation.invoice.term
                                 ? ` (${allocation.invoice.term.name})`
                                 : ""}{" "}
-                              — {formatMoney(allocation.amountMinor)}
+                             : {formatMoney(allocation.amountMinor)}
                             </Link>
                           </li>
                         ))}
                       </ul>
                     ) : payment.status === "SUCCESS" ? (
                       <p className="mt-1 text-xs text-[var(--warning)]">
-                        Held as credit — applied to the next bill raised.
+                        Held as credit: applied to the next bill raised.
                       </p>
                     ) : null}
                   </div>

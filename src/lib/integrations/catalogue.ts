@@ -169,7 +169,7 @@ export const INTEGRATIONS: Integration[] = [
         signUp: "https://unity.hubtel.com",
       },
     ],
-    note: "The sender ID a parent sees is set under Messaging preferences below, not here. It must be registered with your provider first — an unregistered sender ID is the usual reason messages are accepted and never arrive.",
+    note: "The sender ID a parent sees is set under Messaging preferences below, not here. It must be registered with your provider first: an unregistered sender ID is the usual reason messages are accepted and never arrive.",
     fields: [
       {
         key: "ARKESEL_API_KEY",
@@ -221,7 +221,7 @@ export const INTEGRATIONS: Integration[] = [
         value: "smtp",
         label: "SMTP",
         blurb:
-          "Any mail host — Google Workspace, Microsoft 365, Zoho, Brevo, Mailgun, or the school's own server.",
+          "Any mail host: Google Workspace, Microsoft 365, Zoho, Brevo, Mailgun, or the school's own server.",
       },
     ],
     note: "The from-address is set under Messaging preferences below, not here. It must be an address the mail host is willing to send as, or the message is rejected or filed as spam.",
@@ -347,7 +347,7 @@ export const INTEGRATIONS: Integration[] = [
     ],
     envOnly: true,
     envOnlyReason:
-      "Storage is set on the deployment, not here. Every other setting on this page redirects where new things go; changing this one would orphan everything already stored — a pupil's photograph and a signed consent form would still exist, and nothing would be able to find them.",
+      "Storage is set on the deployment, not here. Every other setting on this page redirects where new things go; changing this one would orphan everything already stored: a pupil's photograph and a signed consent form would still exist, and nothing would be able to find them.",
     fields: [
       { key: "STORAGE_LOCAL_DIR", label: "Directory", kind: "text", onlyFor: ["local"] },
       { key: "S3_ENDPOINT", label: "Endpoint", kind: "text", onlyFor: ["s3"], required: true },

@@ -186,7 +186,7 @@ export async function createPayrollRunAction(
   });
   if (!staff.length) {
     return {
-      error: "Nobody is on the payroll yet — set salaries under Payroll → Salaries first.",
+      error: "Nobody is on the payroll yet: set salaries under Payroll → Salaries first.",
     };
   }
 

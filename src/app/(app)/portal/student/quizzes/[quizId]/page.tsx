@@ -299,7 +299,7 @@ export default async function StudentQuizPage({
                         </div>
                         <span className="numeric shrink-0 text-xs">
                           {answer.pointsAwarded === null
-                            ? "—"
+                            ? "-"
                             : `${toNumber(answer.pointsAwarded)}/${toNumber(answer.question.points)}`}
                         </span>
                       </div>
@@ -311,7 +311,7 @@ export default async function StudentQuizPage({
               <p className="text-xs text-[var(--text-subtle)]">
                 {quiz.showAnswersAfter === "NEVER"
                   ? "Answers are not shown for this quiz."
-                  : `Answers are shown after the quiz closes${quiz.closesAt ? ` on ${formatDateTime(quiz.closesAt)}` : ""} — so that everyone sits the same paper.`}
+                  : `Answers are shown after the quiz closes${quiz.closesAt ? ` on ${formatDateTime(quiz.closesAt)}` : ""}: so that everyone sits the same paper.`}
               </p>
             )}
           </CardBody>
@@ -335,7 +335,7 @@ export default async function StudentQuizPage({
                 </span>
                 <span className="numeric">
                   {attempt.percent === null
-                    ? "—"
+                    ? "-"
                     : `${toNumber(attempt.percent)?.toFixed(0)}%`}
                 </span>
               </li>

@@ -232,7 +232,7 @@ export default async function StructuresPage() {
                   </ul>
 
                   <p className="text-xs text-[var(--text-subtle)]">
-                    Setting an amount to zero removes the line — billing a category at
+                    Setting an amount to zero removes the line: billing a category at
                     nothing and leaving it off produce the same invoice.
                   </p>
                 </CardBody>

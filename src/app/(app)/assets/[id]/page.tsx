@@ -35,7 +35,7 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { id } = await params;
   const detail = await assetDetail(id, new Date());
-  return { title: detail ? `${detail.asset.tag} — ${detail.asset.name}` : "Asset" };
+  return { title: detail ? `${detail.asset.tag}, ${detail.asset.name}` : "Asset" };
 }
 
 const EVENT_WORDS: Record<string, string> = {
@@ -113,7 +113,7 @@ export default async function AssetPage({ params }: { params: Promise<{ id: stri
             <TriangleAlert className="mt-0.5 size-4 shrink-0" />
             <span>
               <strong>This cannot be found.</strong> It stays on the register at
-              its full value until somebody decides to write it off — a thing
+              its full value until somebody decides to write it off: a thing
               that turns up in a cupboard next term should not have to be entered
               again.
             </span>
@@ -130,7 +130,7 @@ export default async function AssetPage({ params }: { params: Promise<{ id: stri
               {formatDate(service.dueOn!, "long")}
               {asset.lastServicedOn
                 ? `, ${asset.serviceIntervalMonths} months after the last one.`
-                : " — and it has never been serviced since it was bought."}
+                : ": and it has never been serviced since it was bought."}
             </span>
           </span>
         </Alert>
@@ -169,21 +169,21 @@ export default async function AssetPage({ params }: { params: Promise<{ id: stri
                 items={[
                   { label: "Tag", value: asset.tag },
                   { label: "Category", value: asset.category.name },
-                  { label: "Make and model", value: [asset.manufacturer, asset.model].filter(Boolean).join(" ") || "—" },
-                  { label: "Serial number", value: asset.serialNumber ?? "—" },
+                  { label: "Make and model", value: [asset.manufacturer, asset.model].filter(Boolean).join(" ") || "-" },
+                  { label: "Serial number", value: asset.serialNumber ?? "-" },
                   { label: "Where it is", value: asset.location ? [asset.location.name, asset.location.building, asset.location.room].filter(Boolean).join(" · ") : "Not recorded" },
-                  { label: "Who is answerable", value: asset.custodian ? `${asset.custodian.firstName} ${asset.custodian.lastName}${asset.custodian.jobTitle ? ` — ${asset.custodian.jobTitle}` : ""}` : "Nobody in particular" },
+                  { label: "Who is answerable", value: asset.custodian ? `${asset.custodian.firstName} ${asset.custodian.lastName}${asset.custodian.jobTitle ? `, ${asset.custodian.jobTitle}` : ""}` : "Nobody in particular" },
                   { label: "Bought from", value: asset.vendor?.name ?? "Not recorded" },
                   {
                     label: "Warranty",
                     value: asset.warrantyExpiresOn
-                      ? `${formatDate(asset.warrantyExpiresOn)}${warranty === "expired" ? " — expired" : warranty === "expiring" ? " — expiring soon" : ""}`
+                      ? `${formatDate(asset.warrantyExpiresOn)}${warranty === "expired" ? ": expired" : warranty === "expiring" ? ": expiring soon" : ""}`
                       : "None recorded",
                   },
                   {
                     label: "Last checked",
                     value: asset.lastVerifiedOn
-                      ? `${formatDate(asset.lastVerifiedOn)}${verified.stale ? " — a long time ago" : ""}`
+                      ? `${formatDate(asset.lastVerifiedOn)}${verified.stale ? ": a long time ago" : ""}`
                       : "Never",
                   },
                 ]}
@@ -277,7 +277,7 @@ export default async function AssetPage({ params }: { params: Promise<{ id: stri
                     value: life ? `${life} year${life === 1 ? "" : "s"}` : "Not depreciated",
                   },
                   { label: "Worth at the end", value: formatMoney(asset.residualMinor) },
-                  { label: "In service for", value: value.notDepreciated ? "—" : `${value.months} months` },
+                  { label: "In service for", value: value.notDepreciated ? "-" : `${value.months} months` },
                   { label: "Depreciated so far", value: formatMoney(value.accumulatedMinor) },
                   {
                     label: "Written down to",
@@ -304,7 +304,7 @@ export default async function AssetPage({ params }: { params: Promise<{ id: stri
                 <Alert tone={disposal.gainMinor >= 0 ? "success" : "warning"} className="mt-3">
                   Disposed of on {formatDate(asset.disposedOn!, "long")} for{" "}
                   {formatMoney(disposal.proceedsMinor)}, against{" "}
-                  {formatMoney(disposal.netBookMinor)} on the books —{" "}
+                  {formatMoney(disposal.netBookMinor)} on the books -{" "}
                   <strong>
                     {disposal.gainMinor >= 0 ? "a gain of " : "a loss of "}
                     {formatMoney(Math.abs(disposal.gainMinor))}

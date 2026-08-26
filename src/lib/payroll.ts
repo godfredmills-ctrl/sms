@@ -164,7 +164,7 @@ export const MONTH_NAMES = [
 
 /** "August 2026" for a run's year and 1-based month. */
 export function payrollPeriodLabel(year: number, month: number): string {
-  return `${MONTH_NAMES[month - 1] ?? "—"} ${year}`;
+  return `${MONTH_NAMES[month - 1] ?? "-"} ${year}`;
 }
 
 /** Parses the allowance JSON a Staff row or Payslip carries. */

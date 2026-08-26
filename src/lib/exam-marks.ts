@@ -90,7 +90,7 @@ export function paperAssessmentSpec(input: {
 }) {
   const part = input.paperTitle?.trim();
   return {
-    title: `${input.sessionName}${part ? ` — ${part}` : ""}`.slice(0, 120),
+    title: `${input.sessionName}${part ? `, ${part}` : ""}`.slice(0, 120),
     category: "EXAM" as const,
     isExam: true,
     maxScore: input.maxMarks,
@@ -144,7 +144,7 @@ export async function syncPaperAssessments(paperId: string): Promise<SyncResult>
     return {
       ok: false,
       error:
-        "Set the paper's weight first — its share of the subject mark. An assessment weighted zero is entered and then ignored by the report card.",
+        "Set the paper's weight first: its share of the subject mark. An assessment weighted zero is entered and then ignored by the report card.",
     };
   }
 
@@ -382,7 +382,7 @@ export async function paperMarkSheet(paperId: string): Promise<ScriptRow[]> {
 
     let blockedReason: string | null = null;
     if (!live) {
-      blockedReason = "No longer on the roll — the mark has no class to land in.";
+      blockedReason = "No longer on the roll: the mark has no class to land in.";
     } else if (!offering) {
       blockedReason = `${live.classSection.name} does not have this subject on its timetable this term.`;
     } else if (!assessment) {

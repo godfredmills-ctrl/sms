@@ -103,7 +103,7 @@ export default async function MediaPage() {
         <Alert tone="warning" className="mb-4">
           {missingAlt} image{missingAlt === 1 ? " has" : "s have"} no alt text. Screen
           readers announce nothing for them, and search engines cannot index what the
-          picture shows — both matter on a school&rsquo;s public site.
+          picture shows: both matter on a school&rsquo;s public site.
         </Alert>
       ) : null}
 

@@ -118,7 +118,7 @@ export function StaffTable({ rows, can }: { rows: StaffRow[]; can: StaffAbilitie
         <div className="min-w-0">
           <p className="numeric truncate text-xs">{formatPhone(row.phone)}</p>
           <p className="truncate text-xs text-[var(--text-subtle)]">
-            {row.email ?? "—"}
+            {row.email ?? "-"}
           </p>
         </div>
       ),
@@ -155,7 +155,7 @@ export function StaffTable({ rows, can }: { rows: StaffRow[]; can: StaffAbilitie
             ) : null}
           </span>
         ) : (
-          "—"
+          "-"
         ),
       priority: 3,
     },

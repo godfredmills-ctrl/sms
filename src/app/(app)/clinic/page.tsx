@@ -112,7 +112,7 @@ export default async function ClinicPage({
     <>
       <PageHeader
         title="Clinic"
-        description="Visits, treatments and outcomes — with the emergency contacts one tick away."
+        description="Visits, treatments and outcomes: with the emergency contacts one tick away."
         action={<RefreshButton />}
       />
 

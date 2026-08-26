@@ -129,7 +129,7 @@ export default async function StudentTimetablePage() {
                           </span>
                         </div>
                         <p className="numeric mt-0.5 text-[10px] text-[var(--text-subtle)]">
-                          {slot.startTime}–{slot.endTime}
+                          {slot.startTime}-{slot.endTime}
                         </p>
                         {slot.offering?.teacher ? (
                           <p className="truncate text-[10px] text-[var(--text-subtle)]">

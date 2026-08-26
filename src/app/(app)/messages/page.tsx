@@ -554,7 +554,7 @@ export default async function MessagesPage({
                 <div className="border-t border-[var(--border)] px-5 py-3">
                   <Alert tone="warning">
                     You were blind-copied on this conversation. The other people in
-                    it cannot see that you are here — until you reply, which puts
+                    it cannot see that you are here: until you reply, which puts
                     your name and your message in front of all of them.
                   </Alert>
                 </div>
@@ -563,7 +563,7 @@ export default async function MessagesPage({
               {folder === "trash" ? (
                 <CardBody className="border-t border-[var(--border)] text-xs text-[var(--text-muted)]">
                   This conversation is in your trash. Move it back to the inbox to
-                  reply — the messages themselves are kept either way, because a
+                  reply: the messages themselves are kept either way, because a
                   thread about a child is a record the school may need.
                 </CardBody>
               ) : (
@@ -588,8 +588,8 @@ export default async function MessagesPage({
       <Card className="mt-4">
         <CardBody className="text-xs text-[var(--text-muted)]">
           Messages here are between named accounts and are visible to both sides. For
-          anything that needs to reach many people at once — a whole class, every
-          parent, a year group — use{" "}
+          anything that needs to reach many people at once: a whole class, every
+          parent, a year group: use{" "}
           <Link href="/communications/compose" className="text-[var(--primary)] hover:underline">
             Send Message
           </Link>

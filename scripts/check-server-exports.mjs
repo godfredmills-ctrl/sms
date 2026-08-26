@@ -157,7 +157,7 @@ console.error(line);
 console.error(
   "\n  Next.js turns every export of such a module into a callable endpoint,",
 );
-console.error("  so a non-function export throws at runtime — after a clean build:\n");
+console.error("  so a non-function export throws at runtime: after a clean build:\n");
 console.error('      A "use server" file can only export async functions, found object.\n');
 
 for (const problem of problems) {

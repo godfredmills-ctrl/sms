@@ -174,7 +174,7 @@ export default async function PayrollRunPage({
       {run.status === "DRAFT" ? (
         <Alert tone="warning" className="mb-4">
           This run is a draft. Check the figures, then have it approved by someone
-          other than whoever prepared it — that separation is the point of the two
+          other than whoever prepared it: that separation is the point of the two
           steps.
         </Alert>
       ) : run.status === "APPROVED" ? (
@@ -260,7 +260,7 @@ export default async function PayrollRunPage({
                       className="numeric px-3 py-2.5 text-right text-[var(--text-muted)]"
                       title={allowances.map((entry) => entry.name).join(", ") || undefined}
                     >
-                      {allowanceTotal ? formatMoney(allowanceTotal, "GHS") : "—"}
+                      {allowanceTotal ? formatMoney(allowanceTotal, "GHS") : "-"}
                     </td>
                     <td className="numeric px-3 py-2.5 text-right">
                       {formatMoney(slip.grossMinor, "GHS")}

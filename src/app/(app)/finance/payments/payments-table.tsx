@@ -75,7 +75,7 @@ export function PaymentsTable({ rows }: { rows: PaymentRow[] }) {
             {formatMoney(row.unallocatedMinor)}
           </span>
         ) : (
-          <span className="text-[var(--text-subtle)]">—</span>
+          <span className="text-[var(--text-subtle)]">-</span>
         ),
       align: "right",
       priority: 2,

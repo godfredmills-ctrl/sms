@@ -75,7 +75,7 @@ if (problems.length) {
     );
   }
   console.error(
-    "\n  A clipped figure is worse than a missing one — it reads as a number.",
+    "\n  A clipped figure is worse than a missing one: it reads as a number.",
   );
   console.error("  Shorten the column set, or drop the currency prefix in the print.\n");
   process.exit(1);

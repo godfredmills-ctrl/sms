@@ -90,7 +90,7 @@ async function main() {
     console.log(`\nFAIL: no column matched ${missing.join(" or ")}. The import would refuse this file.`);
     process.exit(1);
   }
-  console.log("\nok — first and last name both matched, so the import would proceed.");
+  console.log("\nok: first and last name both matched, so the import would proceed.");
 }
 
 main().catch((error: unknown) => {

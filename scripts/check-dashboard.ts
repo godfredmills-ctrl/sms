@@ -42,11 +42,11 @@ for (const [role, permissions] of Object.entries(ROLES)) {
   const viewer = { staffId: "staff_1", permissions: new Set(permissions) };
   console.log(
     role.padEnd(14),
-    (roleSummaryFor(viewer) ?? "—").padEnd(18),
+    (roleSummaryFor(viewer) ?? "-").padEnd(18),
     panelsFor(viewer).join(" → "),
   );
 }
 
 // A guardian has no staff record: the personal staff panels must vanish.
 const guardian = { staffId: null, permissions: new Set(["communication.message"]) };
-console.log("guardian".padEnd(14), "—".padEnd(18), panelsFor(guardian).join(" → ") || "(none)");
+console.log("guardian".padEnd(14), "-".padEnd(18), panelsFor(guardian).join(" → ") || "(none)");

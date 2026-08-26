@@ -102,7 +102,7 @@ export async function GET(
       reference: session.term
         ? `${session.term.name}, ${session.term.academicYear.name}`
         : null,
-      date: `${formatDate(session.startsOn, "long")} – ${formatDate(session.endsOn, "long")}`,
+      date: `${formatDate(session.startsOn, "long")} to ${formatDate(session.endsOn, "long")}`,
       body: timetableMarkdown({ instructions: session.instructions, papers }),
       // A timetable that is still being built must not be mistaken for the one
       // that is out. The watermark is the only part of that which survives a

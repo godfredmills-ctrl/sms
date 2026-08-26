@@ -79,7 +79,7 @@ export default async function BoardingPage() {
     <>
       <PageHeader
         title="Boarding"
-        description="Who sleeps where — houses, dormitories, rooms, and the boarders still waiting for a bed."
+        description="Who sleeps where: houses, dormitories, rooms, and the boarders still waiting for a bed."
         action={<RefreshButton />}
       />
 

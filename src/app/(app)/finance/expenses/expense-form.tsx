@@ -95,7 +95,7 @@ export function ExpenseForm({
               <Field
                 label="Vendor"
                 htmlFor="exp-vendor"
-                hint="Optional — a market purchase may have none."
+                hint="Optional: a market purchase may have none."
               >
                 <SearchableSelect
                   id="exp-vendor"
@@ -110,7 +110,7 @@ export function ExpenseForm({
             <Field
               label="Notes"
               htmlFor="exp-notes"
-              hint="Anything the approver needs — a quotation number, why it was urgent."
+              hint="Anything the approver needs: a quotation number, why it was urgent."
             >
               <Textarea
                 id="exp-notes"

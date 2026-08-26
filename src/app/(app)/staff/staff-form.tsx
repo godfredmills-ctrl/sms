@@ -106,7 +106,7 @@ export function StaffForm({
       {state.ok ? (
         <Alert tone="success">
           {state.message ??
-            `Added${state.staffNo ? ` — staff number ${state.staffNo}` : ""}.`}
+            `Added${state.staffNo ? `: staff number ${state.staffNo}` : ""}.`}
         </Alert>
       ) : null}
 
@@ -245,7 +245,7 @@ export function StaffForm({
         <Card>
           <CardHeader
             title="Documents"
-            description="Contract, certificates, Ghana Card — filed with the record as it is created."
+            description="Contract, certificates, Ghana Card: filed with the record as it is created."
           />
           <CardBody>
             <DocumentsField categories={documentCategories} />

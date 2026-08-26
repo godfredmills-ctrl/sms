@@ -61,7 +61,7 @@ async function main() {
         motto: "Knowledge, Character, Service",
       },
       crest,
-      heading: "TERMINAL REPORT — TERM 2, 2026/2027",
+      heading: "TERMINAL REPORT: TERM 2, 2026/2027",
       student: {
         name: "Priscilla Naa Quartey",
         admissionNo: "GCS/2024/0390",
@@ -105,7 +105,7 @@ async function main() {
   writeFileSync(
     `${out}/transcript.pdf`,
     await renderTablePdf({
-      title: "Golden Crest International School — Academic Transcript",
+      title: "Golden Crest International School: Academic Transcript",
       subtitle:
         "Priscilla Naa Quartey  ·  GCS/2024/0390  ·  Serial TR-2026-0004  ·  Issued 16 August 2026",
       headers: ["Year", "Term", "Subject", "Score", "Grade", "Point", "Credits"],
@@ -267,7 +267,7 @@ async function main() {
     `${out}/manifest.pdf`,
     await renderManifestPdf({
       school: { name: "Golden Crest International School", phone: "+233 30 212 3456" },
-      route: { code: "R1", name: "Spintex — Tema" },
+      route: { code: "R1", name: "Spintex: Tema" },
       run: "AFTERNOON",
       printedOn: new Date("2026-08-20T06:30:00Z"),
       vehicles: [
@@ -298,7 +298,7 @@ async function main() {
               className: "JHS 1 Amber",
               guardianName: "Ɔboɔ Mensah",
               guardianPhone: "+233 20 555 8871",
-              collectedBy: "Grandmother — Auntie Akosua",
+              collectedBy: "Grandmother: Auntie Akosua",
             },
           ],
         },
@@ -479,13 +479,13 @@ async function main() {
       title: "JHS 2 Amber",
       subtitle: "Timetable · 2026/2027, Term 1",
       days: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
-      rows: [{ label: "Period 1", sublabel: "08:10–08:50", cells: [{ title: "English Language", line2: "Yaw Darko", line3: "Room 1", colour: "#db2777" }, { title: "Integrated Science", line2: "Efua Mensimah", line3: "Room 2", colour: "#16a34a" }, { title: "Social Studies", line2: "Kofi Owusu-Ansah", line3: "Room 3", colour: "#d97706" }, { title: "Ghanaian Language (Twi)", line2: "Abena Serwaa", line3: "Room 4", colour: "#7c3aed" }, { title: "Mathematics", line2: "Akosua Mensah", line3: "Room 5", colour: "#2563eb" }] },
-        { label: "Period 2", sublabel: "08:50–09:30", cells: [{ title: "Integrated Science", line2: "Efua Mensimah", line3: "Room 1", colour: "#16a34a" }, { title: "Social Studies", line2: "Kofi Owusu-Ansah", line3: "Room 2", colour: "#d97706" }, { title: "Ghanaian Language (Twi)", line2: "Abena Serwaa", line3: "Room 3", colour: "#7c3aed" }, { title: "Mathematics", line2: "Akosua Mensah", line3: "Room 4", colour: "#2563eb" }, { title: "English Language", line2: "Yaw Darko", line3: "Room 5", colour: "#db2777" }] },
-        { label: "Period 3", sublabel: "09:30–10:10", cells: [{ title: "Social Studies", line2: "Kofi Owusu-Ansah", line3: "Room 1", colour: "#d97706" }, { title: "Ghanaian Language (Twi)", line2: "Abena Serwaa", line3: "Room 2", colour: "#7c3aed" }, { title: "Mathematics", line2: "Akosua Mensah", line3: "Room 3", colour: "#2563eb" }, { title: "English Language", line2: "Yaw Darko", line3: "Room 4", colour: "#db2777" }, { title: "Integrated Science", line2: "Efua Mensimah", line3: "Room 5", colour: "#16a34a" }] },
-        { label: "10:10–10:30", breakLabel: "Break", cells: [null, null, null, null, null] },
-        { label: "Period 5", sublabel: "10:30–11:10", cells: [{ title: "Mathematics", line2: "Akosua Mensah", line3: "Room 1", colour: "#2563eb" }, { title: "English Language", line2: "Yaw Darko", line3: "Room 2", colour: "#db2777" }, { title: "Integrated Science", line2: "Efua Mensimah", line3: "Room 3", colour: "#16a34a" }, { title: "Social Studies", line2: "Kofi Owusu-Ansah", line3: "Room 4", colour: "#d97706" }, { title: "Ghanaian Language (Twi)", line2: "Abena Serwaa", line3: "Room 5", colour: "#7c3aed" }] },
-        { label: "Period 6", sublabel: "11:10–11:50", cells: [{ title: "English Language", line2: "Yaw Darko", line3: "Room 1", colour: "#db2777" }, { title: "Integrated Science", line2: "Efua Mensimah", line3: "Room 2", colour: "#16a34a" }, { title: "Social Studies", line2: "Kofi Owusu-Ansah", line3: "Room 3", colour: "#d97706" }, { title: "Ghanaian Language (Twi)", line2: "Abena Serwaa", line3: "Room 4", colour: "#7c3aed" }, { title: "Mathematics", line2: "Akosua Mensah", line3: "Room 5", colour: "#2563eb" }] },
-        { label: "Period 7", sublabel: "11:50–12:30", cells: [{ title: "Integrated Science", line2: "Efua Mensimah", line3: "Room 1", colour: "#16a34a" }, { title: "Social Studies", line2: "Kofi Owusu-Ansah", line3: "Room 2", colour: "#d97706" }, { title: "Ghanaian Language (Twi)", line2: "Abena Serwaa", line3: "Room 3", colour: "#7c3aed" }, { title: "Mathematics", line2: "Akosua Mensah", line3: "Room 4", colour: "#2563eb" }, { title: "English Language", line2: "Yaw Darko", line3: "Room 5", colour: "#db2777" }] }],
+      rows: [{ label: "Period 1", sublabel: "08:10-08:50", cells: [{ title: "English Language", line2: "Yaw Darko", line3: "Room 1", colour: "#db2777" }, { title: "Integrated Science", line2: "Efua Mensimah", line3: "Room 2", colour: "#16a34a" }, { title: "Social Studies", line2: "Kofi Owusu-Ansah", line3: "Room 3", colour: "#d97706" }, { title: "Ghanaian Language (Twi)", line2: "Abena Serwaa", line3: "Room 4", colour: "#7c3aed" }, { title: "Mathematics", line2: "Akosua Mensah", line3: "Room 5", colour: "#2563eb" }] },
+        { label: "Period 2", sublabel: "08:50-09:30", cells: [{ title: "Integrated Science", line2: "Efua Mensimah", line3: "Room 1", colour: "#16a34a" }, { title: "Social Studies", line2: "Kofi Owusu-Ansah", line3: "Room 2", colour: "#d97706" }, { title: "Ghanaian Language (Twi)", line2: "Abena Serwaa", line3: "Room 3", colour: "#7c3aed" }, { title: "Mathematics", line2: "Akosua Mensah", line3: "Room 4", colour: "#2563eb" }, { title: "English Language", line2: "Yaw Darko", line3: "Room 5", colour: "#db2777" }] },
+        { label: "Period 3", sublabel: "09:30-10:10", cells: [{ title: "Social Studies", line2: "Kofi Owusu-Ansah", line3: "Room 1", colour: "#d97706" }, { title: "Ghanaian Language (Twi)", line2: "Abena Serwaa", line3: "Room 2", colour: "#7c3aed" }, { title: "Mathematics", line2: "Akosua Mensah", line3: "Room 3", colour: "#2563eb" }, { title: "English Language", line2: "Yaw Darko", line3: "Room 4", colour: "#db2777" }, { title: "Integrated Science", line2: "Efua Mensimah", line3: "Room 5", colour: "#16a34a" }] },
+        { label: "10:10-10:30", breakLabel: "Break", cells: [null, null, null, null, null] },
+        { label: "Period 5", sublabel: "10:30-11:10", cells: [{ title: "Mathematics", line2: "Akosua Mensah", line3: "Room 1", colour: "#2563eb" }, { title: "English Language", line2: "Yaw Darko", line3: "Room 2", colour: "#db2777" }, { title: "Integrated Science", line2: "Efua Mensimah", line3: "Room 3", colour: "#16a34a" }, { title: "Social Studies", line2: "Kofi Owusu-Ansah", line3: "Room 4", colour: "#d97706" }, { title: "Ghanaian Language (Twi)", line2: "Abena Serwaa", line3: "Room 5", colour: "#7c3aed" }] },
+        { label: "Period 6", sublabel: "11:10-11:50", cells: [{ title: "English Language", line2: "Yaw Darko", line3: "Room 1", colour: "#db2777" }, { title: "Integrated Science", line2: "Efua Mensimah", line3: "Room 2", colour: "#16a34a" }, { title: "Social Studies", line2: "Kofi Owusu-Ansah", line3: "Room 3", colour: "#d97706" }, { title: "Ghanaian Language (Twi)", line2: "Abena Serwaa", line3: "Room 4", colour: "#7c3aed" }, { title: "Mathematics", line2: "Akosua Mensah", line3: "Room 5", colour: "#2563eb" }] },
+        { label: "Period 7", sublabel: "11:50-12:30", cells: [{ title: "Integrated Science", line2: "Efua Mensimah", line3: "Room 1", colour: "#16a34a" }, { title: "Social Studies", line2: "Kofi Owusu-Ansah", line3: "Room 2", colour: "#d97706" }, { title: "Ghanaian Language (Twi)", line2: "Abena Serwaa", line3: "Room 3", colour: "#7c3aed" }, { title: "Mathematics", line2: "Akosua Mensah", line3: "Room 4", colour: "#2563eb" }, { title: "English Language", line2: "Yaw Darko", line3: "Room 5", colour: "#db2777" }] }],
     }),
   );
 
@@ -604,7 +604,7 @@ async function main() {
           name: row.name,
           className: row.className,
           guardianName: row.guardianName,
-          guardianPhone: row.guardianPhone ?? "—",
+          guardianPhone: row.guardianPhone ?? "-",
           outstanding: "GH₵" + row.outstanding.toLocaleString() + ".00",
           attendanceRate: row.attendanceRate + "%",
         })),
@@ -693,7 +693,7 @@ async function main() {
         brandHex: "#2C66CE",
       },
       document: {
-        title: "Income and Expenditure — Term 1, 2026/2027",
+        title: "Income and Expenditure: Term 1, 2026/2027",
         date: "21 August 2026",
         closing: "Prepared by,",
         signatory: { name: "Grace Asante", title: "Bursar" },
@@ -752,7 +752,7 @@ async function main() {
   };
 
   const examRules =
-    "No mobile phones in the hall. Be seated fifteen minutes before the paper begins. Bring your own pen, pencil and mathematical set — nothing may be borrowed once the paper has started.";
+    "No mobile phones in the hall. Be seated fifteen minutes before the paper begins. Bring your own pen, pencil and mathematical set: nothing may be borrowed once the paper has started.";
 
   const at = (day: number, hour: number, minute = 0) =>
     new Date(2026, 2, 16 + day, hour, minute);
@@ -764,7 +764,7 @@ async function main() {
       document: {
         title: "End of Term 1 Examinations",
         reference: "Term 1, 2026/2027",
-        date: "16 – 26 March 2026",
+        date: "16 to 26 March 2026",
         body: timetableMarkdown({
           instructions: examRules,
           papers: [
@@ -785,7 +785,7 @@ async function main() {
     await renderDocumentPdf({
       letterhead: examLetterhead,
       document: {
-        title: "Hall list — Mathematics",
+        title: "Hall list: Mathematics",
         reference: "End of Term 1 Examinations",
         date: "16 March 2026",
         closing: "Signed,",
@@ -829,7 +829,7 @@ async function main() {
     await renderDocumentPdf({
       letterhead: examLetterhead,
       document: {
-        title: "Candidate slips — End of Term 1 Examinations",
+        title: "Candidate slips: End of Term 1 Examinations",
         date: "16 March 2026",
         body: "",
         footnote: "One slip per candidate. Cut along the page and hand out.",
@@ -1016,7 +1016,7 @@ async function checkMastheadClearance() {
       margin: 48,
       gutter: 52,
       size: 16,
-      text: `${long} — Academic Transcript`,
+      text: `${long}: Academic Transcript`,
     },
   ];
 

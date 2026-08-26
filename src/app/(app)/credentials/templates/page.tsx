@@ -106,7 +106,7 @@ export default async function TemplatesPage() {
               <EmptyState
                 icon={<LayoutTemplate className="size-5" />}
                 title="No templates yet"
-                description="Create one on the right — a new certificate starts from a working layout, not a blank page."
+                description="Create one on the right: a new certificate starts from a working layout, not a blank page."
               />
             </Card>
           ) : null}
@@ -191,7 +191,7 @@ export default async function TemplatesPage() {
                             size="sm"
                             title={
                               issued
-                                ? "Retire — it has already issued documents"
+                                ? "Retire: it has already issued documents"
                                 : "Delete"
                             }
                           >

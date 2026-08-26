@@ -74,7 +74,7 @@ export default async function VendorsPage() {
     <>
       <PageHeader
         title="Vendors &amp; categories"
-        description="What a bill can be called, and who it can be to. Neither is ever deleted — a category names last term's spending, and a vendor is who the school paid."
+        description="What a bill can be called, and who it can be to. Neither is ever deleted: a category names last term's spending, and a vendor is who the school paid."
       />
       <VendorEditor
         vendors={vendorRows}

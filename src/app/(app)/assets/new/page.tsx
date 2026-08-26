@@ -58,7 +58,7 @@ export default async function NewAssetPage({
       <Card>
         <CardHeader
           title="Details"
-          description="The tag is issued automatically from the category — nobody has to invent one."
+          description="The tag is issued automatically from the category: nobody has to invent one."
         />
         <AssetForm
           lists={lists}

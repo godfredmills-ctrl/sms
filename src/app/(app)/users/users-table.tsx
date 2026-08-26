@@ -282,7 +282,7 @@ function ManagePanel({
                 </Button>
                 {isSelf ? (
                   <p className="text-xs text-[var(--text-subtle)]">
-                    You cannot change your own status — that is how people lock
+                    You cannot change your own status: that is how people lock
                     themselves out.
                   </p>
                 ) : (

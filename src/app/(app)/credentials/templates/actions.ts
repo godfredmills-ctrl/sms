@@ -39,7 +39,7 @@ export async function createTemplateAction(
   if (source === "UPLOAD" && !fileId) {
     return {
       error:
-        "Upload the base PDF first, then create the template — fields are positioned on top of it.",
+        "Upload the base PDF first, then create the template: fields are positioned on top of it.",
     };
   }
 

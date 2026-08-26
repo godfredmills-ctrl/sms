@@ -22,7 +22,7 @@ export async function generateMetadata({
     where: { id: paperId },
     select: { subject: { select: { name: true } } },
   });
-  return { title: paper ? `Marking — ${paper.subject.name}` : "Marking" };
+  return { title: paper ? `Marking, ${paper.subject.name}` : "Marking" };
 }
 
 export default async function PaperMarksPage({
@@ -105,7 +105,7 @@ export default async function PaperMarksPage({
   return (
     <div>
       <PageHeader
-        title={`Marking — ${paper.subject.name}${paper.title ? ` ${paper.title}` : ""}`}
+        title={`Marking, ${paper.subject.name}${paper.title ? ` ${paper.title}` : ""}`}
         description={`${paper.classLevel.name}  ·  scripts in seat order, by index number. Marks land in each candidate's own class mark sheet.`}
         breadcrumb={
           <>
@@ -130,7 +130,7 @@ export default async function PaperMarksPage({
       {!generated ? (
         <Alert tone="warning" title="No mark sheets yet">
           The columns these marks go into have not been created. Generate them from the
-          paper page first — one per class sitting this paper.
+          paper page first: one per class sitting this paper.
         </Alert>
       ) : (
         <>

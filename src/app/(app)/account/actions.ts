@@ -74,7 +74,7 @@ export async function changePasswordAction(
   if (!next) return { error: "Enter a new password." };
   if (next !== confirm) return { error: "The two new passwords do not match." };
   if (next.length < 10) {
-    return { error: "Use at least 10 characters — length beats complexity." };
+    return { error: "Use at least 10 characters: length beats complexity." };
   }
   if (next === current) return { error: "The new password must be different." };
 
@@ -127,7 +127,7 @@ export async function changePasswordAction(
   return {
     ok: true,
     message:
-      "Password changed. You have been signed out everywhere else — sign in again on those devices.",
+      "Password changed. You have been signed out everywhere else: sign in again on those devices.",
   };
 }
 

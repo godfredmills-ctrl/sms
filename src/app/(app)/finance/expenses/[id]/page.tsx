@@ -125,7 +125,7 @@ export default async function ExpensePage({
                     ? [
                         {
                           label: "Withholding tax",
-                          value: `${formatMoney(expense.taxMinor)} — the vendor receives ${formatMoney(
+                          value: `${formatMoney(expense.taxMinor)}: the vendor receives ${formatMoney(
                             expense.amountMinor - expense.taxMinor,
                           )}`,
                         },
@@ -200,7 +200,7 @@ export default async function ExpensePage({
             <CardBody className="space-y-3">
               {own && expense.status === "PENDING" ? (
                 <Alert tone="info">
-                  You recorded this, so somebody else has to approve it — the head
+                  You recorded this, so somebody else has to approve it: the head
                   teacher, or whoever else can approve expenditure.
                 </Alert>
               ) : null}

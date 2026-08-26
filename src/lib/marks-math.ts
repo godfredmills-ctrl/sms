@@ -123,6 +123,6 @@ export function formatScoreCell(
   score: number | null | undefined,
   options?: { absent?: boolean; decimals?: number },
 ): string {
-  if (score === null || score === undefined) return options?.absent ? "Abs" : "—";
+  if (score === null || score === undefined) return options?.absent ? "Abs" : "-";
   return score.toFixed(options?.decimals ?? 1);
 }

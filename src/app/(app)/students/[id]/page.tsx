@@ -372,7 +372,7 @@ export default async function StudentProfilePage({
             {criticalAllergies
               .map(
                 (allergy) =>
-                  `${allergy.name}${allergy.reaction ? ` — ${allergy.reaction}` : ""}`,
+                  `${allergy.name}${allergy.reaction ? `, ${allergy.reaction}` : ""}`,
               )
               .join("; ")}
             .{" "}
@@ -444,7 +444,7 @@ export default async function StudentProfilePage({
           <span>
             <strong>{humanise(student.status)}</strong>
             {student.exitDate ? " on " + formatDate(student.exitDate, "long") : ""}
-            {student.exitReason ? " — " + student.exitReason : ""}
+            {student.exitReason ? " - " + student.exitReason : ""}
             {student.transferredTo ? " Moved to " + student.transferredTo + "." : ""}
           </span>
         </Alert>
@@ -477,7 +477,7 @@ export default async function StudentProfilePage({
                   { label: "First language", value: student.firstLanguage },
                   {
                     label: "Other languages",
-                    value: student.otherLanguages.join(", ") || "—",
+                    value: student.otherLanguages.join(", ") || "-",
                   },
                 ]}
               />
@@ -511,7 +511,7 @@ export default async function StudentProfilePage({
                     <span className="numeric text-sm font-semibold">
                       {attendanceTotal
                         ? formatPercent(percentOf(attendancePresent, attendanceTotal))
-                        : "—"}
+                        : "-"}
                     </span>
                   </div>
                   <ProgressBar
@@ -654,7 +654,7 @@ export default async function StudentProfilePage({
                           href={`/transport/${entry.route.id}`}
                           className="hover:text-[var(--primary)]"
                         >
-                          {entry.route.code} — {entry.route.name}
+                          {entry.route.code}: {entry.route.name}
                           {entry.stop ? `, ${entry.stop.name}` : ""}
                           {entry.direction === "BOTH"
                             ? ""
@@ -755,7 +755,7 @@ export default async function StudentProfilePage({
           <Card>
             <CardHeader
               title="Record the medical details"
-              description="Allergies, conditions and the medication kept at school — what the nurse needs before a visit, not after it."
+              description="Allergies, conditions and the medication kept at school: what the nurse needs before a visit, not after it."
             />
             <MedicalForm
               studentId={student.id}
@@ -1038,7 +1038,7 @@ export default async function StudentProfilePage({
                         <Badge tone="warning">Unverified</Badge>
                       )}
                       <span className="text-xs text-[var(--text-subtle)]">
-                        {formatDate(entry.startDate)} – {formatDate(entry.endDate)}
+                        {formatDate(entry.startDate)} to {formatDate(entry.endDate)}
                       </span>
                     </div>
                   </div>
@@ -1151,16 +1151,16 @@ export default async function StudentProfilePage({
                             })}
                           </td>
                           <td className="numeric px-4 py-2 text-right font-medium">
-                            {toNumber(line.totalScore)?.toFixed(1) ?? "—"}
+                            {toNumber(line.totalScore)?.toFixed(1) ?? "-"}
                           </td>
                           <td className="px-4 py-2 text-center">
-                            {line.grade ? <Badge tone="neutral">{line.grade}</Badge> : "—"}
+                            {line.grade ? <Badge tone="neutral">{line.grade}</Badge> : "-"}
                           </td>
                           <td className="numeric hidden px-4 py-2 text-right text-[var(--text-muted)] sm:table-cell">
-                            {toNumber(line.classAverage)?.toFixed(1) ?? "—"}
+                            {toNumber(line.classAverage)?.toFixed(1) ?? "-"}
                           </td>
                           <td className="hidden px-4 py-2 text-xs text-[var(--text-muted)] md:table-cell">
-                            {line.remark ?? "—"}
+                            {line.remark ?? "-"}
                           </td>
                         </tr>
                       ))}
@@ -1170,10 +1170,10 @@ export default async function StudentProfilePage({
                         <td className="px-4 py-2">Overall</td>
                         <td colSpan={2} />
                         <td className="numeric px-4 py-2 text-right">
-                          {toNumber(report.averageScore)?.toFixed(1) ?? "—"}
+                          {toNumber(report.averageScore)?.toFixed(1) ?? "-"}
                         </td>
                         <td className="px-4 py-2 text-center">
-                          {report.overallGrade ?? "—"}
+                          {report.overallGrade ?? "-"}
                         </td>
                         <td colSpan={2} />
                       </tr>
@@ -1447,7 +1447,7 @@ export default async function StudentProfilePage({
                   {record.resolution ? (
                     <p className="mt-1 text-xs text-[var(--text-muted)]">
                       Resolution: {record.resolution}
-                      {record.handledBy ? ` — ${record.handledBy}` : ""}
+                      {record.handledBy ? `, ${record.handledBy}` : ""}
                     </p>
                   ) : null}
                 </li>
@@ -1622,7 +1622,7 @@ function JsonSection({
 }
 
 function formatCell(value: unknown): string {
-  if (value === null || value === undefined || value === "") return "—";
+  if (value === null || value === undefined || value === "") return "-";
   if (typeof value === "boolean") return value ? "Yes" : "No";
   return String(value);
 }

@@ -169,7 +169,7 @@ export default async function RemindersPage() {
                 </span>
                 <span className="flex items-center gap-1">
                   <Clock className="size-3" />
-                  {rule.sendAfterHour}:00–{rule.sendBeforeHour}:00
+                  {rule.sendAfterHour}:00-{rule.sendBeforeHour}:00
                 </span>
                 {rule.minBalanceMinor > 0 ? (
                   <span>

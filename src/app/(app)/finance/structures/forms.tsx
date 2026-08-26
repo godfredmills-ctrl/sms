@@ -52,7 +52,7 @@ export function CategoryForm() {
           <CheckboxField
             name="isOptional"
             label="Optional"
-            description="Guardians opt in — school bus, lunch, clubs."
+            description="Guardians opt in: school bus, lunch, clubs."
           />
         </div>
         <Submit label="Add category" />
@@ -86,7 +86,7 @@ export function StructureForm({
             id="struct-name"
             name="name"
             required
-            placeholder="JHS 1 — Day — Term 1"
+            placeholder="JHS 1: Day: Term 1"
           />
         </Field>
         <Field label="Academic year" htmlFor="academicYearId" required>

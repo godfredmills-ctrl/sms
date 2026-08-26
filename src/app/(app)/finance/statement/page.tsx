@@ -153,7 +153,7 @@ export default async function StatementPage({
         <p className="mt-2 max-w-2xl text-sm text-[var(--text-muted)]">
           On a cash basis: fees are counted on the day they were received, not the day
           they were billed. Unpaid fees are a debt owed to the school and appear on the
-          debtors report, not here — a statement that counted them would show a surplus
+          debtors report, not here: a statement that counted them would show a surplus
           made of money nobody has paid.
         </p>
       </div>
@@ -199,7 +199,7 @@ function Section({
                     </td>
                     {line.budgetMinor === undefined ? (
                       <td className="px-4 py-2.5 text-right text-xs text-[var(--text-subtle)]">
-                        —
+                        -
                       </td>
                     ) : (
                       <td className="px-4 py-2.5 text-right">

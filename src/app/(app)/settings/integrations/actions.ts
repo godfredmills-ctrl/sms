@@ -127,7 +127,7 @@ export async function saveIntegrationAction(
   if (ignored.length) {
     return {
       ok: true,
-      message: `${integration.name} saved. ${ignored.join(", ")} ${ignored.length === 1 ? "was" : "were"} left as ${ignored.length === 1 ? "it is" : "they are"} — the deployment sets ${ignored.length === 1 ? "it" : "them"} in its environment variables, which take precedence over this screen.`,
+      message: `${integration.name} saved. ${ignored.join(", ")} ${ignored.length === 1 ? "was" : "were"} left as ${ignored.length === 1 ? "it is" : "they are"}: the deployment sets ${ignored.length === 1 ? "it" : "them"} in its environment variables, which take precedence over this screen.`,
     };
   }
 
@@ -256,6 +256,6 @@ export async function generateVapidKeysAction(
   return {
     ok: true,
     message:
-      "A new key pair was generated and saved. Anyone already subscribed to notifications will need to allow them again — the old key can no longer sign anything.",
+      "A new key pair was generated and saved. Anyone already subscribed to notifications will need to allow them again: the old key can no longer sign anything.",
   };
 }

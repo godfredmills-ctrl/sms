@@ -93,7 +93,7 @@ export default async function StockCategoriesPage({
         <Card className="h-fit">
           <CardHeader
             title="Add a category"
-            description="A category cannot be deleted once items are filed under it — turn it off instead, and what is already there keeps its history."
+            description="A category cannot be deleted once items are filed under it: turn it off instead, and what is already there keeps its history."
           />
           <CardBody>
             <StockCategoryForm />

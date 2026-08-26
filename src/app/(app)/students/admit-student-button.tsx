@@ -40,7 +40,7 @@ export function AdmitStudentButton({
         open={open}
         onClose={() => setOpen(false)}
         title="Admit a student"
-        description="Guardian details are captured on the same form — a record with no contactable adult is the most common gap in a school database."
+        description="Guardian details are captured on the same form: a record with no contactable adult is the most common gap in a school database."
         wide
       >
         <AdmissionForm

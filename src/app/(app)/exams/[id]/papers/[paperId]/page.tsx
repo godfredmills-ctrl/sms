@@ -34,7 +34,7 @@ export async function generateMetadata({
     select: { subject: { select: { name: true } }, classLevel: { select: { name: true } } },
   });
   return {
-    title: paper ? `${paper.subject.name} — ${paper.classLevel.name}` : "Paper",
+    title: paper ? `${paper.subject.name}, ${paper.classLevel.name}` : "Paper",
   };
 }
 
@@ -139,7 +139,7 @@ export default async function PaperPage({
     name: listName(seat.candidate.student),
     className: seat.candidate.classSection
       ? `${seat.candidate.classSection.classLevel.name} ${seat.candidate.classSection.name}`
-      : "—",
+      : "-",
     status: seat.status,
     remark: seat.remark,
   }));
@@ -159,10 +159,10 @@ export default async function PaperPage({
   return (
     <div>
       <PageHeader
-        title={`${paper.subject.name}${paper.title ? ` — ${paper.title}` : ""}`}
+        title={`${paper.subject.name}${paper.title ? `, ${paper.title}` : ""}`}
         description={`${paper.classLevel.name}  ·  ${formatDate(paper.startsAt, "long")}  ·  ${time(
           paper.startsAt,
-        )} – ${time(end)}`}
+        )} to ${time(end)}`}
         breadcrumb={
           <>
             <Link href="/exams" className="hover:text-[var(--text)]">
@@ -234,7 +234,7 @@ export default async function PaperPage({
         <Alert tone="danger" title="Some candidates have no seat" className="mb-4">
           {missingSeats} candidate{missingSeats === 1 ? "" : "s"} entered for this paper
           {missingSeats === 1 ? " has" : " have"} nowhere to sit. Add another hall and lay
-          it out again — a candidate with no seat is discovered in a doorway at nine in
+          it out again: a candidate with no seat is discovered in a doorway at nine in
           the morning otherwise.
         </Alert>
       ) : null}
@@ -289,7 +289,7 @@ export default async function PaperPage({
             <Card>
               <CardHeader
                 title="Mark sheets"
-                description="Where this paper's marks go — one column per class, in their own gradebooks."
+                description="Where this paper's marks go: one column per class, in their own gradebooks."
               />
               <CardBody>
                 <GenerateSheets

@@ -166,14 +166,14 @@ export function GuardianAccountCard({
                 <span className="numeric font-semibold">{state.temporaryPassword}</span>.
               </span>
               <span className="mt-1 block text-xs">
-                Pass it on now — it is not shown again, and it stops working once they
+                Pass it on now: it is not shown again, and it stops working once they
                 sign in and choose their own.
               </span>
             </Alert>
           ) : null}
 
           {!hasWards ? (
-            <Alert tone="info">Link a ward first — an empty portal helps nobody.</Alert>
+            <Alert tone="info">Link a ward first: an empty portal helps nobody.</Alert>
           ) : null}
 
           <Field label="Email" htmlFor="portal-email">

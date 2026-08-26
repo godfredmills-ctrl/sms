@@ -17,8 +17,8 @@ import {
 import { saveBankQuestionAction, type BankState } from "./actions";
 
 const QUESTION_TYPES = [
-  { value: "MULTIPLE_CHOICE", label: "Multiple choice — one correct" },
-  { value: "MULTIPLE_ANSWER", label: "Multiple answer — several correct" },
+  { value: "MULTIPLE_CHOICE", label: "Multiple choice: one correct" },
+  { value: "MULTIPLE_ANSWER", label: "Multiple answer: several correct" },
   { value: "TRUE_FALSE", label: "True or false" },
   { value: "SHORT_ANSWER", label: "Short answer" },
   { value: "FILL_BLANK", label: "Fill in the blank" },

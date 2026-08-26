@@ -96,7 +96,7 @@ export default async function RolesPage() {
           <Card>
             <CardHeader
               title="New role"
-              description="Starts with no permissions — grant them below once created."
+              description="Starts with no permissions: grant them below once created."
             />
             <RoleForm />
           </Card>

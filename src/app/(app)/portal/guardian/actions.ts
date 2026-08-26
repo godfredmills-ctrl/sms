@@ -79,7 +79,7 @@ export async function startCheckout(
     metadata: {
       studentId,
       guardianUserId: user.id,
-      description: `School fees — ${formatMoney(amountMinor)}`,
+      description: `School fees, ${formatMoney(amountMinor)}`,
     },
   });
 

@@ -102,7 +102,7 @@ export async function studentOutOfScope(
 
   return enrolment
     ? null
-    : "This student is outside your classes — the office keeps their record.";
+    : "This student is outside your classes: the office keeps their record.";
 }
 
 /**

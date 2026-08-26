@@ -242,7 +242,7 @@ export default async function GuardianProfilePage({
       {!guardian.user ? (
         <Alert tone="warning" className="mb-4">
           This guardian has no portal login, so they cannot see results, fee statements
-          or announcements. Create one from the Children tab — it links the account to
+          or announcements. Create one from the Children tab: it links the account to
           this record and their wards.
         </Alert>
       ) : null}
@@ -278,14 +278,14 @@ export default async function GuardianProfilePage({
                   { label: "Phone", value: formatPhone(guardian.phone) },
                   { label: "Alternate", value: formatPhone(guardian.altPhone) },
                   { label: "WhatsApp", value: formatPhone(guardian.whatsapp) },
-                  { label: "Email", value: guardian.email ?? "—" },
+                  { label: "Email", value: guardian.email ?? "-" },
                   {
                     label: "Preferred channel",
                     value: humanise(guardian.preferredChannel),
                   },
-                  { label: "Address", value: guardian.address ?? "—", span: true },
-                  { label: "Ghana Post GPS", value: guardian.digitalAddr ?? "—" },
-                  { label: "City", value: guardian.city ?? "—" },
+                  { label: "Address", value: guardian.address ?? "-", span: true },
+                  { label: "Ghana Post GPS", value: guardian.digitalAddr ?? "-" },
+                  { label: "City", value: guardian.city ?? "-" },
                 ]}
               />
             </CardBody>
@@ -298,12 +298,12 @@ export default async function GuardianProfilePage({
                 items={[
                   { label: "Full name", value: name },
                   { label: "Gender", value: humanise(guardian.gender) },
-                  { label: "Nationality", value: guardian.nationality ?? "—" },
-                  { label: "Ghana Card", value: guardian.nationalId ?? "—" },
-                  { label: "Religion", value: guardian.religion ?? "—" },
+                  { label: "Nationality", value: guardian.nationality ?? "-" },
+                  { label: "Ghana Card", value: guardian.nationalId ?? "-" },
+                  { label: "Religion", value: guardian.religion ?? "-" },
                   {
                     label: "Education",
-                    value: humanise(guardian.educationLevel) || "—",
+                    value: humanise(guardian.educationLevel) || "-",
                   },
                 ]}
               />
@@ -318,13 +318,13 @@ export default async function GuardianProfilePage({
             <CardBody>
               <DescriptionList
                 items={[
-                  { label: "Occupation", value: guardian.occupation ?? "—" },
-                  { label: "Job title", value: guardian.jobTitle ?? "—" },
-                  { label: "Employer", value: guardian.employer ?? "—" },
+                  { label: "Occupation", value: guardian.occupation ?? "-" },
+                  { label: "Job title", value: guardian.jobTitle ?? "-" },
+                  { label: "Employer", value: guardian.employer ?? "-" },
                   { label: "Work phone", value: formatPhone(guardian.workPhone) },
                   {
                     label: "Work address",
-                    value: guardian.workAddress ?? "—",
+                    value: guardian.workAddress ?? "-",
                     span: true,
                   },
                 ]}

@@ -189,7 +189,7 @@ export default async function GradebookPage() {
                   overallAverage.reduce((sum, row) => sum + (row.average ?? 0), 0) /
                   overallAverage.length
                 ).toFixed(1)}%`
-              : "—"
+              : "-"
           }
           tone="teal"
           icon={<TrendingUp className="size-4" />}

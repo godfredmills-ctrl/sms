@@ -46,7 +46,7 @@ export function normaliseNodeEnv({ fallback = "production" } = {}) {
       `    using:    ${JSON.stringify(value)}`,
       "",
       "  Next.js only accepts development | production | test. A quoted value",
-      "  (NODE_ENV=\"production\") is the usual cause — it keeps its quotes.",
+      "  (NODE_ENV=\"production\") is the usual cause: it keeps its quotes.",
       "  Delete NODE_ENV from your host's variables; the platform sets it.",
       "",
     ].join("\n"),

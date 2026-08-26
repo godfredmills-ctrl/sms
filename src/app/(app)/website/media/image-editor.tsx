@@ -63,7 +63,7 @@ export function ImageEditor({
           <div className="min-w-0">
             <p className="truncate text-sm font-semibold">{media.fileName}</p>
             <p className="text-xs text-[var(--text-subtle)]">
-              Edits are stored as instructions, not baked into the file — you can
+              Edits are stored as instructions, not baked into the file: you can
               always come back and change them.
             </p>
           </div>

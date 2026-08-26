@@ -152,7 +152,7 @@ console.log("\nHall prefixes\n");
 
 {
   // A name with nothing alphanumeric in it still has to produce something.
-  const letters = hallLetters([hall("h1", "—", 10)]);
+  const letters = hallLetters([hall("h1", "-", 10)]);
   check("a nameless hall still gets a prefix", letters.get("h1"), "H");
 }
 

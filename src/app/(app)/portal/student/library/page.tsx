@@ -94,8 +94,8 @@ export default async function StudentLibraryPage() {
       {overdue.length ? (
         <Alert tone="danger" title="Something is overdue" className="mb-5">
           {overdue.length === 1
-            ? "One of your books was due back before now. Bring it to the library — you cannot borrow another until you do."
-            : `${overdue.length} of your books were due back before now. Bring them to the library — you cannot borrow another until you do.`}
+            ? "One of your books was due back before now. Bring it to the library: you cannot borrow another until you do."
+            : `${overdue.length} of your books were due back before now. Bring them to the library: you cannot borrow another until you do.`}
         </Alert>
       ) : null}
 

@@ -135,7 +135,7 @@ function PaymentOutcome({
         <Alert tone="success" className="mb-4">
           <strong>Payment received.</strong> {formatMoney(settlement.amountMinor)}
           {forChild} has been applied to the oldest unpaid bill first. Your receipt
-          number is <strong>{settlement.receiptNo}</strong> — the figures below
+          number is <strong>{settlement.receiptNo}</strong>: the figures below
           already include it.
         </Alert>
       );
@@ -145,7 +145,7 @@ function PaymentOutcome({
         <Alert tone="info" className="mb-4">
           <strong>Still confirming your payment.</strong> Mobile money can take a
           few minutes to be confirmed by the network. There is no need to pay
-          again — refresh this page shortly, and you will be notified as soon as
+          again: refresh this page shortly, and you will be notified as soon as
           it clears.
         </Alert>
       );
@@ -164,7 +164,7 @@ function PaymentOutcome({
         <Alert tone="danger" className="mb-4">
           <strong>Something is wrong with that payment</strong> and it has been
           held rather than applied to your account. Please contact the school
-          office and quote the payment you have just made — do not pay again.
+          office and quote the payment you have just made: do not pay again.
         </Alert>
       );
 
@@ -259,7 +259,7 @@ export default async function GuardianFeesPage({
       {balance > 0 ? (
         <Alert tone="info" className="mb-4">
           Part payments are accepted. Any amount you send reduces the balance
-          immediately and is receipted — you do not have to wait until you can pay a
+          immediately and is receipted: you do not have to wait until you can pay a
           term in full.
         </Alert>
       ) : null}

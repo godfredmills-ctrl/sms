@@ -104,7 +104,7 @@ export async function recordIncidentAction(
     if (!sectionId || !own.includes(sectionId)) {
       return {
         error:
-          "This student is outside your classes — report the incident to their form teacher or the head of section.",
+          "This student is outside your classes: report the incident to their form teacher or the head of section.",
       };
     }
   }
@@ -196,7 +196,7 @@ export async function recordIncidentAction(
       action: "student.discipline.record",
       entity: "DisciplinaryRecord",
       entityId: record.id,
-      summary: `${humanise(category)} (${humanise(severity).toLowerCase()}): ${student.firstName} ${student.lastName} — ${description.slice(0, 60)}`,
+      summary: `${humanise(category)} (${humanise(severity).toLowerCase()}): ${student.firstName} ${student.lastName}, ${description.slice(0, 60)}`,
     },
   });
 
@@ -208,7 +208,7 @@ export async function recordIncidentAction(
       ? "Recorded."
       : familyReachable
         ? "Recorded, and the family has been notified."
-        : "Recorded — the family has no portal account or phone on file, so tell them directly.",
+        : "Recorded: the family has no portal account or phone on file, so tell them directly.",
   };
 }
 

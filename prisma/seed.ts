@@ -118,7 +118,7 @@ async function main() {
     const existing = await db.user.count();
     if (existing > 0) {
       console.log(
-        `  Database already has ${existing} user${existing === 1 ? "" : "s"} — leaving it untouched.\n`,
+        `  Database already has ${existing} user${existing === 1 ? "" : "s"}: leaving it untouched.\n`,
       );
       return;
     }
@@ -599,7 +599,7 @@ async function seedOptionSets() {
       key: "guardian.income_band",
       label: "Income Band",
       entity: "GUARDIAN",
-      items: ["Below GH₵2,000", "GH₵2,000 – 5,000", "GH₵5,000 – 10,000", "Above GH₵10,000", "Prefer not to say"],
+      items: ["Below GH₵2,000", "GH₵2,000 to 5,000", "GH₵5,000 to 10,000", "Above GH₵10,000", "Prefer not to say"],
     },
     {
       key: "document.category",
@@ -721,7 +721,7 @@ async function seedGrading() {
 
   await db.gradeScale.create({
     data: {
-      name: "Primary (A–E)",
+      name: "Primary (A-E)",
       code: "PRIMARY",
       description: "Five-band scale for lower and upper primary.",
       maxPoint: 5,
@@ -741,7 +741,7 @@ async function seedGrading() {
     data: {
       name: "IGCSE",
       code: "IGCSE",
-      description: "Cambridge IGCSE 9–1 scale.",
+      description: "Cambridge IGCSE 9-1 scale.",
       maxPoint: 9,
       bands: {
         create: [
@@ -896,7 +896,7 @@ async function seedStaff(roles: Record<string, string>, schoolId: string) {
     { first: "Samuel", last: "Boateng", title: "Mr", role: "assistant_head", job: "Assistant Head (Academics)", dept: "Administration", teaching: true, email: "assistanthead@goldencrest.edu.gh" },
     { first: "Grace", last: "Asante", title: "Ms", role: "bursar", job: "Bursar", dept: "Finance", teaching: false, email: "bursar@goldencrest.edu.gh" },
     { first: "Yaw", last: "Agyemang", title: "Mr", role: "registrar", job: "Registrar", dept: "Administration", teaching: false, email: "registrar@goldencrest.edu.gh" },
-    { first: "Esi", last: "Appiah", title: "Mrs", role: "form_teacher", job: "Form Teacher — JHS 2A", dept: "Mathematics", teaching: true, email: "teacher@goldencrest.edu.gh" },
+    { first: "Esi", last: "Appiah", title: "Mrs", role: "form_teacher", job: "Form Teacher: JHS 2A", dept: "Mathematics", teaching: true, email: "teacher@goldencrest.edu.gh" },
     { first: "Emmanuel", last: "Frimpong", title: "Mr", role: "teacher", job: "Teacher of Science", dept: "Science", teaching: true, email: "e.frimpong@goldencrest.edu.gh" },
     { first: "Adwoa", last: "Adjei", title: "Ms", role: "teacher", job: "Teacher of English", dept: "Languages", teaching: true, email: "a.adjei@goldencrest.edu.gh" },
     { first: "Michael", last: "Ansah", title: "Mr", role: "teacher", job: "Teacher of ICT", dept: "ICT", teaching: true, email: "m.ansah@goldencrest.edu.gh" },
@@ -1182,7 +1182,7 @@ async function seedStudents(
                   name: pick(["Peanuts", "Shellfish", "Dust", "Penicillin", "Pollen", "Eggs"]),
                   severity: pick(["MILD", "MODERATE", "SEVERE", "ANAPHYLAXIS"]),
                   reaction: pick(["Rash and itching", "Swelling of lips", "Difficulty breathing", "Stomach upset"]),
-                  treatment: pick(["Antihistamine", "EpiPen — call ambulance", "Avoid exposure"]),
+                  treatment: pick(["Antihistamine", "EpiPen: call ambulance", "Avoid exposure"]),
                 },
               ]
             : [],
@@ -1300,7 +1300,7 @@ async function seedStudents(
             occupation: pick(OCCUPATIONS),
             employer: pick(["Self-employed", "Ghana Revenue Authority", "MTN Ghana", "Ecobank", "Ministry of Health", "Private practice"]),
             educationLevel: pick(["SHS", "Diploma", "Degree", "Postgraduate"]),
-            incomeBand: pick(["GH₵2,000 – 5,000", "GH₵5,000 – 10,000", "Above GH₵10,000"]),
+            incomeBand: pick(["GH₵2,000 to 5,000", "GH₵5,000 to 10,000", "Above GH₵10,000"]),
             preferredChannel: pick(["SMS", "SMS", "EMAIL", "PUSH"]),
             isPtaMember: chance(0.2),
           },
@@ -1544,7 +1544,7 @@ async function promoteDemoStudent(
 
   if (!target) {
     console.warn(
-      `    ! No student matches "${process.env.SEED_DEMO_STUDENT ?? "GCS/2024/0390"}" — the demo login will go to the first student who has one.`,
+      `    ! No student matches "${process.env.SEED_DEMO_STUDENT ?? "GCS/2024/0390"}": the demo login will go to the first student who has one.`,
     );
   }
 
@@ -1802,7 +1802,7 @@ async function seedFeeStructures(academicYearId: string, terms: TermRow[], level
             academicYearId,
             termId: term.id,
             classLevelId: level.id,
-            name: `${level.name} — ${term.name} (${boarderType === "BOARDER" ? "Boarding" : "Day"})`,
+            name: `${level.name}, ${term.name} (${boarderType === "BOARDER" ? "Boarding" : "Day"})`,
             boarderType,
             studentType: "ALL",
             currency: "GHS",
@@ -2035,7 +2035,7 @@ async function seedCommunications(roles: Record<string, string>) {
     data: [
       {
         key: "fee.reminder.before",
-        name: "Fee reminder — before due date",
+        name: "Fee reminder: before due date",
         category: "FEES",
         channels: ["SMS", "EMAIL"],
         subject: "School Fees Reminder",
@@ -2046,7 +2046,7 @@ async function seedCommunications(roles: Record<string, string>) {
       },
       {
         key: "fee.reminder.overdue",
-        name: "Fee reminder — overdue",
+        name: "Fee reminder: overdue",
         category: "FEES",
         channels: ["SMS", "EMAIL", "PUSH"],
         subject: "Outstanding School Fees",
@@ -2140,7 +2140,7 @@ async function seedCommunications(roles: Record<string, string>) {
       {
         title: "PTA General Meeting",
         summary: "All parents are invited to the termly PTA meeting.",
-        body: "The Parent–Teacher Association will hold its general meeting in the Assembly Hall. The agenda includes the fee review, the new science laboratory, and the appointment of two new PTA executives.\n\nYour attendance is important.",
+        body: "The Parent-Teacher Association will hold its general meeting in the Assembly Hall. The agenda includes the fee review, the new science laboratory, and the appointment of two new PTA executives.\n\nYour attendance is important.",
         category: "EVENT",
         priority: "NORMAL",
         status: "PUBLISHED",
@@ -2151,7 +2151,7 @@ async function seedCommunications(roles: Record<string, string>) {
         viewCount: 97,
       },
       {
-        title: "Inter-House Athletics — house allocations",
+        title: "Inter-House Athletics: house allocations",
         summary: "Check your house and report to your house master.",
         body: "The inter-house athletics competition takes place in three weeks. Kente, Adinkra, Sankofa and Gye Nyame houses should report to their house masters for training schedules.\n\nParents are welcome to attend.",
         category: "SPORTS",
@@ -2164,7 +2164,7 @@ async function seedCommunications(roles: Record<string, string>) {
         viewCount: 132,
       },
       {
-        title: "Staff briefing — results deadline",
+        title: "Staff briefing: results deadline",
         summary: "All marks must be entered before the deadline.",
         body: "All teaching staff are reminded that end-of-term marks must be entered into the gradebook before the results deadline. Late entries will delay report card production for the whole class.",
         category: "GENERAL",
@@ -2203,7 +2203,7 @@ async function seedElections(sections: SectionRow[]) {
 
   if (candidateStudents.length < 6) {
     console.warn(
-      `    ! Only ${candidateStudents.length} JHS students found — skipping elections.`,
+      `    ! Only ${candidateStudents.length} JHS students found: skipping elections.`,
     );
     return;
   }
@@ -2225,7 +2225,7 @@ async function seedElections(sections: SectionRow[]) {
       showLiveResults: true,
       allowAbstain: true,
       instructions:
-        "Select one candidate for each position. Your ballot is secret — the system records that you voted, never how you voted.",
+        "Select one candidate for each position. Your ballot is secret: the system records that you voted, never how you voted.",
       positions: {
         create: [
           {
@@ -2390,7 +2390,7 @@ async function seedLearning(
   const MODULES: Record<string, Array<{ title: string; lessons: string[] }>> = {
     default: [
       {
-        title: "Unit 1 — Foundations",
+        title: "Unit 1: Foundations",
         lessons: [
           "What this unit covers",
           "Key vocabulary and definitions",
@@ -2398,7 +2398,7 @@ async function seedLearning(
         ],
       },
       {
-        title: "Unit 2 — Applying it",
+        title: "Unit 2: Applying it",
         lessons: ["Practice problems", "Common mistakes and how to avoid them"],
       },
     ],
@@ -2423,7 +2423,7 @@ async function seedLearning(
     const course = await db.course.create({
       data: {
         offeringId: offering.id,
-        title: `${subject} — JHS 2`,
+        title: `${subject}: JHS 2`,
         code: `${subject.slice(0, 3).toUpperCase()}-J2-${index + 1}`,
         description: `Online material, assignments and quizzes for ${subject}.`,
         status: "PUBLISHED",
@@ -2481,9 +2481,9 @@ async function seedLearning(
     const assignment = await db.assignment.create({
       data: {
         courseId: course.id,
-        title: `${subject} — Unit 1 assignment`,
+        title: `${subject}: Unit 1 assignment`,
         instructions:
-          "Answer all questions in your exercise book, then upload a photograph of your work. Show your working — marks are given for method as well as the final answer.",
+          "Answer all questions in your exercise book, then upload a photograph of your work. Show your working: marks are given for method as well as the final answer.",
         type: "FILE_UPLOAD",
         maxScore: 20,
         dueAt: addDays(new Date(), -3),
@@ -2513,7 +2513,7 @@ async function seedLearning(
             feedback: graded
               ? pick([
                   "Good method throughout. Watch your units in question 3.",
-                  "Well set out. Revisit the last question — the approach is right but the arithmetic slipped.",
+                  "Well set out. Revisit the last question: the approach is right but the arithmetic slipped.",
                   "Strong work. Try to show one more line of working so the method is clear.",
                 ])
               : null,
@@ -2996,7 +2996,7 @@ The mentoring scheme costs nothing beyond time. The training days and the texts 
 | --- | --- | --- | --- |
 | External facilitator | 4,500 | 4,500 | 4,500 |
 | Materials and refreshments | 900 | 900 | 900 |
-| Subject texts | 3,200 | — | — |
+| Subject texts | 3,200 |: |: |
 
 > The Board asked particularly that any proposal show what it would displace. Nothing is displaced: this comes from the training line already in the budget.
 
@@ -3045,7 +3045,7 @@ I recommend ${leaver.firstName} without reservation, and would take them back.`)
   await db.writtenDocument.create({
     data: {
       kind: "NOTICE",
-      title: "Notice to parents — revised closing time",
+      title: "Notice to parents: revised closing time",
       recipient: ["Parents and Guardians"],
       salutation: "Dear Parents and Guardians,",
       closing: "Yours sincerely,",
@@ -3091,7 +3091,7 @@ async function seedTransport(students: StudentRow[], staff: StaffRow[]) {
   }> = [
     {
       code: "R1",
-      name: "Spintex — Tema",
+      name: "Spintex: Tema",
       description: "Along the Spintex Road and into Tema Community 7.",
       durationMins: 55,
       feeMajor: 450,
@@ -3108,7 +3108,7 @@ async function seedTransport(students: StudentRow[], staff: StaffRow[]) {
     },
     {
       code: "R2",
-      name: "East Legon — Adenta",
+      name: "East Legon: Adenta",
       description: "East Legon, through Ogbojo and up to Adenta Barrier.",
       durationMins: 45,
       feeMajor: 450,
@@ -3222,7 +3222,7 @@ async function seedTransport(students: StudentRow[], staff: StaffRow[]) {
           // rather than being a branch nobody has seen.
           stopId: rider < 2 ? null : stops[rider % stops.length].id,
           direction,
-          collectedBy: rider % 13 === 0 ? "Grandmother — Auntie Akosua" : null,
+          collectedBy: rider % 13 === 0 ? "Grandmother: Auntie Akosua" : null,
         },
       });
 
@@ -3410,7 +3410,7 @@ async function seedLibrary(subjects: SubjectRow[], students: StudentRow[], staff
       published: 2019,
     },
     {
-      title: "BECE Past Questions and Answers 2015–2024",
+      title: "BECE Past Questions and Answers 2015-2024",
       author: "Compiled",
       category: "PAST_PAPER",
       copies: 15,
@@ -3720,7 +3720,7 @@ async function seedReportCards(
     if (average >= 80) {
       return {
         teacher:
-          "An outstanding term. Consistently excellent work across the subjects — keep this standard up.",
+          "An outstanding term. Consistently excellent work across the subjects: keep this standard up.",
         head: "Excellent result. Congratulations.",
       };
     }
@@ -3741,7 +3741,7 @@ async function seedReportCards(
     if (average >= 50) {
       return {
         teacher:
-          "A fair term. Capable of much more with steadier effort — extra support in the core subjects is recommended.",
+          "A fair term. Capable of much more with steadier effort: extra support in the core subjects is recommended.",
         head: "Has ability. Must apply it consistently.",
       };
     }
@@ -3819,7 +3819,7 @@ async function seedWebsite(school: { id: string; name: string; motto: string | n
         wash: "#FAF6EE",
         headingFont: "serif",
       },
-      metaTitle: `${school.name} — Knowledge, Character, Service`,
+      metaTitle: `${school.name}: Knowledge, Character, Service`,
       metaDescription:
         "Inspiring minds, shaping futures. An international school in Accra offering British and GES curricula from Nursery to JHS.",
       contactInfo: {
@@ -3918,9 +3918,9 @@ async function seedWebsite(school: { id: string; name: string; motto: string | n
             intro:
               "A comprehensive curriculum designed to inspire and challenge every learner.",
             items: [
-              `Early Years | A nurturing start for lifelong learners. | /site/about | ${art.programmeA ?? ""} | Ages 3–5`,
-              `Primary School | Building strong foundations for the future. | /site/about | ${art.programmeB ?? ""} | Basic 1–6`,
-              `Junior High | Preparing leaders for the BECE and beyond. | /site/about | ${art.programmeC ?? ""} | JHS 1–3`,
+              `Early Years | A nurturing start for lifelong learners. | /site/about | ${art.programmeA ?? ""} | Ages 3-5`,
+              `Primary School | Building strong foundations for the future. | /site/about | ${art.programmeB ?? ""} | Basic 1-6`,
+              `Junior High | Preparing leaders for the BECE and beyond. | /site/about | ${art.programmeC ?? ""} | JHS 1-3`,
               `Co-Curricular | Exploring talents beyond the classroom. | /site/about | ${art.campus ?? ""} | Clubs & Activities`,
             ].join("\n"),
             ctaLabel: "View all programmes",
@@ -3991,7 +3991,7 @@ async function seedWebsite(school: { id: string; name: string; motto: string | n
           type: "quote",
           props: {
             quote:
-              "Golden Crest did not just prepare my daughter for the BECE — it prepared her to stand in front of a room and speak her mind.",
+              "Golden Crest did not just prepare my daughter for the BECE: it prepared her to stand in front of a room and speak her mind.",
             attribution: "Parent of a JHS 3 graduate",
           },
         },
@@ -4051,7 +4051,7 @@ async function seedWebsite(school: { id: string; name: string; motto: string | n
               "Tell us about your child and the admissions office will be in touch within two school days.",
             levels: "Nursery\nKindergarten\nLower Primary\nUpper Primary\nJHS",
             thanks:
-              "Thank you — your enquiry has been received. The admissions office will contact you shortly.",
+              "Thank you: your enquiry has been received. The admissions office will contact you shortly.",
           },
         },
       ] as never,
@@ -4082,9 +4082,9 @@ async function seedWebsite(school: { id: string; name: string; motto: string | n
           props: {
             heading: "Our Programmes",
             items: [
-              `Early Years | Play-led learning that builds curiosity and confidence. | | ${art.programmeA ?? ""} | Ages 3–5`,
-              `Primary School | Literacy, numeracy and science on two curricula. | | ${art.programmeB ?? ""} | Basic 1–6`,
-              `Junior High | Specialist teaching toward the BECE and beyond. | | ${art.programmeC ?? ""} | JHS 1–3`,
+              `Early Years | Play-led learning that builds curiosity and confidence. | | ${art.programmeA ?? ""} | Ages 3-5`,
+              `Primary School | Literacy, numeracy and science on two curricula. | | ${art.programmeB ?? ""} | Basic 1-6`,
+              `Junior High | Specialist teaching toward the BECE and beyond. | | ${art.programmeC ?? ""} | JHS 1-3`,
             ].join("\n"),
           },
         },
@@ -4120,7 +4120,7 @@ async function seedWebsite(school: { id: string; name: string; motto: string | n
           props: {
             eyebrow: "Campus life",
             heading: "More Than a Timetable",
-            body: "Thirty clubs and activities run every week — robotics, debate, football, choir, chess, art. Every class runs a community project every term, and the whole school gathers for assembly on Friday mornings.",
+            body: "Thirty clubs and activities run every week: robotics, debate, football, choir, chess, art. Every class runs a community project every term, and the whole school gathers for assembly on Friday mornings.",
           },
         },
         {
@@ -4138,7 +4138,7 @@ async function seedWebsite(school: { id: string; name: string; motto: string | n
           type: "quote",
           props: {
             quote:
-              "My son found his people in the robotics club. He talks about school at dinner now — that never used to happen.",
+              "My son found his people in the robotics club. He talks about school at dinner now: that never used to happen.",
             attribution: "Parent of a Basic 6 student",
           },
         },
@@ -4187,7 +4187,7 @@ async function seedWebsite(school: { id: string; name: string; motto: string | n
         {
           id: "contact",
           type: "contact",
-          props: { heading: "Visit Us", hours: "Monday–Friday, 7:00am–4:30pm" },
+          props: { heading: "Visit Us", hours: "Monday-Friday, 7:00am-4:30pm" },
         },
         {
           id: "apply",
@@ -4437,16 +4437,16 @@ async function seedExpenditure(
   };
 
   const bills: Bill[] = [
-    { description: "Electricity — January", category: "Utilities", vendor: "Electricity", amountMinor: 482_000, day: 12, status: "PAID", method: "BANK_TRANSFER", paidAfter: 6 },
-    { description: "Electricity — February", category: "Utilities", vendor: "Electricity", amountMinor: 514_000, day: 43, status: "PAID", method: "BANK_TRANSFER", paidAfter: 5 },
-    { description: "Water — January and February", category: "Utilities", vendor: "Ghana Water", amountMinor: 126_000, day: 45, status: "PAID", method: "BANK_TRANSFER", paidAfter: 8 },
+    { description: "Electricity: January", category: "Utilities", vendor: "Electricity", amountMinor: 482_000, day: 12, status: "PAID", method: "BANK_TRANSFER", paidAfter: 6 },
+    { description: "Electricity: February", category: "Utilities", vendor: "Electricity", amountMinor: 514_000, day: 43, status: "PAID", method: "BANK_TRANSFER", paidAfter: 5 },
+    { description: "Water: January and February", category: "Utilities", vendor: "Ghana Water", amountMinor: 126_000, day: 45, status: "PAID", method: "BANK_TRANSFER", paidAfter: 8 },
     { description: "Generator service, oil and two filters", category: "Repairs and maintenance", vendor: "Kwabena Mensah", amountMinor: 235_000, taxMinor: 17_625, day: 19, status: "PAID", method: "MOBILE_MONEY", paidAfter: 2 },
     { description: "Rewiring the Basic 4 block after the storm", category: "Repairs and maintenance", vendor: "Kwabena Mensah", amountMinor: 390_000, taxMinor: 29_250, day: 51, status: "APPROVED" },
     { description: "Exercise books and chalk for the term", category: "Teaching and learning materials", vendor: "Accra Stationery", amountMinor: 645_000, day: 4, status: "PAID", method: "CHEQUE", paidAfter: 9 },
     { description: "Printing end-of-term report card stock", category: "Teaching and learning materials", vendor: "Accra Stationery", amountMinor: 118_000, day: 58, status: "APPROVED" },
-    { description: "Diesel for the buses — January", category: "Transport and fuel", vendor: "Total Energies", amountMinor: 720_000, day: 10, status: "PAID", method: "BANK_TRANSFER", paidAfter: 3 },
-    { description: "Diesel for the buses — February", category: "Transport and fuel", vendor: "Total Energies", amountMinor: 764_000, day: 41, status: "PAID", method: "BANK_TRANSFER", paidAfter: 3 },
-    { description: "Lunch provisions — weeks 1 to 6", category: "Catering and provisions", vendor: "Mama Efua", amountMinor: 980_000, day: 36, status: "PAID", method: "MOBILE_MONEY", paidAfter: 4 },
+    { description: "Diesel for the buses: January", category: "Transport and fuel", vendor: "Total Energies", amountMinor: 720_000, day: 10, status: "PAID", method: "BANK_TRANSFER", paidAfter: 3 },
+    { description: "Diesel for the buses: February", category: "Transport and fuel", vendor: "Total Energies", amountMinor: 764_000, day: 41, status: "PAID", method: "BANK_TRANSFER", paidAfter: 3 },
+    { description: "Lunch provisions: weeks 1 to 6", category: "Catering and provisions", vendor: "Mama Efua", amountMinor: 980_000, day: 36, status: "PAID", method: "MOBILE_MONEY", paidAfter: 4 },
     { description: "BECE registration for the JHS 3 candidates", category: "Examination fees", vendor: "West African", amountMinor: 1_140_000, day: 24, status: "PAID", method: "BANK_TRANSFER", paidAfter: 7 },
     { description: "Annual audit fee", category: "Professional services", vendor: null, amountMinor: 800_000, taxMinor: 60_000, day: 30, status: "APPROVED" },
     { description: "INSET facilitator for the January training day", category: "Staff training", vendor: null, amountMinor: 450_000, taxMinor: 33_750, day: 7, status: "PAID", method: "MOBILE_MONEY", paidAfter: 1 },
@@ -4551,7 +4551,7 @@ async function seedExaminations(
       endsOn,
       status: "PUBLISHED",
       instructions:
-        "No mobile phones in the hall. Be seated fifteen minutes before the paper begins. Bring your own pen, pencil and mathematical set — nothing may be borrowed once the paper has started. Write your index number on every sheet.",
+        "No mobile phones in the hall. Be seated fifteen minutes before the paper begins. Bring your own pen, pencil and mathematical set: nothing may be borrowed once the paper has started. Write your index number on every sheet.",
       createdById: registrar?.id ?? null,
     },
     select: { id: true },
@@ -4560,7 +4560,7 @@ async function seedExaminations(
   const venues = await Promise.all(
     [
       { name: "Assembly Hall", capacity: 120, notes: "Ceiling fans on the east wall only. Two doors." },
-      { name: "Art Room", capacity: 40, notes: "Long benches — two candidates each, spaced." },
+      { name: "Art Room", capacity: 40, notes: "Long benches: two candidates each, spaced." },
       { name: "Dining Hall", capacity: 90, notes: "Tables cleared by 08:00." },
     ].map((venue) => db.examVenue.create({ data: venue, select: { id: true, name: true, capacity: true } })),
   );

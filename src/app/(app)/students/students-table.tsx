@@ -150,7 +150,7 @@ export function StudentsTable({
             ))}
           </div>
         ) : (
-          <span className="text-[var(--text-subtle)]">—</span>
+          <span className="text-[var(--text-subtle)]">-</span>
         ),
       priority: 3,
       sortable: false,
@@ -178,7 +178,7 @@ export function StudentsTable({
       accessor: (row) => row.attendanceRate ?? "",
       cell: (row) =>
         row.attendanceRate === null ? (
-          <span className="text-[var(--text-subtle)]">—</span>
+          <span className="text-[var(--text-subtle)]">-</span>
         ) : (
           <span
             className={
@@ -201,7 +201,7 @@ export function StudentsTable({
       accessor: (row) => row.averageScore ?? "",
       cell: (row) =>
         row.averageScore === null ? (
-          <span className="text-[var(--text-subtle)]">—</span>
+          <span className="text-[var(--text-subtle)]">-</span>
         ) : (
           `${row.averageScore.toFixed(1)}%`
         ),

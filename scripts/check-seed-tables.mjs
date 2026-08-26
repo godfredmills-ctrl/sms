@@ -51,7 +51,7 @@ console.error("  prisma/seed.ts reset() does not match the schema");
 console.error(rule);
 
 if (missing.length) {
-  console.error("\n  Models the wipe would leave behind — the seed will refuse to run:\n");
+  console.error("\n  Models the wipe would leave behind: the seed will refuse to run:\n");
   for (const name of missing) console.error(`    ${name}`);
   console.error(
     "\n  Add each to the `tables` list, positioned so its rows go before the",
@@ -60,7 +60,7 @@ if (missing.length) {
 }
 
 if (unknown.length) {
-  console.error("\n  Named in the list but not a model — a rename or a typo:\n");
+  console.error("\n  Named in the list but not a model: a rename or a typo:\n");
   for (const name of unknown) console.error(`    ${name}`);
 }
 

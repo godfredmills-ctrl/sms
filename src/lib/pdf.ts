@@ -910,7 +910,7 @@ export async function renderReportCardPdf(rawInput: ReportCardPdf): Promise<Buff
     }
 
     if (remark.signatory) {
-      drawText(page, `— ${remark.signatory}`, {
+      drawText(page, `- ${remark.signatory}`, {
         x: margin,
         y,
         size: 8,

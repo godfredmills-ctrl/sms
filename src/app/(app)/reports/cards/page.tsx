@@ -224,7 +224,7 @@ export default async function ReportCardsPage({
                   // Says why the class is already chosen. A field that fills
                   // itself in without explanation reads as a stale selection.
                   <p className="text-xs text-[var(--text-subtle)]">
-                    Preselected for {focus.firstName} {focus.lastName} — report cards
+                    Preselected for {focus.firstName} {focus.lastName}: report cards
                     are generated a class at a time.
                   </p>
                 ) : null}

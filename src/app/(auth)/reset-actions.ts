@@ -88,8 +88,8 @@ async function performReset(formData: FormData): Promise<ResetState> {
     void sendEmail({
       to: user.email,
       subject: "Reset your password",
-      text: `Hello ${user.firstName},\n\nSomeone asked to reset the password for this account. If it was you, open this link within the hour:\n\n${link}\n\nIf it was not you, ignore this message — nothing has changed.`,
-      html: `<p>Hello ${user.firstName},</p><p>Someone asked to reset the password for this account. If it was you, open this link within the hour:</p><p><a href="${link}">${link}</a></p><p>If it was not you, ignore this message — nothing has changed.</p>`,
+      text: `Hello ${user.firstName},\n\nSomeone asked to reset the password for this account. If it was you, open this link within the hour:\n\n${link}\n\nIf it was not you, ignore this message: nothing has changed.`,
+      html: `<p>Hello ${user.firstName},</p><p>Someone asked to reset the password for this account. If it was you, open this link within the hour:</p><p><a href="${link}">${link}</a></p><p>If it was not you, ignore this message: nothing has changed.</p>`,
     }).catch(() => undefined);
   } else if (user.phone) {
     void sendSms({

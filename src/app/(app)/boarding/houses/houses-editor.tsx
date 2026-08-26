@@ -254,7 +254,7 @@ function Allocate({
             placeholder="Search boarders without a bed"
           />
         </Field>
-        <Field label="Bed" htmlFor={`bed-${room.id}`} hint="Optional — &ldquo;Bed 3&rdquo;, &ldquo;top bunk&rdquo;.">
+        <Field label="Bed" htmlFor={`bed-${room.id}`} hint="Optional: &ldquo;Bed 3&rdquo;, &ldquo;top bunk&rdquo;.">
           <Input
             id={`bed-${room.id}`}
             value={bedLabel}

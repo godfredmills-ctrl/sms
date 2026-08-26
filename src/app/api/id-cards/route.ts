@@ -221,7 +221,7 @@ export async function GET(request: Request) {
         return {
           name: listName(student),
           number: student.admissionNo,
-          role: section ? `${section.classLevel.name} ${section.name}` : "—",
+          role: section ? `${section.classLevel.name} ${section.name}` : "-",
           detail: student.house ? `${student.house} house` : null,
           photo: await loadDocumentImage(student.photoUrl),
           emergencyName: contact ? `${contact.firstName} ${contact.lastName}` : null,

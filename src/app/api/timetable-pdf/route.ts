@@ -129,7 +129,7 @@ export async function GET(request: Request) {
 
       const timeCounts = new Map<string, number>();
       for (const slot of periodSlots) {
-        const key = `${slot.startTime}–${slot.endTime}`;
+        const key = `${slot.startTime}-${slot.endTime}`;
         timeCounts.set(key, (timeCounts.get(key) ?? 0) + 1);
       }
       const rowTime = [...timeCounts.entries()].sort((a, b) => b[1] - a[1])[0][0];
@@ -149,14 +149,14 @@ export async function GET(request: Request) {
       const cells: Array<TimetableCell | null> = DAY_NAMES.map((_, index) => {
         const slot = periodSlots.find((entry) => entry.dayOfWeek === index + 1);
         if (!slot) return null;
-        const ownTime = `${slot.startTime}–${slot.endTime}`;
+        const ownTime = `${slot.startTime}-${slot.endTime}`;
         const timeNote = ownTime !== rowTime ? ownTime : null;
         if (slot.isBreak) {
           return { title: slot.label ?? "Break", line2: timeNote };
         }
         const room = slot.room ?? slot.offering?.room ?? null;
         return {
-          title: slot.label ?? slot.offering?.subject.name ?? "—",
+          title: slot.label ?? slot.offering?.subject.name ?? "-",
           line2: slot.offering?.teacher ? fullName(slot.offering.teacher) : null,
           line3: [timeNote, room].filter(Boolean).join(" · ") || null,
           colour: slot.offering?.subject.colour ?? null,
@@ -239,13 +239,13 @@ export async function GET(request: Request) {
         }
       }
     }
-    const times = [...new Set(slots.map((slot) => `${slot.startTime}–${slot.endTime}`))].sort();
+    const times = [...new Set(slots.map((slot) => `${slot.startTime}-${slot.endTime}`))].sort();
     rows = times.map((time) => {
-      const [startTime] = time.split("–");
+      const [startTime] = time.split("-");
       const cells: Array<TimetableCell | null> = DAY_NAMES.map((_, index) => {
         const matches = slots.filter(
           (slot) =>
-            slot.dayOfWeek === index + 1 && `${slot.startTime}–${slot.endTime}` === time,
+            slot.dayOfWeek === index + 1 && `${slot.startTime}-${slot.endTime}` === time,
         );
         if (!matches.length) return null;
         const first = matches[0];

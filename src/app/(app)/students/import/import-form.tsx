@@ -45,7 +45,7 @@ export function ImportForm() {
                   {fileName ?? "Choose a file"}
                 </span>
                 <span className="text-xs text-[var(--text-subtle)]">
-                  Up to 10 MB — split larger files into batches
+                  Up to 10 MB: split larger files into batches
                 </span>
                 <input
                   id="file"
@@ -80,7 +80,7 @@ export function ImportForm() {
             />
 
             <p className="text-xs text-[var(--text-subtle)]">
-              Checking writes nothing — it reads every row and tells you what would
+              Checking writes nothing: it reads every row and tells you what would
               happen. Column headings are matched loosely: “Admission No.”,
               “admission_no” and “ADMISSION NUMBER” all work.
             </p>
@@ -129,7 +129,7 @@ export function ImportForm() {
                     <CheckCircle2 className="mt-0.5 size-4 shrink-0" />
                     {state.imported
                       ? `Nothing has been written yet. Press “Import ${state.imported} students” to save them.`
-                      : "Nothing has been written, and nothing would be — every row was skipped."}
+                      : "Nothing has been written, and nothing would be: every row was skipped."}
                   </span>
                 </Alert>
               ) : null}
@@ -209,7 +209,7 @@ export function ImportForm() {
                 ))}
               </div>
               <p className="mt-3 text-xs text-[var(--text-subtle)]">
-                Dates in dd/mm/yyyy are read as Ghanaian dates, not American ones — a
+                Dates in dd/mm/yyyy are read as Ghanaian dates, not American ones: a
                 date of 03/04/2011 imports as 3 April.
               </p>
             </CardBody>

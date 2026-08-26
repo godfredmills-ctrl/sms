@@ -213,8 +213,8 @@ export default async function GuardianCredentialsPage() {
         <CardBody className="flex items-start gap-2 text-xs text-[var(--text-muted)]">
           <ShieldCheck className="mt-0.5 size-3.5 shrink-0" />
           <span>
-            Every document carries a verification code. Anyone receiving one — a
-            university, an employer — can confirm it is genuine at{" "}
+            Every document carries a verification code. Anyone receiving one: a
+            university, an employer: can confirm it is genuine at{" "}
             <span className="font-mono">{env.appUrl}/verify/&lt;code&gt;</span> without
             needing an account. A withdrawn document reports itself as withdrawn
             rather than disappearing.

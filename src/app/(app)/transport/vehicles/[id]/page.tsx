@@ -136,7 +136,7 @@ export default async function VehiclePage({
           <VehicleForm
             routes={routes.map((route) => ({
               value: route.id,
-              label: `${route.code} — ${route.name}`,
+              label: `${route.code}, ${route.name}`,
             }))}
             staff={staff.map((person) => ({
               value: person.id,
@@ -170,7 +170,7 @@ export default async function VehiclePage({
                   href={`/transport/${vehicle.route.id}`}
                   className="text-[var(--primary)]"
                 >
-                  {vehicle.route.code} — {vehicle.route.name}
+                  {vehicle.route.code}: {vehicle.route.name}
                 </Link>
               ) : (
                 <span className="text-[var(--text-muted)]">

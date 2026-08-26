@@ -29,7 +29,7 @@ export function StartForm({
 
       <Alert tone="warning">
         {timeLimitMinutes
-          ? `You have ${timeLimitMinutes} minutes once you begin, timed from the moment you press start — closing the page does not pause it.`
+          ? `You have ${timeLimitMinutes} minutes once you begin, timed from the moment you press start: closing the page does not pause it.`
           : "There is no time limit, but you cannot change your answers once submitted."}
         {attemptsLeft > 1 ? ` You have ${attemptsLeft} attempts left.` : " This is your last attempt."}
       </Alert>

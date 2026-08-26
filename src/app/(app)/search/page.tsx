@@ -358,19 +358,19 @@ export default async function SearchPage({
         <CardBody className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-[var(--text-muted)]">
           <span className="flex items-center gap-1.5">
             <GraduationCap className="size-3.5" />
-            Students {canReadStudents ? "included" : "hidden — no permission"}
+            Students {canReadStudents ? "included" : "hidden: no permission"}
           </span>
           <span className="flex items-center gap-1.5">
             <Users className="size-3.5" />
-            Staff {canReadStaff ? "included" : "hidden — no permission"}
+            Staff {canReadStaff ? "included" : "hidden: no permission"}
           </span>
           <span className="flex items-center gap-1.5">
             <Receipt className="size-3.5" />
-            Invoices {canReadFinance ? "included" : "hidden — no permission"}
+            Invoices {canReadFinance ? "included" : "hidden: no permission"}
           </span>
           <span className="flex items-center gap-1.5">
             <FileText className="size-3.5" />
-            Documents {canReadDocuments ? "included" : "hidden — no permission"}
+            Documents {canReadDocuments ? "included" : "hidden: no permission"}
           </span>
         </CardBody>
       </Card>

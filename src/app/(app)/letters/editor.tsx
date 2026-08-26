@@ -112,7 +112,7 @@ export function DocumentEditor({
     return (
       <div className="space-y-4">
         <Alert tone="success" title="This document is final">
-          It was issued as it stands. Reopen it as a draft to make a change —
+          It was issued as it stands. Reopen it as a draft to make a change:
           that is recorded, so the file and the copy in somebody&rsquo;s drawer
           cannot quietly diverge.
         </Alert>
@@ -246,7 +246,7 @@ export function DocumentEditor({
             <Field
               label="Note at the foot"
               htmlFor="doc-footnote"
-              hint="Distribution, validity — printed small."
+              hint="Distribution, validity: printed small."
             >
               <Input id="doc-footnote" name="footnote" defaultValue={draft?.footnote} />
             </Field>

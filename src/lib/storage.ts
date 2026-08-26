@@ -100,7 +100,7 @@ export function s3ConfigProblems(): string[] {
       endpoint = new URL(env.storage.s3Endpoint);
     } catch {
       problems.push(
-        `S3_ENDPOINT is not a valid URL ("${env.storage.s3Endpoint}") — it should look like https://<account-id>.r2.cloudflarestorage.com`,
+        `S3_ENDPOINT is not a valid URL ("${env.storage.s3Endpoint}"): it should look like https://<account-id>.r2.cloudflarestorage.com`,
       );
     }
 
@@ -116,7 +116,7 @@ export function s3ConfigProblems(): string[] {
       endpoint.pathname.replace(/\/$/, "").length > 0
     ) {
       problems.push(
-        "S3_ENDPOINT must not include the bucket name — put it in S3_BUCKET instead",
+        "S3_ENDPOINT must not include the bucket name: put it in S3_BUCKET instead",
       );
     }
   }
@@ -168,7 +168,7 @@ export async function checkStorage(): Promise<{
       ok: true,
       driver: "local",
       detail: ephemeral
-        ? `Writing to ${root} inside the container — uploads are lost on redeploy.`
+        ? `Writing to ${root} inside the container: uploads are lost on redeploy.`
         : `Writing to ${root}.`,
     };
   }

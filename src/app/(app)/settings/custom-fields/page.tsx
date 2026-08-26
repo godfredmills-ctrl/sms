@@ -47,7 +47,7 @@ export default async function CustomFieldsPage() {
     <>
       <PageHeader
         title="Custom fields"
-        description="Capture anything the standard profile does not cover — without waiting on a release."
+        description="Capture anything the standard profile does not cover: without waiting on a release."
       />
 
       <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -79,7 +79,7 @@ export default async function CustomFieldsPage() {
               <EmptyState
                 icon={<SlidersHorizontal className="size-5" />}
                 title="No custom fields yet"
-                description="Add one on the right — it appears on the profile immediately."
+                description="Add one on the right: it appears on the profile immediately."
               />
             </Card>
           ) : null}

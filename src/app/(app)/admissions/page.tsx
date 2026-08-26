@@ -127,7 +127,7 @@ export default async function AdmissionsPage() {
     <>
       <PageHeader
         title="Admissions"
-        description={`${year.name}. The entrance papers, the interviews, the offers and the waiting list — the intake seen whole rather than one child at a time.`}
+        description={`${year.name}. The entrance papers, the interviews, the offers and the waiting list: the intake seen whole rather than one child at a time.`}
         action={
           userCan(user, "student.create") ? (
             <LinkButton href="/students/new" size="sm">
@@ -175,7 +175,7 @@ export default async function AdmissionsPage() {
           className="mb-4"
         >
           Nothing releases a lapsed offer on its own, so the seat is still being held.
-          Ring the family, or give it away — either way it needs a decision.
+          Ring the family, or give it away: either way it needs a decision.
         </Alert>
       ) : null}
 
@@ -223,7 +223,7 @@ export default async function AdmissionsPage() {
         </div>
         <p className="mt-2 text-xs text-[var(--text-subtle)]">
           Seats are the sections&rsquo; capacities. A seat counts as taken by an enrolled
-          pupil or an outstanding offer — including a lapsed one, because nothing gives
+          pupil or an outstanding offer: including a lapsed one, because nothing gives
           that seat back on its own.
         </p>
       </div>

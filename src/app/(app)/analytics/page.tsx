@@ -269,7 +269,7 @@ export default async function AnalyticsPage() {
         title="Analytics"
         description={
           year
-            ? `${year.name}${term ? ` · ${term.name}` : ""} — school-wide statistics.`
+            ? `${year.name}${term ? ` · ${term.name}` : ""}: school-wide statistics.`
             : "No current academic year is set."
         }
       />
@@ -290,15 +290,15 @@ export default async function AnalyticsPage() {
           icon={<GraduationCap className="size-4" />}
         />
         <StatCard
-          label="Student–teacher ratio"
-          value={staffCount ? `${(students.length / staffCount).toFixed(1)}:1` : "—"}
+          label="Student-teacher ratio"
+          value={staffCount ? `${(students.length / staffCount).toFixed(1)}:1` : "-"}
           hint={`${staffCount} active staff`}
           tone="info"
           icon={<Users className="size-4" />}
         />
         <StatCard
           label="Attendance"
-          value={attendanceTotal ? formatPercent(attendanceRate) : "—"}
+          value={attendanceTotal ? formatPercent(attendanceRate) : "-"}
           hint={`${attendanceTotal.toLocaleString()} sessions recorded`}
           tone={
             attendanceRate >= 92 ? "success" : attendanceRate >= 85 ? "warning" : "danger"
@@ -307,7 +307,7 @@ export default async function AnalyticsPage() {
         />
         <StatCard
           label="School average"
-          value={schoolAverage ? `${schoolAverage.toFixed(1)}%` : "—"}
+          value={schoolAverage ? `${schoolAverage.toFixed(1)}%` : "-"}
           hint={`${scores.length.toLocaleString()} marks`}
           tone="teal"
           icon={<TrendingUp className="size-4" />}
@@ -371,7 +371,7 @@ export default async function AnalyticsPage() {
         <div className="mb-4">
           <TrendChart
             title="Attainment by level"
-            description="Average mark at each level, in sequence — a dip is where the curriculum steps up."
+            description="Average mark at each level, in sequence: a dip is where the curriculum steps up."
             rows={levelScoreRows}
             categoryKey="level"
             categoryLabel="Level"
@@ -397,7 +397,7 @@ export default async function AnalyticsPage() {
           />
           <BarSeriesChart
             title="How parents pay"
-            description="Successful payments by channel — this is where reminders should point."
+            description="Successful payments by channel: this is where reminders should point."
             rows={channelRows}
             categoryKey="channel"
             categoryLabel="Channel"
@@ -411,7 +411,7 @@ export default async function AnalyticsPage() {
         <Card>
           <CardHeader
             title="Subjects ranked"
-            description="Weakest first, against the school average — the order is the point."
+            description="Weakest first, against the school average: the order is the point."
           />
           <CardBody className="space-y-2.5">
             {subjectRows.length ? (

@@ -142,7 +142,7 @@ export function AdmissionForm({
           <Field
             label="Admission stage"
             htmlFor="status"
-            hint="Applicants and offers are not on any class roll — enrolling is the step that is."
+            hint="Applicants and offers are not on any class roll: enrolling is the step that is."
           >
             <SearchableSelect
               id="status"
@@ -150,9 +150,9 @@ export function AdmissionForm({
               clearable={false}
               defaultValue={initial.status ?? "ENROLLED"}
               options={[
-                { value: "APPLICANT", label: "Applicant — under review" },
-                { value: "OFFERED", label: "Offered — place held" },
-                { value: "ENROLLED", label: "Enrolled — on the roll" },
+                { value: "APPLICANT", label: "Applicant: under review" },
+                { value: "OFFERED", label: "Offered: place held" },
+                { value: "ENROLLED", label: "Enrolled: on the roll" },
               ]}
             />
           </Field>
@@ -180,7 +180,7 @@ export function AdmissionForm({
       <Card>
         <CardHeader
           title="Guardian"
-          description="A record with no contactable adult behind it is the gap that costs a school most — capture it now."
+          description="A record with no contactable adult behind it is the gap that costs a school most: capture it now."
         />
         <CardBody className="grid gap-3 sm:grid-cols-2">
           <Field label="First name" htmlFor="guardianFirstName">
@@ -334,7 +334,7 @@ export function AdmissionForm({
         <Card>
           <CardHeader
             title="Documents"
-            description="The papers on your desk — birth certificate, photograph, previous report. Filed with the admission rather than promised to a tab later."
+            description="The papers on your desk: birth certificate, photograph, previous report. Filed with the admission rather than promised to a tab later."
           />
           <CardBody>
             <DocumentsField categories={documentCategories} />

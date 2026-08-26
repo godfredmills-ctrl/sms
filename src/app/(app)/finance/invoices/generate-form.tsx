@@ -85,7 +85,7 @@ export function GenerateForm({
           name="dryRun"
           defaultChecked
           label="Dry run"
-          description="Reports what would be billed without writing anything. Run this first — bulk billing touches every enrolled student."
+          description="Reports what would be billed without writing anything. Run this first: bulk billing touches every enrolled student."
         />
 
         <Button type="submit" variant="outline" className="w-full" disabled={pending}>

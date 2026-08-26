@@ -65,7 +65,7 @@ export function TranscriptForm({
           hint={
             templates.length
               ? "Your own layout. Without one, a built-in transcript is used."
-              : "No transcript template has been designed yet — a built-in layout will be used."
+              : "No transcript template has been designed yet: a built-in layout will be used."
           }
         >
           <SearchableSelect

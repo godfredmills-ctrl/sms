@@ -323,7 +323,7 @@ function ResultChart({
   const grouped = new Map<string, Record<string, number>>();
 
   for (const row of rows) {
-    const category = String(row[categoryKey] ?? "—");
+    const category = String(row[categoryKey] ?? "-");
     const bucket = grouped.get(category) ?? {};
     for (const key of valueKeys) {
       const value = Number(row[key]);
@@ -477,7 +477,7 @@ function ResultTable({
         <CardBody className="border-t border-[var(--border)]">
           <p className="text-xs text-[var(--text-subtle)]">
             Showing the first 500 of {rows.length.toLocaleString()} rows. Export to CSV
-            for the rest — the full set is in the download, not just what is on screen.
+            for the rest: the full set is in the download, not just what is on screen.
           </p>
         </CardBody>
       ) : null}

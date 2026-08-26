@@ -111,7 +111,7 @@ export default async function ExamsPage() {
               <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-[var(--text-muted)]">
                 <span className="inline-flex items-center gap-1.5">
                   <CalendarClock className="size-3.5" />
-                  {formatDate(session.startsOn)} – {formatDate(session.endsOn)}
+                  {formatDate(session.startsOn)} to {formatDate(session.endsOn)}
                 </span>
                 <span className="inline-flex items-center gap-1.5">
                   <ClipboardList className="size-3.5" />

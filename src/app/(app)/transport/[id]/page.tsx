@@ -35,7 +35,7 @@ export async function generateMetadata({
     where: { id },
     select: { code: true, name: true },
   });
-  return { title: route ? `${route.code} — ${route.name}` : "Route" };
+  return { title: route ? `${route.code}, ${route.name}` : "Route" };
 }
 
 /**
@@ -209,7 +209,7 @@ export default async function RoutePage({
   return (
     <div>
       <PageHeader
-        title={`${route.code} — ${route.name}`}
+        title={`${route.code}, ${route.name}`}
         description={
           [
             route.description,
@@ -272,7 +272,7 @@ export default async function RoutePage({
           {grounded
             .map(
               (vehicle) =>
-                `${vehicle.registration} — ${fitnessOf(vehicle, now).reasons.join(", ").toLowerCase()}`,
+                `${vehicle.registration}, ${fitnessOf(vehicle, now).reasons.join(", ").toLowerCase()}`,
             )
             .join("; ")}
           .
@@ -419,7 +419,7 @@ export default async function RoutePage({
                 {unplaced.length ? (
                   <div className="bg-[var(--warning-soft)] px-4 py-3">
                     <p className="text-sm font-medium text-[var(--warning)]">
-                      No stop recorded — {unplaced.length}
+                      No stop recorded: {unplaced.length}
                     </p>
                     <p className="text-xs text-[var(--text-muted)]">
                       They are on the route and will print on the manifest, but the

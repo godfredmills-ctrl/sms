@@ -85,7 +85,7 @@ export default async function StudentAttendancePage() {
       <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatCard
           label="Attendance rate"
-          value={total ? formatPercent(rate) : "—"}
+          value={total ? formatPercent(rate) : "-"}
           hint={`${present} of ${total} sessions`}
           tone={rate >= 92 ? "success" : rate >= 85 ? "warning" : "danger"}
           icon={<CalendarCheck className="size-4" />}
@@ -110,7 +110,7 @@ export default async function StudentAttendancePage() {
           <span className="flex items-start gap-2">
             <TriangleAlert className="mt-0.5 size-4 shrink-0" />
             Your attendance is below 85%. Schools usually treat this as the point
-            where missed lessons start to show in results — speak to your form
+            where missed lessons start to show in results: speak to your form
             teacher if something is making it hard to attend.
           </span>
         </Alert>

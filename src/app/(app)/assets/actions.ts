@@ -236,7 +236,7 @@ export async function saveAssetAction(
     if (String((error as { code?: string }).code) === "P2002") {
       return {
         error:
-          "Somebody else added an asset to this category a moment ago and took the next tag. Try again — a fresh tag will be issued.",
+          "Somebody else added an asset to this category a moment ago and took the next tag. Try again: a fresh tag will be issued.",
       };
     }
     throw error;
@@ -277,7 +277,7 @@ export async function moveAssetAction(
   }
 
   if (asset.locationId === toLocationId && asset.custodianId === toStaffId) {
-    return { error: "Nothing changed — pick a different location or a different holder." };
+    return { error: "Nothing changed: pick a different location or a different holder." };
   }
 
   await db.$transaction(async (tx) => {
@@ -378,7 +378,7 @@ export async function verifyAssetAction(
   revalidatePath("/assets");
   return {
     ok: true,
-    message: seen ? "Verified." : "Recorded as missing — it stays on the register at full value.",
+    message: seen ? "Verified." : "Recorded as missing: it stays on the register at full value.",
   };
 }
 

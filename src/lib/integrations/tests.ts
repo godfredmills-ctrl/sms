@@ -121,7 +121,7 @@ async function checkPayments(): Promise<CheckResult> {
           ok: true,
           detail: live
             ? `Live key accepted. Settlement balance: ${balances || "none reported"}.`
-            : `Test key accepted — no real money will move. Balance: ${balances || "none reported"}.`,
+            : `Test key accepted: no real money will move. Balance: ${balances || "none reported"}.`,
         };
       },
       () => ({ ok: false, detail: "Paystack did not answer within 12 seconds." }),
@@ -217,7 +217,7 @@ async function checkSms(): Promise<CheckResult> {
           body.data?.sms_balance ?? body.data?.main_balance ?? "not reported";
         return {
           ok: true,
-          detail: `Arkesel accepted the key. Balance: ${balance}. This does not prove the sender ID is registered — send a test message below to confirm that.`,
+          detail: `Arkesel accepted the key. Balance: ${balance}. This does not prove the sender ID is registered: send a test message below to confirm that.`,
         };
       },
       () => ({ ok: false, detail: "Arkesel did not answer within 12 seconds." }),
@@ -248,7 +248,7 @@ async function checkSms(): Promise<CheckResult> {
         }
         return {
           ok: true,
-          detail: `mNotify accepted the key. Balance: ${body.balance ?? "not reported"}. This does not prove the sender ID is registered — send a test message below to confirm that.`,
+          detail: `mNotify accepted the key. Balance: ${body.balance ?? "not reported"}. This does not prove the sender ID is registered: send a test message below to confirm that.`,
         };
       },
       () => ({ ok: false, detail: "mNotify did not answer within 12 seconds." }),
@@ -269,7 +269,7 @@ async function checkSms(): Promise<CheckResult> {
       ok: true,
       inconclusive: true,
       detail:
-        "Both credentials are present. Hubtel offers no free way to verify them without sending, so use the test message below — it is the only check that proves anything.",
+        "Both credentials are present. Hubtel offers no free way to verify them without sending, so use the test message below: it is the only check that proves anything.",
     };
   }
 
@@ -303,7 +303,7 @@ export async function sendTestSms(
 
   return {
     ok: true,
-    detail: `Accepted for delivery to ${recipient} as "${senderId}". If nothing arrives within a few minutes, the sender ID is not registered with your provider — that is the usual cause and the provider must register it for you.`,
+    detail: `Accepted for delivery to ${recipient} as "${senderId}". If nothing arrives within a few minutes, the sender ID is not registered with your provider: that is the usual cause and the provider must register it for you.`,
   };
 }
 
@@ -358,13 +358,13 @@ async function checkEmail(): Promise<CheckResult> {
     if (/wrong version number|SSL routines/i.test(message)) {
       return {
         ok: false,
-        detail: `${message} — this usually means the TLS setting does not match the port. Port 587 wants the TLS box unticked; port 465 wants it ticked.`,
+        detail: `${message}: this usually means the TLS setting does not match the port. Port 587 wants the TLS box unticked; port 465 wants it ticked.`,
       };
     }
     if (/invalid login|535|authentication failed/i.test(message)) {
       return {
         ok: false,
-        detail: `${message} — for Google Workspace or Microsoft 365 this must be an app password, not the account's own password.`,
+        detail: `${message}: for Google Workspace or Microsoft 365 this must be an app password, not the account's own password.`,
       };
     }
     return { ok: false, detail: message };
@@ -388,7 +388,7 @@ export async function sendTestEmail(to: string): Promise<CheckResult> {
   if (!result.ok) return { ok: false, detail: result.error ?? "The host refused it." };
   return {
     ok: true,
-    detail: `Sent to ${to.trim()} as "${emailFrom}". If it does not arrive, check the spam folder — a from-address the host is not authorised to send as is usually filed there rather than rejected.`,
+    detail: `Sent to ${to.trim()} as "${emailFrom}". If it does not arrive, check the spam folder: a from-address the host is not authorised to send as is usually filed there rather than rejected.`,
   };
 }
 
@@ -403,7 +403,7 @@ async function checkPush(): Promise<CheckResult> {
     return {
       ok: false,
       detail:
-        "No key pair is set. Generate one below — it takes a moment and costs nothing.",
+        "No key pair is set. Generate one below: it takes a moment and costs nothing.",
     };
   }
   if (!push.publicKey) return { ok: false, detail: "The public key is missing." };
@@ -424,7 +424,7 @@ async function checkPush(): Promise<CheckResult> {
       return {
         ok: false,
         detail:
-          "The public and private keys are both valid but are not a pair — they come from different generations. Every notification would be signed with a key the browser rejects. Generate a fresh pair below.",
+          "The public and private keys are both valid but are not a pair: they come from different generations. Every notification would be signed with a key the browser rejects. Generate a fresh pair below.",
       };
     }
   } catch {
@@ -438,7 +438,7 @@ async function checkPush(): Promise<CheckResult> {
   if (!/^(mailto:|https:)/.test(push.subject)) {
     return {
       ok: false,
-      detail: `The contact must start with mailto: or https: — "${push.subject}" will be rejected by some push services.`,
+      detail: `The contact must start with mailto: or https:: "${push.subject}" will be rejected by some push services.`,
     };
   }
 

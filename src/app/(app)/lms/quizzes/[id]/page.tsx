@@ -206,7 +206,7 @@ export default async function QuizPage({
         />
         <StatCard
           label="Class average"
-          value={averagePercent === null ? "—" : `${averagePercent.toFixed(1)}%`}
+          value={averagePercent === null ? "-" : `${averagePercent.toFixed(1)}%`}
           hint={`${passRate.toFixed(0)}% passed`}
           tone={averagePercent !== null && averagePercent >= quiz.passMark ? "success" : "warning"}
         />
@@ -220,7 +220,7 @@ export default async function QuizPage({
 
       {quiz.questions.length === 0 ? (
         <Alert tone="warning" className="mb-4">
-          This quiz has no questions, so it cannot be published — a student would get
+          This quiz has no questions, so it cannot be published: a student would get
           a blank paper and a score of 0 out of 0.
         </Alert>
       ) : null}

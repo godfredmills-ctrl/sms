@@ -174,7 +174,7 @@ export async function saveAssessmentAction(formData: FormData): Promise<Admissio
   const raw = text(formData, "score");
   const score = raw === "" ? null : Number.parseFloat(raw);
   if (score !== null && (!Number.isFinite(score) || score < 0 || score > maxScore)) {
-    return { error: `A mark of ${raw} is outside 0–${maxScore}.` };
+    return { error: `A mark of ${raw} is outside 0-${maxScore}.` };
   }
 
   await db.admissionAssessment.upsert({
@@ -333,7 +333,7 @@ export async function decideApplicationAction(
     ]);
     message = offerExpiresOn
       ? `Offered. It lapses on ${offerExpiresOn.toLocaleDateString("en-GB")}.`
-      : "Offered, with no lapse date — the place is held until somebody says otherwise.";
+      : "Offered, with no lapse date: the place is held until somebody says otherwise.";
   }
 
   if (act === "WAITLIST") {

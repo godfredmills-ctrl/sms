@@ -339,7 +339,7 @@ export function findClashes(papers: PaperForClash[]): Clash[] {
           message:
             together > venue.capacity
               ? `${venue.name} is holding ${together} candidates at once across ${label(a)} and ${label(b)}, and seats ${venue.capacity}.`
-              : `${venue.name} is holding ${label(a)} and ${label(b)} at the same time — ${together} candidates in ${venue.capacity} seats.`,
+              : `${venue.name} is holding ${label(a)} and ${label(b)} at the same time, ${together} candidates in ${venue.capacity} seats.`,
           paperIds: [a.id, b.id],
         });
       }

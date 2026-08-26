@@ -116,7 +116,7 @@ export async function GET(
     return message(
       409,
       "Nobody is seated yet",
-      "Allocate the seating for this paper before printing the hall list — an empty sheet is worse than none, because it looks like an answer.",
+      "Allocate the seating for this paper before printing the hall list: an empty sheet is worse than none, because it looks like an answer.",
     );
   }
 
@@ -127,13 +127,13 @@ export async function GET(
     name: listName(seat.candidate.student),
     className: seat.candidate.classSection
       ? `${seat.candidate.classSection.classLevel.name} ${seat.candidate.classSection.name}`
-      : "—",
+      : "-",
   }));
 
   const pdf = await renderDocumentPdf({
     letterhead,
     document: {
-      title: `Hall list — ${paper.subject.name}${paper.title ? ` ${paper.title}` : ""}`,
+      title: `Hall list, ${paper.subject.name}${paper.title ? ` ${paper.title}` : ""}`,
       reference: paper.session.name,
       date: formatDate(paper.startsAt, "long"),
       body: hallListMarkdown({

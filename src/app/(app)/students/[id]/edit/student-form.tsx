@@ -323,7 +323,7 @@ export function StudentForm({
           <Field
             label="Learning support"
             htmlFor="learningSupport"
-            hint="One per line — dyslexia, ADHD, speech therapy."
+            hint="One per line: dyslexia, ADHD, speech therapy."
           >
             <Textarea
               id="learningSupport"

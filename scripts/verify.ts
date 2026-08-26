@@ -56,7 +56,7 @@ const warn = (g: string, l: string, d = "") => record(g, "warn", l, d);
 const fail = (g: string, l: string, d = "") => record(g, "fail", l, d);
 
 const day = (date: Date | null | undefined) =>
-  date ? date.toISOString().slice(0, 10) : "—";
+  date ? date.toISOString().slice(0, 10) : "-";
 const within = (date: Date, start: Date, end: Date) => date >= start && date <= end;
 const daysBetween = (from: Date, to: Date) =>
   Math.round((to.getTime() - from.getTime()) / 86_400_000);
@@ -189,7 +189,7 @@ async function checkLogins() {
 
     if (link === "guardian") {
       if (!user.guardian) {
-        fail(g, email, "Not linked to a guardian — the portal has nothing to show.");
+        fail(g, email, "Not linked to a guardian: the portal has nothing to show.");
         continue;
       }
       const wards = await db.studentGuardian.count({
@@ -202,7 +202,7 @@ async function checkLogins() {
 
     if (link === "student") {
       if (!user.student) {
-        fail(g, email, "Not linked to a student — the portal has nothing to show.");
+        fail(g, email, "Not linked to a student: the portal has nothing to show.");
         continue;
       }
       pass(g, email, `${user.portal} portal, ${user.student.admissionNo}`);
@@ -210,7 +210,7 @@ async function checkLogins() {
     }
 
     if (!user.staff) {
-      fail(g, email, "Not linked to a staff record — permissions resolve to none.");
+      fail(g, email, "Not linked to a staff record: permissions resolve to none.");
       continue;
     }
     pass(g, email, `${user.portal} portal`);
@@ -246,7 +246,7 @@ async function checkStudentPortal() {
   });
 
   if (!enrolment) {
-    fail(g, `${who} is enrolled`, "No ACTIVE enrolment — every portal page is empty.");
+    fail(g, `${who} is enrolled`, "No ACTIVE enrolment: every portal page is empty.");
     return;
   }
   const className = `${enrolment.classSection.classLevel.name} ${enrolment.classSection.name}`;
@@ -490,7 +490,7 @@ function checkArtwork(
   const url = (value ?? "").trim();
 
   if (!url) {
-    warn(group, label, `Not set — ${options.where} render without it.`);
+    warn(group, label, `Not set, ${options.where} render without it.`);
     return;
   }
 
@@ -533,7 +533,7 @@ async function checkOutputs() {
     });
 
     if (templates.length === 0) {
-      fail(g, `${kind} template`, "None — issuing falls back to a plain layout.");
+      fail(g, `${kind} template`, "None: issuing falls back to a plain layout.");
       continue;
     }
     // A template row with no elements produces a blank page, which reads as a
@@ -586,7 +586,7 @@ async function checkOutputs() {
       (block) => block?.type === "admissionForm",
     );
   if (!admissionsPage) {
-    warn(g, "Admissions page", "Not published — prospective parents have nowhere to apply.");
+    warn(g, "Admissions page", "Not published: prospective parents have nowhere to apply.");
   } else if (!hasEnquiryForm) {
     warn(g, "Admissions page", "Published, but carries no enquiry form block.");
   } else {
@@ -602,7 +602,7 @@ async function checkOutputs() {
   } else if (home.status !== "PUBLISHED") {
     warn(g, "Website home page", `${home.title} is ${home.status}.`);
   } else if (!Array.isArray(home.blocks) || home.blocks.length === 0) {
-    fail(g, "Website home page", "blocks is not a non-empty array — the page renders bare.");
+    fail(g, "Website home page", "blocks is not a non-empty array: the page renders bare.");
   } else {
     pass(g, "Website home page", `${home.blocks.length} blocks`);
   }
@@ -644,7 +644,7 @@ async function checkStructure() {
     fail(
       g,
       "Every class has a timetable",
-      `${sectionsWithoutTimetable} active section(s) with no slots — those timetables render empty.`,
+      `${sectionsWithoutTimetable} active section(s) with no slots: those timetables render empty.`,
     );
   } else {
     pass(g, "Every class has a timetable");
@@ -664,7 +664,7 @@ async function checkStructure() {
     fail(
       g,
       "Enrolled students have a guardian",
-      `${noGuardian} without one — nobody to contact or bill.`,
+      `${noGuardian} without one: nobody to contact or bill.`,
     );
   } else {
     pass(g, "Enrolled students have a guardian");
@@ -801,7 +801,7 @@ async function checkPayroll() {
     warn(
       g,
       "Stored payslips match the current rules",
-      `${drifted} of ${slips.length} differ — expected after a tax-table change, wrong otherwise.`,
+      `${drifted} of ${slips.length} differ: expected after a tax-table change, wrong otherwise.`,
     );
   } else {
     pass(g, "Stored payslips match the current rules", `${slips.length} slips`);
@@ -848,7 +848,7 @@ async function checkStudentLifecycle() {
     fail(
       g,
       "Enrolled students have an active enrolment",
-      `${enrolledWithoutEnrolment} are on the roll with no class — invoiced, never on a register.`,
+      `${enrolledWithoutEnrolment} are on the roll with no class: invoiced, never on a register.`,
     );
   } else {
     pass(g, "Enrolled students have an active enrolment");
@@ -864,7 +864,7 @@ async function checkStudentLifecycle() {
     fail(
       g,
       "Leavers are off the register",
-      `${leftButStillEnrolled} have left but keep an active enrolment — still billed, still counted.`,
+      `${leftButStillEnrolled} have left but keep an active enrolment: still billed, still counted.`,
     );
   } else {
     pass(g, "Leavers are off the register");
@@ -939,7 +939,7 @@ async function main() {
       console.log(`\n${group}`);
     }
     console.log(
-      `  [${MARK[result.level]}] ${result.label}${result.detail ? `  — ${result.detail}` : ""}`,
+      `  [${MARK[result.level]}] ${result.label}${result.detail ? ` , ${result.detail}` : ""}`,
     );
   }
 

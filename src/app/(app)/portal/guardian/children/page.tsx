@@ -187,7 +187,7 @@ export default async function GuardianChildrenPage() {
                         label: "Age",
                         value: student.dateOfBirth
                           ? `${calculateAge(student.dateOfBirth)} (born ${formatDate(student.dateOfBirth)})`
-                          : "—",
+                          : "-",
                       },
                       {
                         label: "Residence",
@@ -214,7 +214,7 @@ export default async function GuardianChildrenPage() {
                           Attendance
                         </span>
                         <span className="numeric font-medium">
-                          {total ? formatPercent(rate) : "—"}
+                          {total ? formatPercent(rate) : "-"}
                         </span>
                       </div>
                       <ProgressBar
@@ -243,7 +243,7 @@ export default async function GuardianChildrenPage() {
 
                     <p className="text-xs text-[var(--text-subtle)]">
                       <GraduationCap className="mr-1 inline size-3" />
-                      Contact the office to correct anything shown here — the school
+                      Contact the office to correct anything shown here: the school
                       record is the one used in an emergency.
                     </p>
                   </div>
@@ -299,7 +299,7 @@ export default async function GuardianChildrenPage() {
                             </Badge>
                             {record.resolution ? (
                               <span className="text-[var(--text-subtle)]">
-                                — {record.resolution}
+                               : {record.resolution}
                               </span>
                             ) : null}
                           </li>

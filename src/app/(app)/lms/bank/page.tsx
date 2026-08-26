@@ -231,7 +231,7 @@ export default async function QuestionBankPage({
           <Card className="lg:sticky lg:top-20">
             <CardHeader
               title="File a question"
-              description="Same shorthand as the quiz screen — mark correct options with *."
+              description="Same shorthand as the quiz screen: mark correct options with *."
             />
             <BankQuestionForm
               subjects={subjects.map((subject) => ({

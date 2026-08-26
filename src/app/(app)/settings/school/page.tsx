@@ -80,23 +80,23 @@ export default async function SchoolSettingsPage() {
               <DescriptionList
                 items={[
                   { label: "Name", value: values.name },
-                  { label: "Short name", value: values.shortName || "—" },
-                  { label: "Motto", value: values.motto || "—", span: true },
-                  { label: "Email", value: values.email || "—" },
-                  { label: "Phone", value: values.phone || "—" },
+                  { label: "Short name", value: values.shortName || "-" },
+                  { label: "Motto", value: values.motto || "-", span: true },
+                  { label: "Email", value: values.email || "-" },
+                  { label: "Phone", value: values.phone || "-" },
                   {
                     label: "Address",
                     value:
                       [values.addressLine1, values.city, values.region]
                         .filter(Boolean)
-                        .join(", ") || "—",
+                        .join(", ") || "-",
                     span: true,
                   },
-                  { label: "Ghana Post GPS", value: values.digitalAddr || "—" },
-                  { label: "Registration no.", value: values.registrationNo || "—" },
+                  { label: "Ghana Post GPS", value: values.digitalAddr || "-" },
+                  { label: "Registration no.", value: values.registrationNo || "-" },
                   {
                     label: "Curricula",
-                    value: values.curricula.join(", ") || "—",
+                    value: values.curricula.join(", ") || "-",
                     span: true,
                   },
                 ]}

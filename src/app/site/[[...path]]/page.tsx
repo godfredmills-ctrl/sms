@@ -219,7 +219,7 @@ export default async function PublicSitePage({
 
       {!isLive ? (
         <div className="bg-amber-600 px-4 py-2 text-center text-xs font-semibold text-white">
-          Preview — this {site.isPublished ? "page is a draft" : "site is offline"} and
+          Preview: this {site.isPublished ? "page is a draft" : "site is offline"} and
           is not visible to the public.
         </div>
       ) : null}

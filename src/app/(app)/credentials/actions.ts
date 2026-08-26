@@ -272,7 +272,7 @@ export async function emailCredentialAction(
   for (const guardian of addresses) {
     const result = await sendEmail({
       to: guardian.email,
-      subject: `${label} — ${record.serialNumber}`,
+      subject: `${label}, ${record.serialNumber}`,
       html: `<p>Dear ${guardian.firstName},</p>
 <p>Please find attached the ${label.toLowerCase()} issued by the school, reference ${record.serialNumber}.</p>
 <p>The document carries a verification code so that any university or employer receiving it can confirm it is genuine.</p>`,

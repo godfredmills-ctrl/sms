@@ -69,7 +69,7 @@ export async function GET(request: Request) {
   const pdf = await renderDocumentPdf({
     letterhead,
     document: {
-      title: `Income and Expenditure — ${statement.period.label}`,
+      title: `Income and Expenditure, ${statement.period.label}`,
       date: formatDate(new Date(), "long"),
       body: statementMarkdown(statement),
       closing: "Prepared by,",

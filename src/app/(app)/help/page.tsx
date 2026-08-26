@@ -75,7 +75,7 @@ export default async function HelpPage() {
           <Card>
             <CardHeader
               title="What you can reach"
-              description="Your account, not the system in general — this list is built from your own permissions."
+              description="Your account, not the system in general: this list is built from your own permissions."
             />
             <CardBody className="space-y-5">
               {groups.length === 0 ? (
@@ -124,7 +124,7 @@ export default async function HelpPage() {
                   <dt className="font-medium">A class or a pupil you expected is not listed</dt>
                   <dd className="mt-0.5 text-[var(--text-muted)]">
                     Teaching screens show the classes you teach and the register you
-                    hold as form teacher — not the whole school. If a class you teach
+                    hold as form teacher: not the whole school. If a class you teach
                     is missing, the subject has not been assigned to you for this
                     term; the office sets that on the Class sections page.
                   </dd>
@@ -132,7 +132,7 @@ export default async function HelpPage() {
                 <div>
                   <dt className="font-medium">A figure looks wrong</dt>
                   <dd className="mt-0.5 text-[var(--text-muted)]">
-                    Check the term first — most screens show the current term, and a
+                    Check the term first: most screens show the current term, and a
                     term that has not been marked current makes several pages fall
                     back to showing everything. Say what you saw and on which page
                     when you report it; the exact screen matters more than the number.
@@ -149,7 +149,7 @@ export default async function HelpPage() {
             <CardBody className="space-y-3 text-sm">
               <p className="text-[var(--text-muted)]">
                 For anything about your access, your marks or a pupil&rsquo;s record,
-                the school office is the first stop — not the software.
+                the school office is the first stop: not the software.
               </p>
               {contact.map((entry) => (
                 <a
@@ -182,7 +182,7 @@ export default async function HelpPage() {
                 <ShieldCheck className="mt-0.5 size-4 shrink-0 text-[var(--text-subtle)]" />
                 <span>
                   Signed in as <strong className="text-[var(--text)]">{user.fullName}</strong>
-                  {user.roleNames.length ? ` — ${user.roleNames.join(", ")}` : ""}.
+                  {user.roleNames.length ? `, ${user.roleNames.join(", ")}` : ""}.
                 </span>
               </p>
               <p>

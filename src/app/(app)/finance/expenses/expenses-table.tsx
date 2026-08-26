@@ -118,7 +118,7 @@ export function ExpensesTable({ rows }: { rows: ExpenseRow[] }) {
             </p>
           </div>
         ) : (
-          <span className="text-[var(--text-subtle)]">—</span>
+          <span className="text-[var(--text-subtle)]">-</span>
         ),
       width: "130px",
       priority: 3,

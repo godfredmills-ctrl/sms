@@ -155,7 +155,7 @@ export function DocumentsField({
           {busy ? "Uploading…" : dragging ? "Drop to upload" : "Drop files here, or browse"}
         </span>
         <span className="text-xs text-[var(--text-subtle)]">
-          Filed as “{labelFor(category)}” — change the category above between files.
+          Filed as “{labelFor(category)}”: change the category above between files.
         </span>
       </div>
 

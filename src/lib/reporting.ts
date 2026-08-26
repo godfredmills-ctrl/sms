@@ -226,7 +226,7 @@ export function applyConfig(
 
 /** Formats a value for display, honouring the field's declared type. */
 export function formatCell(value: string | number | null, type: FieldType): string {
-  if (value === null || value === undefined || value === "") return "—";
+  if (value === null || value === undefined || value === "") return "-";
 
   switch (type) {
     case "money":

@@ -43,7 +43,7 @@ export function GuardiansTable({ rows }: { rows: GuardianRow[] }) {
           <div className="min-w-0">
             <p className="truncate font-medium">{row.name}</p>
             <p className="truncate text-xs text-[var(--text-subtle)]">
-              {row.occupation ?? "—"}
+              {row.occupation ?? "-"}
               {row.employer ? ` · ${row.employer}` : ""}
             </p>
           </div>
@@ -96,7 +96,7 @@ export function GuardiansTable({ rows }: { rows: GuardianRow[] }) {
             {formatPhone(row.phone)}
           </a>
           <p className="truncate text-xs text-[var(--text-subtle)]">
-            {row.email ?? "—"}
+            {row.email ?? "-"}
           </p>
         </div>
       ),
@@ -143,7 +143,7 @@ export function GuardiansTable({ rows }: { rows: GuardianRow[] }) {
             {formatMoney(row.outstandingMinor)}
           </span>
         ) : (
-          <span className="text-[var(--text-subtle)]">—</span>
+          <span className="text-[var(--text-subtle)]">-</span>
         ),
       align: "right",
     },

@@ -95,7 +95,7 @@ export default async function GuardianAttendancePage() {
         <StatCard
           label="Overall attendance"
           value={
-            overall.total ? formatPercent(percentOf(overall.present, overall.total)) : "—"
+            overall.total ? formatPercent(percentOf(overall.present, overall.total)) : "-"
           }
           hint={`${overall.present} of ${overall.total} sessions`}
           tone={
@@ -126,7 +126,7 @@ export default async function GuardianAttendancePage() {
         <Alert tone="danger" className="mb-4">
           {atRisk.map((entry) => entry.link.student.firstName).join(" and ")}{" "}
           {atRisk.length === 1 ? "is" : "are"} below 85% attendance. Schools treat that
-          as the level where missed lessons begin to show in results — the form
+          as the level where missed lessons begin to show in results: the form
           teacher can help if something is making attendance hard.
         </Alert>
       ) : null}
@@ -140,7 +140,7 @@ export default async function GuardianAttendancePage() {
                   {fullName(entry.link.student)}
                 </span>
                 <span className="numeric text-sm">
-                  {entry.total ? formatPercent(entry.rate) : "—"}
+                  {entry.total ? formatPercent(entry.rate) : "-"}
                 </span>
               </div>
               <ProgressBar

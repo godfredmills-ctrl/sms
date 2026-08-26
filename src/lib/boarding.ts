@@ -132,7 +132,7 @@ export async function allocationRefusal(input: {
   if (wrongHouse) return wrongHouse;
 
   if (room._count.allocations >= room.capacity) {
-    return `${room.name} is full — ${room._count.allocations} of ${room.capacity} beds taken.`;
+    return `${room.name} is full, ${room._count.allocations} of ${room.capacity} beds taken.`;
   }
 
   return null;

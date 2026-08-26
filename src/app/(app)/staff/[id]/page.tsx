@@ -240,7 +240,7 @@ export default async function StaffProfilePage({
         />
         <StatCard
           label="Years of service"
-          value={yearsOfService ?? "—"}
+          value={yearsOfService ?? "-"}
           hint={staff.hireDate ? `Joined ${formatDate(staff.hireDate)}` : "No hire date"}
           tone="success"
         />
@@ -282,12 +282,12 @@ export default async function StaffProfilePage({
                     label: "Date of birth",
                     value: staff.dateOfBirth
                       ? `${formatDate(staff.dateOfBirth)} (${calculateAge(staff.dateOfBirth)})`
-                      : "—",
+                      : "-",
                   },
-                  { label: "Nationality", value: staff.nationality ?? "—" },
-                  { label: "Marital status", value: humanise(staff.maritalStatus) || "—" },
-                  { label: "Religion", value: staff.religion ?? "—" },
-                  { label: "Blood group", value: staff.bloodGroup ?? "—" },
+                  { label: "Nationality", value: staff.nationality ?? "-" },
+                  { label: "Marital status", value: humanise(staff.maritalStatus) || "-" },
+                  { label: "Religion", value: staff.religion ?? "-" },
+                  { label: "Blood group", value: staff.bloodGroup ?? "-" },
                 ]}
               />
             </CardBody>
@@ -300,10 +300,10 @@ export default async function StaffProfilePage({
                 items={[
                   { label: "Phone", value: formatPhone(staff.phone) },
                   { label: "Alternate phone", value: formatPhone(staff.altPhone) },
-                  { label: "Email", value: staff.email ?? "—" },
-                  { label: "Campus", value: staff.campus?.name ?? "—" },
-                  { label: "Address", value: staff.address ?? "—", span: true },
-                  { label: "Ghana Post GPS", value: staff.digitalAddr ?? "—" },
+                  { label: "Email", value: staff.email ?? "-" },
+                  { label: "Campus", value: staff.campus?.name ?? "-" },
+                  { label: "Address", value: staff.address ?? "-", span: true },
+                  { label: "Ghana Post GPS", value: staff.digitalAddr ?? "-" },
                 ]}
               />
             </CardBody>
@@ -319,7 +319,7 @@ export default async function StaffProfilePage({
                 <DescriptionList
                   items={[
                     { label: "Name", value: staff.emergencyName },
-                    { label: "Relationship", value: staff.emergencyRelation ?? "—" },
+                    { label: "Relationship", value: staff.emergencyRelation ?? "-" },
                     { label: "Phone", value: formatPhone(staff.emergencyPhone) },
                   ]}
                 />
@@ -337,7 +337,7 @@ export default async function StaffProfilePage({
               {staff.user ? (
                 <DescriptionList
                   items={[
-                    { label: "Sign-in email", value: staff.user.email ?? "—" },
+                    { label: "Sign-in email", value: staff.user.email ?? "-" },
                     {
                       label: "Account status",
                       value: <StatusBadge status={staff.user.status} />,
@@ -345,7 +345,7 @@ export default async function StaffProfilePage({
                     {
                       label: "Roles",
                       value:
-                        staff.user.roles.map((link) => link.role.name).join(", ") || "—",
+                        staff.user.roles.map((link) => link.role.name).join(", ") || "-",
                       span: true,
                     },
                     {
@@ -371,23 +371,23 @@ export default async function StaffProfilePage({
             <CardBody>
               <DescriptionList
                 items={[
-                  { label: "Job title", value: staff.jobTitle ?? "—" },
-                  { label: "Department", value: staff.department ?? "—" },
+                  { label: "Job title", value: staff.jobTitle ?? "-" },
+                  { label: "Department", value: staff.department ?? "-" },
                   { label: "Contract", value: humanise(staff.employmentType) },
                   { label: "Status", value: <StatusBadge status={staff.status} /> },
                   {
                     label: "Hired",
-                    value: staff.hireDate ? formatDate(staff.hireDate) : "—",
+                    value: staff.hireDate ? formatDate(staff.hireDate) : "-",
                   },
                   {
                     label: "Confirmed",
-                    value: staff.confirmDate ? formatDate(staff.confirmDate) : "—",
+                    value: staff.confirmDate ? formatDate(staff.confirmDate) : "-",
                   },
                   {
                     label: "Exited",
-                    value: staff.exitDate ? formatDate(staff.exitDate) : "—",
+                    value: staff.exitDate ? formatDate(staff.exitDate) : "-",
                   },
-                  { label: "Exit reason", value: staff.exitReason ?? "—" },
+                  { label: "Exit reason", value: staff.exitReason ?? "-" },
                 ]}
               />
             </CardBody>
@@ -398,9 +398,9 @@ export default async function StaffProfilePage({
             <CardBody>
               <DescriptionList
                 items={[
-                  { label: "Ghana Card", value: staff.nationalId ?? "—" },
-                  { label: "SSNIT", value: staff.ssnitNumber ?? "—" },
-                  { label: "TIN", value: staff.tin ?? "—" },
+                  { label: "Ghana Card", value: staff.nationalId ?? "-" },
+                  { label: "SSNIT", value: staff.ssnitNumber ?? "-" },
+                  { label: "TIN", value: staff.tin ?? "-" },
                 ]}
               />
             </CardBody>
@@ -469,7 +469,7 @@ export default async function StaffProfilePage({
           <Card>
             <CardHeader
               title="Subject assignments"
-              description={`${staff.offerings.length} class–subject combination${
+              description={`${staff.offerings.length} class-subject combination${
                 staff.offerings.length === 1 ? "" : "s"
               }`}
             />
@@ -571,9 +571,9 @@ export default async function StaffProfilePage({
           <CardBody>
             <DescriptionList
               items={[
-                { label: "Bank", value: staff.bankName ?? "—" },
-                { label: "Branch", value: staff.bankBranch ?? "—" },
-                { label: "Account number", value: staff.bankAccountNo ?? "—" },
+                { label: "Bank", value: staff.bankName ?? "-" },
+                { label: "Branch", value: staff.bankBranch ?? "-" },
+                { label: "Account number", value: staff.bankAccountNo ?? "-" },
                 {
                   label: "Mobile money",
                   value: staff.momoNumber
@@ -582,7 +582,7 @@ export default async function StaffProfilePage({
                         detectMomoNetwork(staff.momoNumber) ??
                         "unknown network"
                       })`
-                    : "—",
+                    : "-",
                 },
               ]}
             />
@@ -617,7 +617,7 @@ export default async function StaffProfilePage({
                     <div className="min-w-0">
                       <p className="text-sm font-medium">{humanise(request.leaveType)}</p>
                       <p className="text-xs text-[var(--text-subtle)]">
-                        {formatDate(request.startDate)} – {formatDate(request.endDate)} ·{" "}
+                        {formatDate(request.startDate)} to {formatDate(request.endDate)} ·{" "}
                         {request.days} day{request.days === 1 ? "" : "s"}
                       </p>
                       {request.reason ? (

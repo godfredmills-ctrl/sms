@@ -16,7 +16,7 @@ async function main() {
   const result = await syncPermissions();
 
   if (result.firstRun) {
-    console.log("  No permissions in the database yet — the seed will create them.");
+    console.log("  No permissions in the database yet: the seed will create them.");
     return;
   }
 
@@ -32,7 +32,7 @@ async function main() {
 
   const grants = Object.entries(result.granted);
   if (grants.length === 0) {
-    console.log("  No system role's preset claims them — grant them at /users/roles.");
+    console.log("  No system role's preset claims them: grant them at /users/roles.");
     return;
   }
 
@@ -43,7 +43,7 @@ async function main() {
 
 main()
   .catch((error) => {
-    console.error("  Permission sync failed — new features may be unreachable.");
+    console.error("  Permission sync failed: new features may be unreachable.");
     console.error(`  ${(error as Error).message}`);
   })
   .finally(() => {

@@ -168,7 +168,7 @@ export async function GET(request: Request) {
         // page is better than a board reading a truncated table as complete.
         ...(shown < total ? [`showing the first ${shown.toLocaleString()}`] : []),
       ].join("  ·  "),
-      meta: `Run by ${author ? `${author.firstName} ${author.lastName}` : "—"} on ${formatDateTime(run.createdAt)}`,
+      meta: `Run by ${author ? `${author.firstName} ${author.lastName}` : "-"} on ${formatDateTime(run.createdAt)}`,
       columns,
       rows,
       summary,

@@ -43,7 +43,7 @@ export default async function AssetCategoriesPage({
 
       {first ? (
         <Alert tone="info" className="mb-4">
-          Set up a category or two before adding anything — every asset needs one,
+          Set up a category or two before adding anything: every asset needs one,
           and the category decides how the register values it. Most schools start
           with vehicles, ICT equipment, furniture, laboratory equipment and
           buildings.
@@ -59,7 +59,7 @@ export default async function AssetCategoriesPage({
                 description={
                   category.usefulLifeYears
                     ? `Written off over ${category.usefulLifeYears} year${category.usefulLifeYears === 1 ? "" : "s"}${category.residualPercent ? `, keeping ${category.residualPercent}%` : ""}`
-                    : "Carried at cost — not depreciated"
+                    : "Carried at cost: not depreciated"
                 }
                 action={
                   <span className="flex items-center gap-1.5">
@@ -102,7 +102,7 @@ export default async function AssetCategoriesPage({
         <Card className="h-fit">
           <CardHeader
             title="Add a category"
-            description="A category cannot be deleted once anything is filed under it — turn it off instead, and what is already there keeps its valuation."
+            description="A category cannot be deleted once anything is filed under it: turn it off instead, and what is already there keeps its valuation."
           />
           <CardBody>
             <CategoryForm />

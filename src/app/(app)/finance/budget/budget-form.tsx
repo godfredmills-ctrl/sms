@@ -155,7 +155,7 @@ export function BudgetForm({
 
       <p className="max-w-2xl text-sm text-[var(--text-muted)]">
         A blank figure means no budget was set for that line, which is different from
-        budgeting nothing — the statement shows the first as a dash and the second as
+        budgeting nothing: the statement shows the first as a dash and the second as
         zero, and only the second is being overspent.
       </p>
 

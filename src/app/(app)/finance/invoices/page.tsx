@@ -116,7 +116,7 @@ export default async function InvoicesPage({
       className: section
         ? `${section.classLevel.name} ${section.name}`
         : "Unassigned",
-      term: invoice.term?.name ?? "—",
+      term: invoice.term?.name ?? "-",
       status: invoice.status,
       totalMinor: invoice.totalMinor,
       paidMinor: invoice.paidMinor,

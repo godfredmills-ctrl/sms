@@ -119,7 +119,7 @@ export default async function EnquiriesPage({
     <>
       <PageHeader
         title="Admission enquiries"
-        description="Submitted from the public website. Convert the real ones with the admission form — an enquiry never becomes a student by itself."
+        description="Submitted from the public website. Convert the real ones with the admission form: an enquiry never becomes a student by itself."
         action={<RefreshButton />}
       />
 
@@ -197,7 +197,7 @@ export default async function EnquiriesPage({
                 </a>
               </div>
               <p className="mb-2 text-xs text-[var(--text-subtle)]">
-                One per line, newest first — select all and paste into your mail
+                One per line, newest first: select all and paste into your mail
                 tool&rsquo;s BCC field.
               </p>
               <textarea

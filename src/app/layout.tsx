@@ -12,7 +12,7 @@ export const metadata: Metadata = {
     template: "%s · School Management System",
   },
   description:
-    "Student records, attendance, assessment, fees, communication and learning — one system for the whole school.",
+    "Student records, attendance, assessment, fees, communication and learning: one system for the whole school.",
   applicationName: "School MS",
   manifest: "/manifest.webmanifest",
   appleWebApp: {

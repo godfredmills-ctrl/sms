@@ -193,7 +193,7 @@ export default async function ReceiptPage({
                     payment.payerName ??
                     (payment.guardian
                       ? `${payment.guardian.firstName} ${payment.guardian.lastName}`
-                      : "—"),
+                      : "-"),
                 },
                 {
                   label: "Payer phone",
@@ -213,7 +213,7 @@ export default async function ReceiptPage({
                 ...(payment.bankName
                   ? [
                       { label: "Bank", value: payment.bankName },
-                      { label: "Bank reference", value: payment.bankReference ?? "—" },
+                      { label: "Bank reference", value: payment.bankReference ?? "-" },
                     ]
                   : []),
                 ...(payment.chequeNumber
@@ -262,7 +262,7 @@ export default async function ReceiptPage({
                       </span>
                     </div>
                     <p className="text-xs text-[var(--text-subtle)]">
-                      {allocation.invoice.term?.name ?? allocation.invoice.title ?? "—"} ·
+                      {allocation.invoice.term?.name ?? allocation.invoice.title ?? "-"} ·
                       balance now {formatMoney(allocation.invoice.balanceMinor)}
                     </p>
                   </li>

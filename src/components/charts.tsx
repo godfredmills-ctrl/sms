@@ -53,7 +53,7 @@ export type SeriesDef = {
 
 /** `money` values arrive in major units (cedis), as charted. */
 function formatSeriesValue(value: number, series?: SeriesDef): string {
-  if (!Number.isFinite(value)) return "—";
+  if (!Number.isFinite(value)) return "-";
 
   switch (series?.format) {
     case "percent":

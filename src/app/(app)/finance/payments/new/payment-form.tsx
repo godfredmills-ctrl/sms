@@ -109,7 +109,7 @@ export function RecordPaymentForm({
         <Card>
           <CardHeader
             title="Payment details"
-            description="Part payments are expected — record whatever the family has brought."
+            description="Part payments are expected: record whatever the family has brought."
           />
           <CardBody className="space-y-4">
             {state.error ? <Alert tone="danger">{state.error}</Alert> : null}
@@ -152,7 +152,7 @@ export function RecordPaymentForm({
                 <SearchableSelect
                   id="invoiceId"
                   name="invoiceId"
-                  placeholder="Automatic — oldest invoice first"
+                  placeholder="Automatic: oldest invoice first"
                   value={invoiceId}
                   onChange={(next) => setInvoiceId(next as string)}
                   options={student.invoices.map((invoice) => ({
@@ -272,14 +272,14 @@ export function RecordPaymentForm({
           <Card className="lg:sticky lg:top-20">
             <CardHeader title="Summary" />
             <CardBody className="space-y-3 text-sm">
-              <Row label="Student" value={student?.label ?? "—"} />
+              <Row label="Student" value={student?.label ?? "-"} />
               <Row
                 label="Currently owed"
-                value={student ? formatMoney(student.outstandingMinor) : "—"}
+                value={student ? formatMoney(student.outstandingMinor) : "-"}
               />
               <Row
                 label="Paying now"
-                value={amountMinor > 0 ? formatMoney(amountMinor) : "—"}
+                value={amountMinor > 0 ? formatMoney(amountMinor) : "-"}
                 emphasis
               />
               <hr className="border-[var(--border)]" />
@@ -292,7 +292,7 @@ export function RecordPaymentForm({
                       : remaining === 0
                         ? "Cleared"
                         : `${formatMoney(Math.abs(remaining))} credit`
-                    : "—"
+                    : "-"
                 }
                 tone={
                   student && amountMinor > 0

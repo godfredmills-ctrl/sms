@@ -95,7 +95,7 @@ check("a padded secret is trimmed before masking", maskSecret("  sk_live_abcdefg
 check("true", asBoolean("true", false), true);
 check("1", asBoolean("1", false), true);
 check("yes", asBoolean("yes", false), true);
-check("on — what a checkbox posts", asBoolean("on", false), true);
+check("on: what a checkbox posts", asBoolean("on", false), true);
 check("TRUE regardless of case", asBoolean("TRUE", false), true);
 check("false", asBoolean("false", true), false);
 check("0", asBoolean("0", true), false);

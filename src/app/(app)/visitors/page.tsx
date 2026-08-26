@@ -281,7 +281,7 @@ export default async function VisitorsPage({
 
                         <p className="mt-0.5 text-sm text-[var(--text-muted)]">
                           {categoryLabel(row.category)}
-                          {row.organisation ? ` · ${row.organisation}` : ""} — {row.purpose}
+                          {row.organisation ? ` · ${row.organisation}` : ""}: {row.purpose}
                         </p>
 
                         <p className="mt-0.5 text-xs text-[var(--text-subtle)]">

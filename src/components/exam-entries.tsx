@@ -39,7 +39,7 @@ export function ExamEntries({
         <Card key={`${entry.sessionId}-${entry.studentId}`}>
           <CardHeader
             title={entry.sessionName}
-            description={`${formatDate(entry.startsOn, "long")} – ${formatDate(
+            description={`${formatDate(entry.startsOn, "long")} to ${formatDate(
               entry.endsOn,
               "long",
             )}${showNames ? `  ·  ${entry.studentName}` : ""}`}
@@ -104,13 +104,13 @@ export function ExamEntries({
                               })}
                             </p>
                             <p className="numeric text-xs text-[var(--text-subtle)]">
-                              {clock(paper.startsAt)}–{clock(end)}
+                              {clock(paper.startsAt)}-{clock(end)}
                             </p>
                           </td>
                           <td className="py-2 pr-3 align-top">
                             <p className="text-[var(--text)]">
                               {paper.subject}
-                              {paper.title ? ` — ${paper.title}` : ""}
+                              {paper.title ? `, ${paper.title}` : ""}
                             </p>
                             {paper.attended ? (
                               <Badge
@@ -121,7 +121,7 @@ export function ExamEntries({
                             ) : null}
                           </td>
                           <td className="py-2 pr-3 align-top">
-                            <p className="text-[var(--text)]">{paper.hall ?? "—"}</p>
+                            <p className="text-[var(--text)]">{paper.hall ?? "-"}</p>
                             {paper.seatNo ? (
                               <p className="numeric inline-flex items-center gap-1 text-xs text-[var(--text-subtle)]">
                                 <Armchair className="size-3" />
@@ -130,7 +130,7 @@ export function ExamEntries({
                             ) : null}
                           </td>
                           <td className="py-2 align-top text-[var(--text-muted)]">
-                            {paper.materials ?? "—"}
+                            {paper.materials ?? "-"}
                           </td>
                         </tr>
                       );

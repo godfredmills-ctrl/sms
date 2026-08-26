@@ -150,7 +150,7 @@ export function AnnouncementForm() {
         <CheckboxField
           name="isPinned"
           label="Pin to the top of the feed"
-          description="Use sparingly — everything pinned means nothing is."
+          description="Use sparingly: everything pinned means nothing is."
         />
         <CheckboxField
           name="publishNow"

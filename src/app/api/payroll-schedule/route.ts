@@ -70,7 +70,7 @@ export async function GET(request: Request) {
 
   const workbook = await buildWorkbook({
     sheetName: "Payment schedule",
-    title: `${period} — payroll payment schedule${run.status === "DRAFT" ? " (DRAFT)" : ""}`,
+    title: `${period}: payroll payment schedule${run.status === "DRAFT" ? " (DRAFT)" : ""}`,
     columns: [
       { key: "staffNo", header: "Staff no." },
       { key: "name", header: "Name", width: 28 },
@@ -101,7 +101,7 @@ export async function GET(request: Request) {
           ? (slip.staff.bankAccountNo ?? "")
           : slip.paymentMethod === "MOMO"
             ? (slip.staff.momoNumber ?? "")
-            : "— pay in cash",
+            : "- pay in cash",
       amount: toMajor(slip.netMinor),
     })),
   });

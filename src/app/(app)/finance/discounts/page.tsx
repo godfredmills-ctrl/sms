@@ -138,7 +138,7 @@ export default async function DiscountsPage({
               <EmptyState
                 icon={<BadgePercent className="size-5" />}
                 title="No discounts awarded"
-                description="Award one on the right — it is applied automatically the next time the student is billed."
+                description="Award one on the right: it is applied automatically the next time the student is billed."
               />
             </Card>
           ) : (
@@ -259,7 +259,7 @@ export default async function DiscountsPage({
               </p>
               <p>
                 A withdrawn award stops applying to future bills but stays on the
-                record. Invoices already raised under it are unchanged — reducing a
+                record. Invoices already raised under it are unchanged: reducing a
                 bill a family has already been told about is a credit note, not an
                 edit.
               </p>

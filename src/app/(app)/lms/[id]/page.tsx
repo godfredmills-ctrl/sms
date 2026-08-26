@@ -359,7 +359,7 @@ export default async function CoursePage({
               <EmptyState
                 icon={<BookOpen className="size-5" />}
                 title="No modules yet"
-                description="Add a module first — lessons live inside modules."
+                description="Add a module first: lessons live inside modules."
               />
             </Card>
           ) : null}
@@ -568,7 +568,7 @@ export default async function CoursePage({
                       id="m-title"
                       name="title"
                       required
-                      placeholder="Unit 1 — Matter"
+                      placeholder="Unit 1: Matter"
                     />
                   </Field>
                   <Field label="Description" htmlFor="m-description">

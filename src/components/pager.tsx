@@ -136,7 +136,7 @@ export function Pager({
       className="mt-3 flex flex-wrap items-center justify-between gap-3"
     >
       <p className="text-xs text-[var(--text-subtle)]">
-        {first.toLocaleString()}–{last.toLocaleString()} of {total.toLocaleString()} {label}
+        {first.toLocaleString()}-{last.toLocaleString()} of {total.toLocaleString()} {label}
       </p>
 
       <div className="flex items-center gap-1">

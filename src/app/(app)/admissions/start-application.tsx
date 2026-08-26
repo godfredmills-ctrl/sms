@@ -70,7 +70,7 @@ export function StartApplication({
         {applicants.length === 0 ? (
           <Alert tone="info">
             Every applicant already has an application. Admit a new one under Students
-            first — the pupil record holds the name, the date of birth and the family.
+            first: the pupil record holds the name, the date of birth and the family.
           </Alert>
         ) : (
           <form action={action} className="space-y-3">

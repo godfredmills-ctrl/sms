@@ -323,7 +323,7 @@ class HubtelGateway implements PaymentGateway {
         },
         body: JSON.stringify({
           totalAmount: request.amountMinor / 100,
-          description: `School fees — ${request.reference}`,
+          description: `School fees, ${request.reference}`,
           // These are two different things and were being sent the same value.
           //
           // returnUrl is where the payer's browser is sent afterwards;

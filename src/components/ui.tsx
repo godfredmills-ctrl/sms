@@ -642,7 +642,7 @@ export function DescriptionList({
             {item.label}
           </dt>
           <dd className="mt-0.5 text-sm break-words text-[var(--text)]">
-            {item.value ?? "—"}
+            {item.value ?? "-"}
           </dd>
         </div>
       ))}

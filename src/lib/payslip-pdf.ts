@@ -374,7 +374,7 @@ function drawSlip(
 
   // --- Employer contribution and the footnote -------------------------------
   page.drawText(
-    `Employer SSNIT contribution: ${slip.employerSsnit} — paid by the school on top of the salary above.`,
+    `Employer SSNIT contribution: ${slip.employerSsnit}: paid by the school on top of the salary above.`,
     { x: left, y, size: 6, font: fonts.regular, color: MUTED },
   );
   y -= 9;

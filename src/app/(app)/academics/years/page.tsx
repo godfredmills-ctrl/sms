@@ -67,7 +67,7 @@ export default async function YearsPage() {
           value={currentTerm?.name ?? "Not set"}
           hint={
             currentTerm
-              ? `${formatDate(currentTerm.startDate)} – ${formatDate(currentTerm.endDate)}`
+              ? `${formatDate(currentTerm.startDate)} to ${formatDate(currentTerm.endDate)}`
               : undefined
           }
           tone={currentTerm ? "success" : "warning"}
@@ -88,7 +88,7 @@ export default async function YearsPage() {
       {!current ? (
         <Alert tone="danger" className="mb-4">
           No year is marked current. Attendance, marks, invoices and report cards all
-          hang off the current year and term — nothing will work until one is set.
+          hang off the current year and term: nothing will work until one is set.
         </Alert>
       ) : !currentTerm ? (
         <Alert tone="warning" className="mb-4">
@@ -113,7 +113,7 @@ export default async function YearsPage() {
             <Card key={year.id}>
               <CardHeader
                 title={year.name}
-                description={`${formatDate(year.startDate)} – ${formatDate(year.endDate)} · ${year._count.enrollments} enrolments, ${year._count.invoices} invoices`}
+                description={`${formatDate(year.startDate)} to ${formatDate(year.endDate)} · ${year._count.enrollments} enrolments, ${year._count.invoices} invoices`}
                 action={
                   year.isCurrent ? (
                     <Badge tone="success">
@@ -253,8 +253,8 @@ export default async function YearsPage() {
               <p className="mb-1.5 font-medium text-[var(--text)]">What locking does</p>
               <p>
                 A locked term stops marks being changed after reports have gone home.
-                It stays reversible on purpose — a genuine correction has to be
-                possible — but unlocking is a deliberate act that lands in the audit
+                It stays reversible on purpose: a genuine correction has to be
+                possible: but unlocking is a deliberate act that lands in the audit
                 log with your name on it.
               </p>
             </CardBody>

@@ -30,7 +30,7 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { id } = await params;
   const detail = await itemDetail(id);
-  return { title: detail ? `${detail.item.code} — ${detail.item.name}` : "Stock item" };
+  return { title: detail ? `${detail.item.code}, ${detail.item.name}` : "Stock item" };
 }
 
 const LEVEL_TONE = {
@@ -100,7 +100,7 @@ export default async function StockItemPage({
                 history would have taken the shelf below zero.
               </strong>{" "}
               The balance is held at what could actually have been there, so it is
-              not negative — but something was issued that the book says was never
+              not negative: but something was issued that the book says was never
               received. Count it and record the count.
             </span>
           </span>
@@ -121,7 +121,7 @@ export default async function StockItemPage({
         </Alert>
       ) : state.quantityMilli > 0 && expiry === "soon" ? (
         <Alert tone="warning" className="mb-4">
-          Best before {formatDate(item.expiresOn!, "long")} — use it before then.
+          Best before {formatDate(item.expiresOn!, "long")}: use it before then.
         </Alert>
       ) : null}
 
@@ -137,7 +137,7 @@ export default async function StockItemPage({
           <Card>
             <CardHeader
               title="Movements"
-              description="Append-only. A correction is another movement, never an edit — the balance is the sum of these."
+              description="Append-only. A correction is another movement, never an edit: the balance is the sum of these."
               action={
                 mayManage ? (
                   <Link
@@ -207,7 +207,7 @@ export default async function StockItemPage({
                             {formatQuantity(Math.round(Number(movement.quantity) * 1000))}
                           </td>
                           <td className="numeric px-3 py-2 text-right text-xs text-[var(--text-muted)]">
-                            {after ? formatQuantity(after.quantityMilli) : "—"}
+                            {after ? formatQuantity(after.quantityMilli) : "-"}
                           </td>
                           <td className="px-3 py-2 text-xs text-[var(--text-muted)]">
                             {movement.issuedTo
@@ -244,7 +244,7 @@ export default async function StockItemPage({
                     label: "Average cost",
                     value:
                       state.averageCostMinor === null
-                        ? "—"
+                        ? "-"
                         : `${formatMoney(state.averageCostMinor)} per ${item.unit}`,
                   },
                   { label: "Value", value: formatMoney(state.valueMinor) },
@@ -252,7 +252,7 @@ export default async function StockItemPage({
                     label: "Reorder at",
                     value:
                       item.reorderLevel === null
-                        ? "Not set — nothing will flag it"
+                        ? "Not set: nothing will flag it"
                         : `${formatQuantity(Math.round(Number(item.reorderLevel) * 1000))} ${item.unit}`,
                   },
                   {
@@ -263,7 +263,7 @@ export default async function StockItemPage({
                   },
                   {
                     label: "Best before",
-                    value: item.expiresOn ? formatDate(item.expiresOn) : "—",
+                    value: item.expiresOn ? formatDate(item.expiresOn) : "-",
                   },
                 ]}
               />

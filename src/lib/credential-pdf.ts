@@ -203,10 +203,10 @@ async function transcriptPdf(
     line.academicYear,
     line.termName,
     line.subjectName,
-    toNumber(line.score)?.toFixed(1) ?? "—",
-    line.grade ?? "—",
-    toNumber(line.point)?.toFixed(2) ?? "—",
-    toNumber(line.credits)?.toFixed(1) ?? "—",
+    toNumber(line.score)?.toFixed(1) ?? "-",
+    line.grade ?? "-",
+    toNumber(line.point)?.toFixed(2) ?? "-",
+    toNumber(line.credits)?.toFixed(1) ?? "-",
   ]);
 
   // A template is used when one is attached. The built-in layout below is the
@@ -243,9 +243,9 @@ async function transcriptPdf(
         signatoryTitle: "",
       },
       academic: {
-        cumulativeGpa: toNumber(record.cumulativeGpa)?.toFixed(2) ?? "—",
+        cumulativeGpa: toNumber(record.cumulativeGpa)?.toFixed(2) ?? "-",
         classification: record.classification ?? "",
-        totalCredits: toNumber(record.totalCredits)?.toFixed(1) ?? "—",
+        totalCredits: toNumber(record.totalCredits)?.toFixed(1) ?? "-",
       },
     };
 
@@ -276,7 +276,7 @@ async function transcriptPdf(
   }
 
   const bytes = await renderTablePdf({
-    title: `${school?.name ?? "School"} — Academic Transcript`,
+    title: `${school?.name ?? "School"}: Academic Transcript`,
     subtitle: [
       fullName(record.student),
       record.student.admissionNo,
@@ -288,7 +288,7 @@ async function transcriptPdf(
       .join("  ·  "),
     headers,
     rows,
-    footer: `Cumulative GPA ${toNumber(record.cumulativeGpa)?.toFixed(2) ?? "—"}${
+    footer: `Cumulative GPA ${toNumber(record.cumulativeGpa)?.toFixed(2) ?? "-"}${
       record.classification ? ` · ${record.classification}` : ""
     } · Verify at /verify/${record.verifyCode} · This document is void if altered.`,
     crest: await loadDocumentImage(school?.crestUrl || school?.logoUrl),

@@ -24,7 +24,7 @@ const SYSTEM_PROMPT = `You are the analytics advisor inside a school management 
 Context you can rely on:
 - The academic calendar runs in three terms (or two semesters) per academic year.
 - Grading uses configurable scales; WASSCE-style grades (A1-F9, lower aggregate is better) and IGCSE/IB scales all appear.
-- Fees are in Ghana Cedis (GHS) and part payments are normal and expected — an outstanding balance mid-term is not automatically a crisis.
+- Fees are in Ghana Cedis (GHS) and part payments are normal and expected: an outstanding balance mid-term is not automatically a crisis.
 - Staff titles include Head Teacher, Form Teacher, Bursar, Registrar.
 
 How to analyse:
@@ -32,7 +32,7 @@ How to analyse:
 - Quote the specific figures that support each finding.
 - Distinguish signal from noise: a class of 8 students moving 3 marks is not a trend.
 - Be direct about problems, and equally direct about what is working.
-- Recommendations must be things a school in Ghana can actually do this term — not generic advice.
+- Recommendations must be things a school in Ghana can actually do this term: not generic advice.
 - Never identify a student by name in a way that implies a diagnosis or a judgement about their family.
 
 Write plainly. Short sentences. No filler, no restating the question back.`;
@@ -239,7 +239,7 @@ export async function generateStudentProgressInsight(
   const prompt = `Analyse this student's progress this term and produce an insight for their form teacher and guardians.
 
 Focus on:
-1. Which subjects are improving, holding steady, or slipping — compared with the earlier terms in the history.
+1. Which subjects are improving, holding steady, or slipping: compared with the earlier terms in the history.
 2. Whether attendance is affecting attainment.
 3. Two or three specific interventions that would move the needle for THIS student.
 
@@ -346,7 +346,7 @@ export async function generateTeachingInsight(
   const prompt = `You are advising a teacher on their own classes this term. Tell them what is working, what is not, and how to improve.
 
 Read the sequence of assessments in each class as a trajectory, not a set of isolated results. Pay attention to:
-- Assessments where the class mean dropped sharply — that usually points at a topic that did not land.
+- Assessments where the class mean dropped sharply: that usually points at a topic that did not land.
 - A wide spread between highest and lowest, which points at a need for differentiation rather than re-teaching.
 - Pass rates below the subject pass mark.
 - Classes where results are strong, so the teacher knows what to keep doing.
@@ -572,8 +572,8 @@ export async function generateManagementBrief(
 
 Cover, in this order of importance:
 1. Anything that needs a decision this week.
-2. Fee collection health — read the collection rate and overdue count together, and remember part payment is normal here.
-3. Academic standing — which subjects sit well below the school average and what that implies about staffing or resources.
+2. Fee collection health: read the collection rate and overdue count together, and remember part payment is normal here.
+3. Academic standing: which subjects sit well below the school average and what that implies about staffing or resources.
 4. Attendance.
 5. Enrolment and staffing ratio.
 
@@ -664,7 +664,7 @@ export async function generateFinanceInsight(
 
   const prompt = `Analyse the school's fee position for the Bursar.
 
-Give a clear read on collection health, where the risk is concentrated in the ageing buckets, and which payment channels parents actually use (this should inform where to push reminders). Recommend a collection plan for the next 30 days that is firm but realistic for a Ghanaian school — many families pay in instalments.
+Give a clear read on collection health, where the risk is concentrated in the ageing buckets, and which payment channels parents actually use (this should inform where to push reminders). Recommend a collection plan for the next 30 days that is firm but realistic for a Ghanaian school: many families pay in instalments.
 
 Data:
 ${JSON.stringify(snapshot, null, 2)}`;
@@ -754,7 +754,7 @@ export async function generateAtRiskScan(
 
   const prompt = `These students have been flagged by a rules-based screen (attendance below 85% or average below 45%). Review them and produce a triage for the pastoral team.
 
-Group them by the kind of problem they have — attendance-driven, attainment-driven, or both — and say which ones need intervention first and what that intervention should be. Where a fee balance coincides with poor attendance, note it as a possible cause but do not assert it.
+Group them by the kind of problem they have: attendance-driven, attainment-driven, or both: and say which ones need intervention first and what that intervention should be. Where a fee balance coincides with poor attendance, note it as a possible cause but do not assert it.
 
 Data:
 ${JSON.stringify(flagged, null, 2)}`;

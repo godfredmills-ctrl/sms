@@ -397,7 +397,7 @@ function NavEntry({
       <li className="rail-item relative hidden lg:block">
         {item.locked ? (
           <span
-            aria-label={`${item.label} — you do not have access`}
+            aria-label={`${item.label}: you do not have access`}
             aria-disabled
             className="sidebar-link sidebar-link-locked justify-center px-0 py-2.5"
           >
@@ -452,7 +452,7 @@ function NavEntry({
           ) : (
             <div className="rail-tooltip mt-1.5">
               {item.label}
-              {item.locked ? " — no access" : ""}
+              {item.locked ? ": no access" : ""}
             </div>
           )}
         </div>

@@ -59,7 +59,7 @@ export default async function LoginPage({
           </h1>
           <p className="mt-4 text-sm leading-relaxed text-white/70">
             Admissions and records, attendance and assessment, fees and payments,
-            communication, elections and learning — for staff, students and parents.
+            communication, elections and learning: for staff, students and parents.
           </p>
 
           <ul className="mt-8 grid grid-cols-2 gap-3 text-sm text-white/80">

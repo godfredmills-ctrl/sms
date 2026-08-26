@@ -115,7 +115,7 @@ export function loanRefusal(input: {
   copyStatus: string;
 }): string | null {
   if (NON_CIRCULATING.has(input.category)) {
-    return "Reference and periodicals stay in the library — they cannot be borrowed.";
+    return "Reference and periodicals stay in the library: they cannot be borrowed.";
   }
   if (input.copyStatus === "ON_LOAN") {
     return "That copy is already out with someone else.";
@@ -132,7 +132,7 @@ export function loanRefusal(input: {
     }. Take those back first.`;
   }
   if (input.openLoans >= LOAN_LIMIT[input.borrower]) {
-    return `That is already ${input.openLoans} on loan — the limit is ${
+    return `That is already ${input.openLoans} on loan: the limit is ${
       LOAN_LIMIT[input.borrower]
     }.`;
   }

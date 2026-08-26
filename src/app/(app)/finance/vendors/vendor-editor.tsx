@@ -166,8 +166,8 @@ export function VendorEditor({
 
           {vendors.length === 0 ? (
             <p className="text-sm text-[var(--text-subtle)]">
-              None yet. A bill can be recorded without one — a market purchase often
-              has no vendor — but a supplier you pay every term belongs here.
+              None yet. A bill can be recorded without one: a market purchase often
+              has no vendor: but a supplier you pay every term belongs here.
             </p>
           ) : (
             <ul className="divide-y divide-[var(--border)]">

@@ -31,7 +31,7 @@ export function CourseForm({ offerings }: { offerings: SelectOption[] }) {
             id="title"
             name="title"
             required
-            placeholder="Integrated Science — JHS 2"
+            placeholder="Integrated Science: JHS 2"
           />
         </Field>
 
@@ -68,7 +68,7 @@ export function CourseForm({ offerings }: { offerings: SelectOption[] }) {
           <CheckboxField
             name="isSelfPaced"
             label="Self-paced"
-            description="Ignores the term calendar — for clubs, CPD and holiday programmes."
+            description="Ignores the term calendar: for clubs, CPD and holiday programmes."
           />
         </div>
 

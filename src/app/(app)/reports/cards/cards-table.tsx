@@ -52,7 +52,7 @@ export function ReportCardsTable({ rows }: { rows: ReportCardRow[] }) {
       id: "average",
       header: "Average",
       accessor: (row) => row.average ?? "",
-      cell: (row) => (row.average === null ? "—" : `${row.average.toFixed(1)}%`),
+      cell: (row) => (row.average === null ? "-" : `${row.average.toFixed(1)}%`),
       align: "right",
     },
     {
@@ -60,7 +60,7 @@ export function ReportCardsTable({ rows }: { rows: ReportCardRow[] }) {
       header: "Grade",
       accessor: (row) => row.overallGrade ?? "",
       cell: (row) =>
-        row.overallGrade ? <Badge tone="neutral">{row.overallGrade}</Badge> : "—",
+        row.overallGrade ? <Badge tone="neutral">{row.overallGrade}</Badge> : "-",
       align: "center",
       priority: 2,
     },
@@ -75,7 +75,7 @@ export function ReportCardsTable({ rows }: { rows: ReportCardRow[] }) {
             <span className="text-[var(--text-subtle)]">/{row.classSize}</span>
           </span>
         ) : (
-          "—"
+          "-"
         ),
       align: "right",
       priority: 2,
@@ -85,7 +85,7 @@ export function ReportCardsTable({ rows }: { rows: ReportCardRow[] }) {
       header: "Attendance",
       accessor: (row) => row.attendanceRate ?? "",
       cell: (row) =>
-        row.attendanceRate === null ? "—" : `${row.attendanceRate.toFixed(0)}%`,
+        row.attendanceRate === null ? "-" : `${row.attendanceRate.toFixed(0)}%`,
       align: "right",
       priority: 3,
     },

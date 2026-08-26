@@ -53,7 +53,7 @@ export function DocumentView({
           }`}
         >
           <LayoutTemplate className="size-3.5" />
-          {templateName ? `PDF — ${templateName}` : "PDF"}
+          {templateName ? `PDF, ${templateName}` : "PDF"}
         </button>
       </div>
 

@@ -79,7 +79,7 @@ export function PersonDocuments({
               <span>
                 {expired.length} document{expired.length === 1 ? " has" : "s have"}{" "}
                 expired: {expired.map((entry) => entry.title).join(", ")}. An expired
-                identity document is not proof of anything — ask for a current one.
+                identity document is not proof of anything: ask for a current one.
               </span>
             </span>
           </Alert>
@@ -220,7 +220,7 @@ export function PersonDocuments({
                               type="submit"
                               variant="ghost"
                               size="sm"
-                              title="Delete — removes the file as well"
+                              title="Delete: removes the file as well"
                             >
                               <Trash2 className="size-3.5" />
                             </Button>
@@ -334,7 +334,7 @@ function UploadPanel({
             htmlFor={`expires-${personId}`}
             hint={
               expires
-                ? "This type usually expires — recording it puts the renewal on the radar."
+                ? "This type usually expires: recording it puts the renewal on the radar."
                 : "Leave blank if it does not expire."
             }
           >

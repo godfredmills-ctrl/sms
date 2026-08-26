@@ -236,7 +236,7 @@ async function mayTouchAccount(
   if (!isSuperAdmin) return null;
 
   if (!actor.permissions.has("user.manage") && !actor.roleKeys.includes("super_admin")) {
-    return "This staff member is a system administrator — disabling their account needs the user-management permission.";
+    return "This staff member is a system administrator: disabling their account needs the user-management permission.";
   }
 
   const remaining = await db.user.count({
@@ -391,7 +391,7 @@ export async function deleteStaffAction(formData: FormData): Promise<StaffState>
 
   if (blocking.length) {
     return {
-      error: `${staff.firstName} ${staff.lastName} has ${blocking.join(", ")} on record. Deleting would leave that history with no name against it. Set their status to Resigned or Retired instead — the record stays, and they lose access.`,
+      error: `${staff.firstName} ${staff.lastName} has ${blocking.join(", ")} on record. Deleting would leave that history with no name against it. Set their status to Resigned or Retired instead: the record stays, and they lose access.`,
     };
   }
 

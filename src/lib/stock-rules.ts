@@ -82,7 +82,7 @@ export const MOVEMENT_KINDS = [
     value: "RETURN",
     label: "Returned",
     inward: true,
-    blurb: "Given back unused — comes in at what it went out at.",
+    blurb: "Given back unused: comes in at what it went out at.",
   },
   {
     value: "ISSUE",

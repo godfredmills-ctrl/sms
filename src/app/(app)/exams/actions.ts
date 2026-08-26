@@ -555,7 +555,7 @@ export async function allocateSeatsAction(formData: FormData): Promise<ExamState
   return {
     ok: true,
     message: unseated
-      ? `${plan.length} seated — ${unseated} candidate${unseated === 1 ? " has" : "s have"} nowhere to sit. Add another hall.`
+      ? `${plan.length} seated, ${unseated} candidate${unseated === 1 ? " has" : "s have"} nowhere to sit. Add another hall.`
       : `${plan.length} candidates seated.`,
   };
 }
@@ -906,7 +906,7 @@ export async function saveExamPaperMarks(
     if (!isAbsent && entry.score !== null) {
       if (!Number.isFinite(entry.score) || entry.score < 0 || entry.score > max) {
         return {
-          error: `${row.candidateNo} has ${entry.score}, which is outside 0–${max} for ${paper.subject.name}.`,
+          error: `${row.candidateNo} has ${entry.score}, which is outside 0-${max} for ${paper.subject.name}.`,
         };
       }
     }

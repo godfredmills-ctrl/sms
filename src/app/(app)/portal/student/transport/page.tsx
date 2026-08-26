@@ -90,7 +90,7 @@ export default async function StudentTransportPage() {
             return (
               <Card key={assignment.id}>
                 <CardHeader
-                  title={`Route ${assignment.route.code} — ${assignment.route.name}`}
+                  title={`Route ${assignment.route.code}, ${assignment.route.name}`}
                   action={
                     assignment.direction === "BOTH" ? null : (
                       <Badge tone="neutral">{directionLabel(assignment.direction)}</Badge>

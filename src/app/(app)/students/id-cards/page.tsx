@@ -79,7 +79,7 @@ export default async function IdCardsPage() {
     <>
       <PageHeader
         title="ID cards"
-        description="Printable identity cards — four people to an A4 sheet at true card size, fronts and backs side by side."
+        description="Printable identity cards: four people to an A4 sheet at true card size, fronts and backs side by side."
       />
 
       <div className="grid gap-4 lg:grid-cols-2">

@@ -43,7 +43,7 @@ export function CopyStatusChip({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        title={`${accessionNo} — ${status.toLowerCase().replace(/_/g, " ")}. Change it.`}
+        title={`${accessionNo}, ${status.toLowerCase().replace(/_/g, " ")}. Change it.`}
         className={`numeric rounded border px-1.5 py-0.5 text-[10px] ${tone}`}
       >
         {accessionNo}

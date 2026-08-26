@@ -164,7 +164,7 @@ export default async function ComposePage({
                       {job.failedCount}
                     </td>
                     <td className="numeric px-4 py-2 text-right">
-                      {job.actualCostMinor ? formatMoney(job.actualCostMinor) : "—"}
+                      {job.actualCostMinor ? formatMoney(job.actualCostMinor) : "-"}
                     </td>
                     <td className="px-4 py-2 text-right">
                       <StatusBadge status={job.status} />

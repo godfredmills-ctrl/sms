@@ -98,7 +98,7 @@ function CredentialField({
     spec.help,
     pinned ? "Set by the deployment's environment, which takes precedence over anything typed here." : null,
     view?.unreadable
-      ? "Stored, but it cannot be decrypted — the encryption key has changed since it was saved. Paste it again to replace it."
+      ? "Stored, but it cannot be decrypted: the encryption key has changed since it was saved. Paste it again to replace it."
       : null,
   ]
     .filter(Boolean)
@@ -316,7 +316,7 @@ function GenerateKeysForm() {
       <div className="flex flex-wrap items-center gap-2">
         <Pending label="Generate a key pair" icon={<Wand2 className="size-3.5" />} />
         <span className="text-xs text-[var(--text-muted)]">
-          No account and no sign-up — the keys are made here. Replacing an
+          No account and no sign-up: the keys are made here. Replacing an
           existing pair asks everyone to allow notifications again.
         </span>
       </div>

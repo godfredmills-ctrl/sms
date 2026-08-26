@@ -145,7 +145,7 @@ export function StaffAccountCard({
                 <span className="numeric font-semibold">{state.temporaryPassword}</span>.
               </span>
               <span className="mt-1 block text-xs">
-                Write it down now — it is not shown again, and it stops working once
+                Write it down now: it is not shown again, and it stops working once
                 they sign in and choose their own.
               </span>
             </Alert>

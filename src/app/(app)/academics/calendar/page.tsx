@@ -138,7 +138,7 @@ export default async function AcademicCalendarPage({
         title="Academic calendar"
         description={
           year
-            ? `${year.name} — terms, holidays and events for the whole school year.`
+            ? `${year.name}: terms, holidays and events for the whole school year.`
             : "Terms, holidays and school events."
         }
         action={<RefreshButton />}
@@ -158,13 +158,13 @@ export default async function AcademicCalendarPage({
             <StatCard
               label="Academic year"
               value={year.name}
-              hint={`${formatDate(year.startDate)} – ${formatDate(year.endDate)}`}
+              hint={`${formatDate(year.startDate)} to ${formatDate(year.endDate)}`}
               tone="violet"
               icon={<CalendarRange className="size-4" />}
             />
             <StatCard
               label={currentTerm ? currentTerm.name : "No current term"}
-              value={termProgress !== null ? `${termProgress}%` : "—"}
+              value={termProgress !== null ? `${termProgress}%` : "-"}
               hint={
                 currentTerm
                   ? `Ends ${formatDate(currentTerm.endDate)}`
@@ -181,7 +181,7 @@ export default async function AcademicCalendarPage({
             />
             <StatCard
               label="Next holiday"
-              value={nextHoliday ? formatDate(nextHoliday.startsAt) : "—"}
+              value={nextHoliday ? formatDate(nextHoliday.startsAt) : "-"}
               hint={nextHoliday?.title}
               tone="success"
               icon={<Sun className="size-4" />}
@@ -206,7 +206,7 @@ export default async function AcademicCalendarPage({
                     {term.isCurrent ? <Badge tone="primary">Now</Badge> : null}
                   </div>
                   <p className="numeric mt-1 text-xs text-[var(--text-muted)]">
-                    {formatDate(term.startDate)} – {formatDate(term.endDate)}
+                    {formatDate(term.startDate)} to {formatDate(term.endDate)}
                   </p>
                 </div>
               ))}
@@ -281,7 +281,7 @@ export default async function AcademicCalendarPage({
                               </div>
                               <p className="text-xs text-[var(--text-subtle)]">
                                 {multiDay
-                                  ? `${formatDate(event.startsAt)} – ${formatDate(event.endsAt)}`
+                                  ? `${formatDate(event.startsAt)} to ${formatDate(event.endsAt)}`
                                   : formatDate(event.startsAt)}
                                 {event.location ? ` · ${event.location}` : ""}
                                 {event.audiences.length < 3

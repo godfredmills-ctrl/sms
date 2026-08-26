@@ -70,7 +70,7 @@ export function BallotPaper({
           {isSecret ? (
             <p className="mx-auto mt-4 max-w-md text-xs text-[var(--text-subtle)]">
               This was a secret ballot. The receipt proves you voted; it cannot be used
-              by anyone — including the school — to find out how you voted.
+              by anyone: including the school: to find out how you voted.
             </p>
           ) : null}
         </CardBody>

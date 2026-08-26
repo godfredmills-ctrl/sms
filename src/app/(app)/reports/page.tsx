@@ -51,7 +51,7 @@ export default async function ReportsPage() {
         ...new Set(
           rows
             .map((row) => String(row[field.key] ?? ""))
-            .filter((value) => value && value !== "—"),
+            .filter((value) => value && value !== "-"),
         ),
       ].sort();
       // A filter with 200 distinct values is a search box, not a filter.
@@ -234,7 +234,7 @@ export default async function ReportsPage() {
             Why there is no SQL box
           </p>
           <p>
-            Reports are declarative — a dataset, some columns, some filters. Letting
+            Reports are declarative: a dataset, some columns, some filters. Letting
             people write their own queries would be more powerful and would hand
             anyone with report access the ability to read every table in the database,
             including password hashes and session tokens. The seven datasets above are

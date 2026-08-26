@@ -92,8 +92,8 @@ export default async function GuardianLibraryPage() {
       {overdue.length ? (
         <Alert tone="danger" title="Something is overdue" className="mb-5">
           {overdue.length === 1
-            ? "One library book is past its due date. Please help find it and send it back — your child cannot borrow another until it is returned."
-            : `${overdue.length} library books are past their due date. Please help find them and send them back — the children cannot borrow another until they are returned.`}
+            ? "One library book is past its due date. Please help find it and send it back: your child cannot borrow another until it is returned."
+            : `${overdue.length} library books are past their due date. Please help find them and send them back: the children cannot borrow another until they are returned.`}
         </Alert>
       ) : null}
 

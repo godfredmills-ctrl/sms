@@ -135,7 +135,7 @@ export async function GET(
   const pdf = await renderDocumentPdf({
     letterhead,
     document: {
-      title: `Candidate slips — ${session.name}`,
+      title: `Candidate slips, ${session.name}`,
       date: formatDate(session.startsOn, "long"),
       body: "",
       sections,

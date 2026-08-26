@@ -68,7 +68,7 @@ console.error(
 console.error("  name containing ɛ or ɔ 500s the download rather than degrading.\n");
 
 for (const problem of problems) {
-  console.error(`    ${problem.file} — ${problem.draws} drawText call(s), no sanitisePdfText`);
+  console.error(`    ${problem.file}, ${problem.draws} drawText call(s), no sanitisePdfText`);
 }
 
 console.error("\n  Clean the input where it enters the renderer, not at each draw:");

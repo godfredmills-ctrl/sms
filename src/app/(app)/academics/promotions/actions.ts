@@ -124,7 +124,7 @@ export async function promoteClassAction(
   if (!graduating && [...decisions.values()].includes("GRADUATED")) {
     return {
       error:
-        "Graduation is a whole-class decision — tick “This class is graduating”.",
+        "Graduation is a whole-class decision: tick “This class is graduating”.",
     };
   }
 

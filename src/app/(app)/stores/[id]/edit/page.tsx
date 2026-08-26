@@ -54,7 +54,7 @@ export default async function EditStockItemPage({
       <Card>
         <CardHeader
           title="Details"
-          description="Editing an item never changes what is on the shelf — that is the sum of its movements, and only a movement can change it."
+          description="Editing an item never changes what is on the shelf: that is the sum of its movements, and only a movement can change it."
         />
         <ItemForm
           lists={lists}

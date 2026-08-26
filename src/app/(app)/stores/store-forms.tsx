@@ -360,7 +360,7 @@ export function CountForm({
       </Field>
 
       <p className="text-xs text-[var(--text-muted)]">
-        The difference is recorded as an adjustment, not the count — the balance
+        The difference is recorded as an adjustment, not the count: the balance
         stays the sum of the movements. A count that agrees writes nothing.
       </p>
 

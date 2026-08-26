@@ -81,8 +81,8 @@ export default async function FinancePage() {
       admissionNo: invoice.student.admissionNo,
       className: enrolment
         ? `${enrolment.classSection.classLevel.name} ${enrolment.classSection.name}`
-        : "—",
-      term: invoice.term?.name ?? "—",
+        : "-",
+      term: invoice.term?.name ?? "-",
       status: invoice.status,
       totalMinor: invoice.totalMinor,
       paidMinor: invoice.paidMinor,
@@ -186,7 +186,7 @@ export default async function FinancePage() {
       <div className="mb-5 grid gap-4 lg:grid-cols-2">
         <BarSeriesChart
           title="Payments by channel"
-          description="How families actually pay — drives where reminders should point"
+          description="How families actually pay: drives where reminders should point"
           rows={channelRows}
           categoryKey="channel"
           categoryLabel="Channel"

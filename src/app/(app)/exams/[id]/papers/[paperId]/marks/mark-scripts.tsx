@@ -181,7 +181,7 @@ export function MarkScripts({
                     )}
                   >
                     <td className="numeric px-3 py-1.5 whitespace-nowrap">
-                      {row.seatNo ?? "—"}
+                      {row.seatNo ?? "-"}
                       {row.venueName ? (
                         <span className="ml-1 text-xs text-[var(--text-subtle)]">
                           {row.venueName}
@@ -195,7 +195,7 @@ export function MarkScripts({
                       <td className="px-3 py-1.5">{row.studentName}</td>
                     ) : null}
                     <td className="px-3 py-1.5 text-[var(--text-muted)]">
-                      {row.marksSection ?? "—"}
+                      {row.marksSection ?? "-"}
                       {moved ? (
                         // Said out loud rather than resolved silently. The
                         // candidate is on 3A's hall list because that is where
@@ -227,7 +227,7 @@ export function MarkScripts({
                         />
                       ) : (
                         <span className="numeric text-[var(--text-muted)]">
-                          {marks[row.candidateId] ?? "—"}
+                          {marks[row.candidateId] ?? "-"}
                         </span>
                       )}
                     </td>

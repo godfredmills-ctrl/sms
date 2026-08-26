@@ -201,7 +201,7 @@ export async function renderReportPdf(input: {
     const sample = report.summarySampleOf;
     sectionHeading(
       sample && sample.shown < sample.total
-        ? `Key figures — first ${sample.shown.toLocaleString()} of ${sample.total.toLocaleString()} rows`
+        ? `Key figures: first ${sample.shown.toLocaleString()} of ${sample.total.toLocaleString()} rows`
         : "Key figures",
     );
 
@@ -223,7 +223,7 @@ export async function renderReportPdf(input: {
       });
       page.drawText(
         truncate(
-          clean(`${figure.label} — ${figure.headlineLabel.toLowerCase()}`),
+          clean(`${figure.label}, ${figure.headlineLabel.toLowerCase()}`),
           regular,
           6.5,
           tileWidth - 20,
@@ -240,7 +240,7 @@ export async function renderReportPdf(input: {
             (figure.headlineLabel === "Total"
               ? `avg ${formatMeasure(figure.mean, figure.type)}  ·  `
               : `${figure.count} rows  ·  `) +
-              `${formatMeasure(figure.min, figure.type)}–${formatMeasure(figure.max, figure.type)}`,
+              `${formatMeasure(figure.min, figure.type)}-${formatMeasure(figure.max, figure.type)}`,
           ),
           regular,
           6,
@@ -344,7 +344,7 @@ export async function renderReportPdf(input: {
     for (const gap of summary.gaps) {
       page.drawText(
         truncate(
-          `${clean(gap.label)} — ${gap.filled} of ${gap.total} rows filled (${gap.percent.toFixed(0)}%)`,
+          `${clean(gap.label)}, ${gap.filled} of ${gap.total} rows filled (${gap.percent.toFixed(0)}%)`,
           regular,
           7.5,
           usable,

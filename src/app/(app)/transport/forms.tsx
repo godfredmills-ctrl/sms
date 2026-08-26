@@ -76,7 +76,7 @@ export function RouteForm({ route }: { route?: RouteDraft }) {
               id="route-name"
               name="name"
               required
-              placeholder="Spintex — Tema"
+              placeholder="Spintex: Tema"
               defaultValue={route?.name}
             />
           </Field>
@@ -85,7 +85,7 @@ export function RouteForm({ route }: { route?: RouteDraft }) {
         <Field
           label="Stops"
           htmlFor="route-stops"
-          hint="Name | landmark | pick-up | drop-off — one per line, in order."
+          hint="Name | landmark | pick-up | drop-off: one per line, in order."
         >
           <Textarea
             id="route-stops"

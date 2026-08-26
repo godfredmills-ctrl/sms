@@ -60,7 +60,7 @@ export function MediaLibrary({
               <EmptyState
                 icon={<ImagePlus className="size-5" />}
                 title="No images yet"
-                description="Upload one on the right — crops, filters and resizing all happen here rather than in a separate tool."
+                description="Upload one on the right: crops, filters and resizing all happen here rather than in a separate tool."
               />
             </Card>
           ) : null}
@@ -133,7 +133,7 @@ export function MediaLibrary({
                         <Input
                           name="altText"
                           defaultValue={item.altText ?? ""}
-                          placeholder="Alt text — describe the image"
+                          placeholder="Alt text: describe the image"
                           aria-label="Alt text"
                           className="h-8 text-xs"
                         />

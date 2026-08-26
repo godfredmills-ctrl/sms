@@ -111,7 +111,7 @@ export default async function PromotionsPage() {
     <>
       <PageHeader
         title="Promotions"
-        description="Classes move up, finalists graduate, exceptions repeat — one class at a time, with the record kept."
+        description="Classes move up, finalists graduate, exceptions repeat: one class at a time, with the record kept."
         action={<RefreshButton />}
       />
 

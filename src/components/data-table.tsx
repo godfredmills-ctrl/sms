@@ -670,7 +670,7 @@ export function DataTable<T>({
                 : `${processed.length} of ${rows.length} on this page`
               : processed.length === 0
                 ? "No results"
-                : `${currentPage * pageSize + 1}–${Math.min(
+                : `${currentPage * pageSize + 1}-${Math.min(
                     (currentPage + 1) * pageSize,
                     processed.length,
                   )} of ${processed.length}`}
@@ -736,7 +736,7 @@ function priorityClass(priority: 1 | 2 | 3 | undefined): string {
 
 function formatValue(value: string | number | null | undefined): ReactNode {
   if (value === null || value === undefined || value === "") {
-    return <span className="text-[var(--text-subtle)]">—</span>;
+    return <span className="text-[var(--text-subtle)]">-</span>;
   }
   return String(value);
 }
@@ -757,7 +757,7 @@ function csvCell(value: unknown): string {
 
 /** Convenience renderer for a list of tags in a cell. */
 export function TagList({ tags, tone = "neutral" }: { tags: string[]; tone?: Tone }) {
-  if (!tags.length) return <span className="text-[var(--text-subtle)]">—</span>;
+  if (!tags.length) return <span className="text-[var(--text-subtle)]">-</span>;
   return (
     <div className="flex flex-wrap gap-1">
       {tags.slice(0, 3).map((tag) => (

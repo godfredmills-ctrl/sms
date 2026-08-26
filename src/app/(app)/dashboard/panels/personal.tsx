@@ -93,7 +93,7 @@ export async function MyDayPanel({ viewer }: { viewer: Viewer }) {
         title="Your day"
         description={
           highlight
-            ? `${current ? "Now" : "Next"}: ${highlight.classSection.classLevel.name} ${highlight.classSection.name}, ${highlight.offering?.subject.name ?? "—"} at ${highlight.startTime}`
+            ? `${current ? "Now" : "Next"}: ${highlight.classSection.classLevel.name} ${highlight.classSection.name}, ${highlight.offering?.subject.name ?? "-"} at ${highlight.startTime}`
             : "Your lessons are done for today."
         }
         action={
@@ -128,10 +128,10 @@ export async function MyDayPanel({ viewer }: { viewer: Viewer }) {
                 </p>
               </div>
               <p className="truncate text-xs text-[var(--text-muted)]">
-                {lesson.offering?.subject.name ?? "—"}
+                {lesson.offering?.subject.name ?? "-"}
               </p>
               <p className="numeric mt-1 text-xs text-[var(--text-subtle)]">
-                {lesson.startTime}–{lesson.endTime}
+                {lesson.startTime}-{lesson.endTime}
                 {lesson.room ?? lesson.offering?.room
                   ? ` · ${lesson.room ?? lesson.offering?.room}`
                   : ""}

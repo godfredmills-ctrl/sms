@@ -461,7 +461,7 @@ export async function setStudentStageAction(
   if (stage === "ENROLLED") {
     const classSectionId = text(formData, "classSectionId");
     if (!classSectionId) {
-      return { error: "Enrolling places the student in a class — choose one." };
+      return { error: "Enrolling places the student in a class: choose one." };
     }
 
     const currentYear = await db.academicYear.findFirst({
@@ -615,7 +615,7 @@ export async function updateStudentAction(
     const clash = houseRefusal(newGender, openBed.room.house.gender);
     if (clash) {
       return {
-        error: `They are in ${openBed.room.house.name}, and ${clash.toLowerCase().replace(/.$/, "")} — move them to another house first.`,
+        error: `They are in ${openBed.room.house.name}, and ${clash.toLowerCase().replace(/.$/, "")}: move them to another house first.`,
       };
     }
   }
@@ -752,7 +752,7 @@ export async function updateStudentAction(
         action: "boarding.deallocate",
         entity: "Student",
         entityId: id,
-        summary: "Bed released — no longer a boarder",
+        summary: "Bed released: no longer a boarder",
       },
     });
     revalidatePath("/boarding");
@@ -800,7 +800,7 @@ export async function setStudentLifecycleAction(
 
   const reason = text(formData, "reason");
   if (transition.endsEnrolment && !reason) {
-    return { error: "Say why they are leaving — this is the record of it." };
+    return { error: "Say why they are leaving: this is the record of it." };
   }
 
   const student = await db.student.findUnique({
@@ -920,7 +920,7 @@ export async function setStudentLifecycleAction(
       action: "student.lifecycle",
       entity: "Student",
       entityId: id,
-      summary: `${student.firstName} ${student.lastName} (${student.admissionNo}): ${student.status} → ${status}${reason ? ` — ${reason}` : ""}`,
+      summary: `${student.firstName} ${student.lastName} (${student.admissionNo}): ${student.status} → ${status}${reason ? `, ${reason}` : ""}`,
     },
   });
 

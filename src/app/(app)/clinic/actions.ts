@@ -88,7 +88,7 @@ export async function logClinicVisitAction(
         title: `${student.firstName} visited the clinic`,
         body: `${student.firstName} ${student.lastName} was seen for: ${complaint}. ${
           text(formData, "outcome") === "SENT_HOME"
-            ? "They are being sent home — please arrange collection."
+            ? "They are being sent home: please arrange collection."
             : "They have been attended to."
         }`,
         category: "GENERAL",
@@ -123,7 +123,7 @@ export async function logClinicVisitAction(
       action: "student.medical.visit",
       entity: "Student",
       entityId: studentId,
-      summary: `Clinic visit: ${student.firstName} ${student.lastName} — ${complaint.slice(0, 60)}`,
+      summary: `Clinic visit: ${student.firstName} ${student.lastName}, ${complaint.slice(0, 60)}`,
     },
   });
 
@@ -137,6 +137,6 @@ export async function logClinicVisitAction(
       ? "Logged."
       : notified
         ? "Logged, and the emergency contacts have been notified."
-        : "Logged — but no emergency contact could be reached from here. None of them has a portal account, so phone them.",
+        : "Logged: but no emergency contact could be reached from here. None of them has a portal account, so phone them.",
   };
 }

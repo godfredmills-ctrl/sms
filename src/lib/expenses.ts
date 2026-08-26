@@ -343,7 +343,7 @@ export function statementMarkdown(statement: Statement): string {
     const amount = money(line.amountMinor);
     lines.push(
       budgeted
-        ? `| ${line.label} | ${line.budgetMinor === undefined ? "—" : money(line.budgetMinor)} | ${amount} |`
+        ? `| ${line.label} | ${line.budgetMinor === undefined ? "-" : money(line.budgetMinor)} | ${amount} |`
         : `| ${line.label} | ${amount} |`,
     );
   }
@@ -378,7 +378,7 @@ export function statementMarkdown(statement: Statement): string {
   lines.push(
     "---",
     "",
-    "Prepared on a cash basis: fees are counted on the day they were received, not the day they were billed. Fees billed and unpaid are a debt owed to the school and appear on the debtors report — counting them here would show a surplus made of money nobody has paid.",
+    "Prepared on a cash basis: fees are counted on the day they were received, not the day they were billed. Fees billed and unpaid are a debt owed to the school and appear on the debtors report: counting them here would show a surplus made of money nobody has paid.",
   );
 
   return lines.join("\n");

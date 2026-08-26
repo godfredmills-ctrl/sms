@@ -44,7 +44,7 @@ banner("Starting School Management System");
 let migrationsOk = false;
 
 if (!process.env.DATABASE_URL) {
-  fail("DATABASE_URL is not set — skipping migrations", [
+  fail("DATABASE_URL is not set: skipping migrations", [
     "The app will start, but every page that touches the database will fail.",
     "",
     "On Railway: add a PostgreSQL service, then set this variable on the app",
@@ -52,7 +52,7 @@ if (!process.env.DATABASE_URL) {
     "",
     "    DATABASE_URL=${{Postgres.DATABASE_URL}}",
     "",
-    "Check /api/health once deployed — it reports the live database status.",
+    "Check /api/health once deployed: it reports the live database status.",
   ]);
 } else {
   // Log the host only. The full URL contains the password.
@@ -71,7 +71,7 @@ if (!process.env.DATABASE_URL) {
   // Say so plainly rather than leaving "connection refused" to be interpreted.
   if (hostname && /^(localhost|127\.0\.0\.1|::1)$/.test(hostname)) {
     fail("DATABASE_URL points at localhost", [
-      "Inside a container, localhost is the container itself — not your",
+      "Inside a container, localhost is the container itself: not your",
       "database. This is the placeholder value from .env.example.",
       "",
       "On Railway: add a PostgreSQL service, then set this on the app service",
@@ -79,7 +79,7 @@ if (!process.env.DATABASE_URL) {
       "",
       "    DATABASE_URL=${{Postgres.DATABASE_URL}}",
       "",
-      "Paste that reference literally — Railway resolves it at deploy time.",
+      "Paste that reference literally: Railway resolves it at deploy time.",
     ]);
   }
 
@@ -135,7 +135,7 @@ if (migrationsOk) {
   try {
     tsxCli = fileURLToPath(import.meta.resolve("tsx/cli"));
   } catch {
-    fail("tsx is not installed — skipping the permission sync", [
+    fail("tsx is not installed: skipping the permission sync", [
       "This runtime image has no dev dependencies. The app will start, but a",
       "permission added since this database was seeded cannot be granted yet.",
       "",
@@ -153,7 +153,7 @@ if (migrationsOk) {
     if (sync.status !== 0) {
       fail("Permission sync did not complete", [
         "The server will still start. Any permission added since this database",
-        "was seeded may not be grantable yet — check /users/roles.",
+        "was seeded may not be grantable yet: check /users/roles.",
       ]);
     }
   }
@@ -181,7 +181,7 @@ if (migrationsOk) {
 function seedInBackground() {
   if (process.env.SEED_ON_BOOT !== "true") return;
 
-  banner("SEED_ON_BOOT is set — seeding if the database is empty");
+  banner("SEED_ON_BOOT is set: seeding if the database is empty");
   console.log("  Running behind the server; the site is already accepting requests.\n");
 
   const seed = spawn(

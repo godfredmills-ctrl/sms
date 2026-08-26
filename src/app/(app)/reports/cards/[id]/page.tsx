@@ -204,7 +204,7 @@ export default async function ReportCardPage({
               <p className="text-[11px] italic">{school.motto}</p>
             ) : null}
             <p className="mt-1.5 text-sm font-semibold uppercase">
-              Terminal Report — {card.term.name}, {card.academicYear.name}
+              Terminal Report: {card.term.name}, {card.academicYear.name}
             </p>
           </div>
           {card.student.photoUrl ? (
@@ -229,19 +229,19 @@ export default async function ReportCardPage({
             { label: "Gender", value: humanise(card.student.gender) },
             {
               label: "Age",
-              value: calculateAge(card.student.dateOfBirth)?.toString() ?? "—",
+              value: calculateAge(card.student.dateOfBirth)?.toString() ?? "-",
             },
             {
               label: "Position",
               value: card.positionInClass
                 ? `${card.positionInClass} of ${card.classSize}`
-                : "—",
+                : "-",
             },
             {
               label: "Attendance",
               value:
                 attendanceRate === null
-                  ? "—"
+                  ? "-"
                   : `${card.daysPresent}/${card.totalSchoolDays} (${attendanceRate.toFixed(0)}%)`,
             },
           ].map((item) => (
@@ -279,14 +279,14 @@ export default async function ReportCardPage({
                   {formatScoreCell(toNumber(line.examScore), { absent: line.examAbsent })}
                 </td>
                 <td className="numeric py-1 text-right font-semibold">
-                  {toNumber(line.totalScore)?.toFixed(1) ?? "—"}
+                  {toNumber(line.totalScore)?.toFixed(1) ?? "-"}
                 </td>
-                <td className="py-1 text-center font-medium">{line.grade ?? "—"}</td>
-                <td className="numeric py-1 text-right">{line.position ?? "—"}</td>
+                <td className="py-1 text-center font-medium">{line.grade ?? "-"}</td>
+                <td className="numeric py-1 text-right">{line.position ?? "-"}</td>
                 <td className="numeric py-1 text-right text-[var(--text-muted)]">
-                  {toNumber(line.classAverage)?.toFixed(1) ?? "—"}
+                  {toNumber(line.classAverage)?.toFixed(1) ?? "-"}
                 </td>
-                <td className="py-1 text-[11px]">{line.remark ?? "—"}</td>
+                <td className="py-1 text-[11px]">{line.remark ?? "-"}</td>
               </tr>
             ))}
           </tbody>
@@ -295,9 +295,9 @@ export default async function ReportCardPage({
               <td className="py-1.5">Overall</td>
               <td colSpan={2} />
               <td className="numeric py-1.5 text-right">
-                {toNumber(card.averageScore)?.toFixed(1) ?? "—"}
+                {toNumber(card.averageScore)?.toFixed(1) ?? "-"}
               </td>
-              <td className="py-1.5 text-center">{card.overallGrade ?? "—"}</td>
+              <td className="py-1.5 text-center">{card.overallGrade ?? "-"}</td>
               <td colSpan={3} className="py-1.5 text-right text-[11px] font-normal">
                 {card.gpa !== null ? `GPA ${toNumber(card.gpa)?.toFixed(2)}` : ""}
                 {card.aggregate !== null ? ` · Aggregate ${card.aggregate}` : ""}
@@ -316,7 +316,7 @@ export default async function ReportCardPage({
           ].map((item) => (
             <div key={item.label}>
               <span className="text-[var(--text-subtle)]">{item.label}: </span>
-              <span className="font-medium">{item.value ?? "—"}</span>
+              <span className="font-medium">{item.value ?? "-"}</span>
             </div>
           ))}
         </div>
@@ -351,13 +351,13 @@ export default async function ReportCardPage({
         {card.gradeScale ? (
           <div className="mt-4 border-t border-[var(--border)] pt-2">
             <p className="text-[10px] tracking-wide text-[var(--text-subtle)] uppercase">
-              Grading key — {card.gradeScale.name}
+              Grading key: {card.gradeScale.name}
             </p>
             <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-[10px]">
               {card.gradeScale.bands.map((band) => (
                 <span key={band.id}>
                   <span className="font-semibold">{band.grade}</span>{" "}
-                  {toNumber(band.minScore)}–{toNumber(band.maxScore)}
+                  {toNumber(band.minScore)}-{toNumber(band.maxScore)}
                   {band.remark ? ` ${band.remark}` : ""}
                 </span>
               ))}

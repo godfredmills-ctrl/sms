@@ -103,7 +103,7 @@ export async function GET(request: Request) {
       reference: reference("HR", staffId),
       date: today,
       addressee: ["TO WHOM IT MAY CONCERN"],
-      subject: `Confirmation of employment — ${fullName(staff)}`,
+      subject: `Confirmation of employment, ${fullName(staff)}`,
       salutation: "Dear Sir or Madam,",
       paragraphs: [
         `This is to confirm that ${fullName(staff)} is employed by ${letterhead.school.name} and remains in our service as at the date of this letter.`,

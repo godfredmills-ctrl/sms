@@ -66,7 +66,7 @@ export function EmailCardsPanel({
 
         <p className="text-xs text-[var(--text-subtle)]">
           One email per family, carrying only their own child&rsquo;s report. Published
-          cards only — a draft is not something to send home.
+          cards only: a draft is not something to send home.
         </p>
       </CardBody>
     </form>

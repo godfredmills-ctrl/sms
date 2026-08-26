@@ -118,7 +118,7 @@ export default async function IntegrationsPage() {
     <>
       <PageHeader
         title="Integrations"
-        description="What this deployment can actually send, take payment through and store — and what it still needs before it can."
+        description="What this deployment can actually send, take payment through and store: and what it still needs before it can."
       />
 
       {unreadable.length ? (
@@ -132,7 +132,7 @@ export default async function IntegrationsPage() {
               </strong>{" "}
               {unreadable.join(", ")}. This happens when SESSION_SECRET (or
               CREDENTIALS_KEY, if set) has changed since they were saved. They are
-              not being used and nothing is falling back to them silently — paste
+              not being used and nothing is falling back to them silently: paste
               each one in again to replace it.
             </span>
           </span>
@@ -146,7 +146,7 @@ export default async function IntegrationsPage() {
             <span>
               SESSION_SECRET is still the development placeholder, so anything
               saved here is encrypted with a key that is published in the source.
-              Set a real SESSION_SECRET — or a separate CREDENTIALS_KEY — before
+              Set a real SESSION_SECRET: or a separate CREDENTIALS_KEY: before
               entering a live credential.
             </span>
           </span>
@@ -164,7 +164,7 @@ export default async function IntegrationsPage() {
             never in the database, so a database backup contains ciphertext.
             Secrets are never shown back in full, only enough of one to tell it
             from another. Naming the built-in fallback in the
-            environment&nbsp;— <code>mock</code>, <code>local</code>&nbsp;— does
+            environment&nbsp;- <code>mock</code>, <code>local</code>&nbsp;- does
             not pin anything, because that means &ldquo;not set up yet&rdquo;
             rather than a choice.
           </span>
@@ -228,8 +228,8 @@ export default async function IntegrationsPage() {
           {stillOnFallback.length === 1 ? " is" : "s are"} still on the built-in
           fallback:{" "}
           {stillOnFallback.map(({ integration }) => integration.name).join(", ")}.
-          The system works without them — messages are logged and payments
-          simulated, so the whole term can be rehearsed — but nothing reaches a
+          The system works without them: messages are logged and payments
+          simulated, so the whole term can be rehearsed: but nothing reaches a
           parent until they are set up below.
         </Alert>
       ) : null}

@@ -120,7 +120,7 @@ export async function signInVisitorAction(
       action: "visitor.sign_in",
       entity: "Visitor",
       entityId: visitor.id,
-      summary: `Signed in ${fullName} (${visitor.badgeNo}) — ${purpose.slice(0, 60)}`,
+      summary: `Signed in ${fullName} (${visitor.badgeNo}), ${purpose.slice(0, 60)}`,
     },
   });
 
@@ -206,7 +206,7 @@ export async function closeOpenVisitsAction(): Promise<VisitorState> {
       data: {
         signedOutAt: now,
         signedOutById: user.id,
-        notes: [row.notes, "Closed at the desk — departure not observed."]
+        notes: [row.notes, "Closed at the desk: departure not observed."]
           .filter(Boolean)
           .join(" · "),
       },

@@ -141,13 +141,13 @@ export async function GET(request: Request) {
       `| Released to | ${exeat.releasedToName}${
         exeat.relationship ? ` (${exeat.relationship})` : ""
       } |`,
-      `| Their phone | ${exeat.releasedToPhone ?? "—"} |`,
+      `| Their phone | ${exeat.releasedToPhone ?? "-"} |`,
       `| Approved by | ${
         exeat.approvedBy
           ? [exeat.approvedBy.title, exeat.approvedBy.firstName, exeat.approvedBy.lastName]
               .filter(Boolean)
               .join(" ")
-          : "—"
+          : "-"
       } |`,
       "",
       "> This pupil is a boarder of this school and is off the compound with the school's permission until the hour above. If they are found elsewhere, or after that hour, please telephone the school.",

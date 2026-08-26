@@ -58,13 +58,13 @@ export default async function StudentCredentialsPage() {
               ? formatDate(live[0].issuedOn)
               : liveTranscripts[0]
                 ? formatDate(liveTranscripts[0].issuedAt)
-                : "—"
+                : "-"
           }
           tone="teal"
         />
         <StatCard
           label="Best classification"
-          value={liveTranscripts.find((entry) => entry.classification)?.classification ?? "—"}
+          value={liveTranscripts.find((entry) => entry.classification)?.classification ?? "-"}
           tone="success"
         />
       </div>
@@ -170,7 +170,7 @@ export default async function StudentCredentialsPage() {
             Each document carries a verification code. A university or employer can
             confirm it is genuine at{" "}
             <span className="font-mono">{env.appUrl}/verify/&lt;code&gt;</span> without
-            an account — so you can send the PDF and they can check it themselves.
+            an account: so you can send the PDF and they can check it themselves.
           </span>
         </CardBody>
       </Card>

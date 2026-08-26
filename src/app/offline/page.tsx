@@ -14,7 +14,7 @@ export default function OfflinePage() {
         <h1 className="text-xl font-semibold">You&apos;re offline</h1>
         <p className="mt-2 text-sm text-[var(--text-muted)]">
           This page needs a connection. Pages you have already opened are still
-          available — reconnect to load anything new.
+          available: reconnect to load anything new.
         </p>
       </div>
     </div>

@@ -73,7 +73,7 @@ export default async function StudentResultsPage() {
         <StatCard
           label="Latest average"
           value={
-            latest ? `${(toNumber(latest.averageScore) ?? 0).toFixed(1)}%` : "—"
+            latest ? `${(toNumber(latest.averageScore) ?? 0).toFixed(1)}%` : "-"
           }
           hint={latest?.term.name}
           tone="violet"
@@ -84,7 +84,7 @@ export default async function StudentResultsPage() {
           value={
             latest?.positionInClass
               ? `${ordinal(latest.positionInClass)}`
-              : "—"
+              : "-"
           }
           hint={latest?.classSize ? `of ${latest.classSize}` : undefined}
           tone="success"
@@ -92,7 +92,7 @@ export default async function StudentResultsPage() {
         />
         <StatCard
           label="Best term"
-          value={best ? `${best.score.toFixed(1)}%` : "—"}
+          value={best ? `${best.score.toFixed(1)}%` : "-"}
           hint={best?.term}
           tone="teal"
         />
@@ -189,16 +189,16 @@ export default async function StudentResultsPage() {
                             })}
                           </td>
                           <td className="numeric py-1.5 pr-3 text-right font-medium">
-                            {toNumber(line.totalScore)?.toFixed(1) ?? "—"}
+                            {toNumber(line.totalScore)?.toFixed(1) ?? "-"}
                           </td>
                           <td className="py-1.5 pr-3">
-                            {line.grade ? <Badge tone="neutral">{line.grade}</Badge> : "—"}
+                            {line.grade ? <Badge tone="neutral">{line.grade}</Badge> : "-"}
                           </td>
                           <td className="numeric py-1.5 pr-3 text-right">
-                            {line.position ?? "—"}
+                            {line.position ?? "-"}
                           </td>
                           <td className="py-1.5 text-[var(--text-muted)]">
-                            {line.remark ?? "—"}
+                            {line.remark ?? "-"}
                           </td>
                         </tr>
                       ))}

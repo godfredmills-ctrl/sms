@@ -122,7 +122,7 @@ export function DocumentUploader({
               Choose a file
             </Button>
             <p className="mt-2 text-xs text-[var(--text-subtle)]">
-              PDF, images, Word, Excel, PowerPoint — up to 25MB
+              PDF, images, Word, Excel, PowerPoint: up to 25MB
             </p>
           </>
         )}
@@ -149,7 +149,7 @@ export function DocumentUploader({
         <Input id="title" name="title" placeholder="Staff handbook 2026" />
       </Field>
 
-      <Field label="Tags" htmlFor="tags" hint="Comma separated — these drive the filters.">
+      <Field label="Tags" htmlFor="tags" hint="Comma separated: these drive the filters.">
         <Input id="tags" name="tags" placeholder="policy, hr, 2026" />
       </Field>
 

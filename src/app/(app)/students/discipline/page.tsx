@@ -139,7 +139,7 @@ export default async function DisciplinePage({
     <>
       <PageHeader
         title="Discipline"
-        description="Incidents, sanctions and resolutions — recorded once, read for years."
+        description="Incidents, sanctions and resolutions: recorded once, read for years."
         action={<RefreshButton />}
       />
 
@@ -172,7 +172,7 @@ export default async function DisciplinePage({
               <EmptyState
                 icon={<ShieldAlert className="size-5" />}
                 title="No incidents recorded"
-                description="A clean school — or a quiet form. Record the first alongside."
+                description="A clean school: or a quiet form. Record the first alongside."
               />
             </Card>
           ) : (
@@ -228,7 +228,7 @@ export default async function DisciplinePage({
                         <span className="font-medium text-[var(--text)]">
                           {humanise(record.category)}
                         </span>
-                        {record.location ? ` · ${record.location}` : ""} —{" "}
+                        {record.location ? ` · ${record.location}` : ""} -{" "}
                         {record.description}
                       </p>
 
@@ -260,7 +260,7 @@ export default async function DisciplinePage({
                         {record.resolution ? (
                           <span className="text-[var(--text-subtle)]">
                             · {record.resolution}
-                            {record.handledBy ? ` — ${record.handledBy}` : ""}
+                            {record.handledBy ? `, ${record.handledBy}` : ""}
                           </span>
                         ) : null}
                       </div>
@@ -279,7 +279,7 @@ export default async function DisciplinePage({
                               name="resolution"
                               rows={1}
                               className="flex-1"
-                              placeholder="How it was concluded — detention served, apology made, parents met…"
+                              placeholder="How it was concluded: detention served, apology made, parents met…"
                             />
                             <Button type="submit" size="sm" variant="outline">
                               <CheckCircle2 className="size-3.5" />

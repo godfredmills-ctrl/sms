@@ -128,7 +128,7 @@ export function AssetForm({
           <p className="rounded-lg bg-[var(--bg-subtle)] p-2.5 text-xs text-[var(--text-muted)]">
             {category.usefulLifeYears
               ? `Things in this category are written off over ${category.usefulLifeYears} year${category.usefulLifeYears === 1 ? "" : "s"}`
-              : "Things in this category are not depreciated — they are carried at cost"}
+              : "Things in this category are not depreciated: they are carried at cost"}
             {category.residualPercent > 0
               ? `, keeping ${category.residualPercent}% of their cost at the end.`
               : "."}{" "}
@@ -184,7 +184,7 @@ export function AssetForm({
               {lists.staff.map((entry) => (
                 <option key={entry.id} value={entry.id}>
                   {entry.firstName} {entry.lastName}
-                  {entry.jobTitle ? ` — ${entry.jobTitle}` : ""}
+                  {entry.jobTitle ? `, ${entry.jobTitle}` : ""}
                 </option>
               ))}
             </Select>
@@ -230,7 +230,7 @@ export function AssetForm({
             htmlFor="residual"
             hint={
               impliedResidual > 0
-                ? `Blank uses the category's ${category?.residualPercent}% — about GH₵${(impliedResidual / 100).toFixed(2)}.`
+                ? `Blank uses the category's ${category?.residualPercent}%: about GH₵${(impliedResidual / 100).toFixed(2)}.`
                 : "Blank means nothing at the end."
             }
           >
@@ -259,7 +259,7 @@ export function AssetForm({
               <option value="">Not linked</option>
               {capitalExpenses.map((entry) => (
                 <option key={entry.id} value={entry.id}>
-                  {entry.reference} — {entry.description.slice(0, 60)}
+                  {entry.reference}: {entry.description.slice(0, 60)}
                 </option>
               ))}
             </Select>

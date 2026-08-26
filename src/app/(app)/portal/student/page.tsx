@@ -213,7 +213,7 @@ export default async function StudentPortalPage() {
       <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatCard
           label="Attendance"
-          value={attendanceTotal ? formatPercent(attendanceRate) : "—"}
+          value={attendanceTotal ? formatPercent(attendanceRate) : "-"}
           hint={`${attendancePresent} of ${attendanceTotal} sessions`}
           tone={
             attendanceRate >= 92 ? "success" : attendanceRate >= 85 ? "warning" : "danger"
@@ -223,7 +223,7 @@ export default async function StudentPortalPage() {
         />
         <StatCard
           label="Coursework average"
-          value={averageMark === null ? "—" : `${averageMark.toFixed(1)}%`}
+          value={averageMark === null ? "-" : `${averageMark.toFixed(1)}%`}
           hint={`${graded.length} graded pieces`}
           tone="violet"
           icon={<ClipboardList className="size-4" />}
@@ -231,7 +231,7 @@ export default async function StudentPortalPage() {
         />
         <StatCard
           label="Lessons completed"
-          value={lessonsTotal ? `${lessonsDone}/${lessonsTotal}` : "—"}
+          value={lessonsTotal ? `${lessonsDone}/${lessonsTotal}` : "-"}
           hint={lessonsTotal ? formatPercent(percentOf(lessonsDone, lessonsTotal)) : undefined}
           tone="info"
           icon={<MonitorPlay className="size-4" />}
@@ -355,7 +355,7 @@ export default async function StudentPortalPage() {
               {report ? (
                 <>
                   <p className="numeric text-3xl font-semibold">
-                    {toNumber(report.averageScore)?.toFixed(1) ?? "—"}%
+                    {toNumber(report.averageScore)?.toFixed(1) ?? "-"}%
                   </p>
                   <p className="mt-1 text-sm text-[var(--text-muted)]">
                     {report.term.name}
@@ -433,7 +433,7 @@ export default async function StudentPortalPage() {
               <p className="mt-1 text-xs text-[var(--text-muted)]">
                 {statement.balanceMinor > 0
                   ? `outstanding of ${formatMoney(statement.billedMinor)} billed`
-                  : "Fully paid — thank you."}
+                  : "Fully paid: thank you."}
               </p>
               {statement.invoices[0]?.dueDate ? (
                 <p className="mt-1 text-xs text-[var(--text-subtle)]">

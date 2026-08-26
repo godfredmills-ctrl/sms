@@ -79,7 +79,7 @@ const NUMERIC_TYPES: Array<Field["type"]> = ["number", "money", "percent"];
 function isBlank(value: unknown): boolean {
   if (value === null || value === undefined) return true;
   const text = String(value).trim();
-  return text === "" || text === "—";
+  return text === "" || text === "-";
 }
 
 function toNumber(value: unknown): number | null {

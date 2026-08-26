@@ -127,7 +127,7 @@ export default async function LmsPage() {
     <>
       <PageHeader
         title="Courses"
-        description="The virtual learning environment — modules, lessons, assignments and quizzes."
+        description="The virtual learning environment: modules, lessons, assignments and quizzes."
       />
 
       <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -322,12 +322,12 @@ export default async function LmsPage() {
             <Card>
               <CardHeader
                 title="New course"
-                description="Created as a draft — students see nothing until it is published."
+                description="Created as a draft: students see nothing until it is published."
               />
               <CourseForm
                 offerings={offerings.map((offering) => ({
                   value: offering.id,
-                  label: `${offering.classSection.classLevel.name} ${offering.classSection.name} — ${offering.subject.name}`,
+                  label: `${offering.classSection.classLevel.name} ${offering.classSection.name}, ${offering.subject.name}`,
                   description: offering.teacher
                     ? fullName(offering.teacher)
                     : "No teacher assigned",
@@ -338,8 +338,8 @@ export default async function LmsPage() {
             {offerings.length === 0 ? (
               <Card>
                 <CardBody className="text-xs text-[var(--text-muted)]">
-                  Every class–subject assignment already has a course. Create a
-                  standalone course by leaving the class field blank — that is how
+                  Every class-subject assignment already has a course. Create a
+                  standalone course by leaving the class field blank: that is how
                   clubs, CPD and holiday programmes are set up.
                 </CardBody>
               </Card>

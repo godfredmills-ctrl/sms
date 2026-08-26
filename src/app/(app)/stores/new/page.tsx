@@ -29,7 +29,7 @@ export default async function NewStockItemPage() {
       <Card>
         <CardHeader
           title="Details"
-          description="Nothing is on the shelf until a delivery or an opening balance is recorded against it — the balance is the sum of the movements."
+          description="Nothing is on the shelf until a delivery or an opening balance is recorded against it: the balance is the sum of the movements."
         />
         <ItemForm lists={lists} />
       </Card>

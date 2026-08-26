@@ -150,7 +150,7 @@ export async function importStudentsAction(
     if (takenNumbers.has(admissionNo)) {
       problems.push({
         row: rowNumber,
-        message: `Admission number ${admissionNo} already exists — row skipped.`,
+        message: `Admission number ${admissionNo} already exists: row skipped.`,
       });
       skipped += 1;
       continue;
@@ -162,7 +162,7 @@ export async function importStudentsAction(
     if (className && !classSectionId) {
       problems.push({
         row: rowNumber,
-        message: `No class matches “${get("className")}” — the student will be created unplaced.`,
+        message: `No class matches “${get("className")}”: the student will be created unplaced.`,
       });
     }
 

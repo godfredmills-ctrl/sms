@@ -30,7 +30,7 @@ export function AddGuardianButton({
         open={open}
         onClose={() => setOpen(false)}
         title="Add a guardian"
-        description="If this parent already has a child here, their record exists — a duplicate splits one family's fees in two."
+        description="If this parent already has a child here, their record exists: a duplicate splits one family's fees in two."
         wide
       >
         <GuardianForm documentCategories={documentCategories} onSuccess={refresh} />

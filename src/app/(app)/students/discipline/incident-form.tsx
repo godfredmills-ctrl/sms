@@ -84,7 +84,7 @@ export function IncidentForm({ students }: { students: SelectOption[] }) {
             name="description"
             rows={3}
             required
-            placeholder="Factual and specific — this is read years later, by people who were not there."
+            placeholder="Factual and specific: this is read years later, by people who were not there."
           />
         </Field>
 
@@ -144,7 +144,7 @@ export function IncidentForm({ students }: { students: SelectOption[] }) {
         <CheckboxField
           name="notifyGuardian"
           label="Notify the family"
-          description="Category and sanction only — the full account stays a conversation."
+          description="Category and sanction only: the full account stays a conversation."
         />
 
         <Submit />

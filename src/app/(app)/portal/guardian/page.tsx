@@ -253,7 +253,7 @@ export default async function GuardianPortalPage({
                         Attendance
                       </span>
                       <span className="numeric text-sm font-semibold">
-                        {total ? formatPercent(attendanceRate) : "—"}
+                        {total ? formatPercent(attendanceRate) : "-"}
                       </span>
                     </div>
                     <ProgressBar
@@ -304,7 +304,7 @@ export default async function GuardianPortalPage({
                     {report ? (
                       <>
                         <p className="numeric mt-1 text-lg font-semibold">
-                          {toNumber(report.averageScore)?.toFixed(1) ?? "—"}%
+                          {toNumber(report.averageScore)?.toFixed(1) ?? "-"}%
                         </p>
                         <p className="text-xs text-[var(--text-subtle)]">
                           {report.term.name}

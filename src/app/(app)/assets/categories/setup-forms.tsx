@@ -87,7 +87,7 @@ export function CategoryForm({ values = {} }: { values?: CategoryValues }) {
         <Field
           label="Useful life (years)"
           htmlFor={`cat-life-${values.id ?? "new"}`}
-          hint="Blank means this kind is not depreciated — land, mostly."
+          hint="Blank means this kind is not depreciated: land, mostly."
         >
           <Input
             id={`cat-life-${values.id ?? "new"}`}

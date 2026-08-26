@@ -36,7 +36,7 @@ type Band = { grade: string; min: number; max: number };
  * before a term's marks are entered against the scale.
  */
 function auditBands(bands: Band[]): string[] {
-  if (bands.length === 0) return ["No bands defined — marks cannot be graded."];
+  if (bands.length === 0) return ["No bands defined: marks cannot be graded."];
 
   const sorted = [...bands].sort((a, b) => a.min - b.min);
   const problems: string[] = [];
@@ -58,7 +58,7 @@ function auditBands(bands: Band[]): string[] {
       );
     } else if (current.min > previous.max + 1) {
       problems.push(
-        `Nothing covers ${previous.max + 1}–${current.min - 1} (between ${previous.grade} and ${current.grade}).`,
+        `Nothing covers ${previous.max + 1}-${current.min - 1} (between ${previous.grade} and ${current.grade}).`,
       );
     }
   }
@@ -93,7 +93,7 @@ export default async function GradingPage() {
     <>
       <PageHeader
         title="Grading scales"
-        description="WASSCE, IGCSE, IB or your own — each scale maps a mark to a grade, a point and a remark."
+        description="WASSCE, IGCSE, IB or your own: each scale maps a mark to a grade, a point and a remark."
       />
 
       <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -210,13 +210,13 @@ export default async function GradingPage() {
                                 </span>
                               </td>
                               <td className="numeric py-1.5 pr-3">
-                                {band.min}–{band.max}
+                                {band.min}-{band.max}
                               </td>
                               <td className="numeric py-1.5 pr-3">
-                                {band.point === null ? "—" : Number(band.point)}
+                                {band.point === null ? "-" : Number(band.point)}
                               </td>
                               <td className="py-1.5 pr-3 text-[var(--text-muted)]">
-                                {band.remark ?? "—"}
+                                {band.remark ?? "-"}
                               </td>
                               <td className="py-1.5 pr-3">
                                 <Badge tone={band.isPass ? "success" : "danger"}>

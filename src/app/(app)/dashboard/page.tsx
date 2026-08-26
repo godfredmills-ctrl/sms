@@ -132,7 +132,7 @@ export default async function DashboardPage() {
         description={
           year
             ? `${year.name} · ${term?.name ?? "No active term"}`
-            : "No academic year is marked as current — set one up in Academics."
+            : "No academic year is marked as current: set one up in Academics."
         }
         action={
           <>
@@ -208,7 +208,7 @@ export default async function DashboardPage() {
         <StatCard
           label="Students"
           value={studentCount.toLocaleString()}
-          hint={`${staffCount} staff · ratio ${staffCount ? (studentCount / staffCount).toFixed(1) : "—"}:1`}
+          hint={`${staffCount} staff · ratio ${staffCount ? (studentCount / staffCount).toFixed(1) : "-"}:1`}
           icon={<GraduationCap className="size-4" />}
           tone="primary"
           href="/students"
@@ -387,7 +387,7 @@ export default async function DashboardPage() {
           <Card className="lg:col-span-2">
             <CardHeader
               title="Overdue fee accounts"
-              description="Oldest first — chase these before the term ends"
+              description="Oldest first: chase these before the term ends"
               action={
                 <LinkButton href="/finance/invoices?status=OVERDUE" variant="ghost" size="sm">
                   View all

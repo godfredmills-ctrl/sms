@@ -176,7 +176,7 @@ export default async function LettersPage({
               query
                 ? "No title, reference or body matches that."
                 : canWrite
-                  ? "Write a letter, a report or a proposal — it prints on the school letterhead."
+                  ? "Write a letter, a report or a proposal: it prints on the school letterhead."
                   : "Nothing has been written yet."
             }
           />

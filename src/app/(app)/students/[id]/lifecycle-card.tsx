@@ -154,7 +154,7 @@ export function LifecycleCard({
                     hint={
                       currentClass
                         ? `Leave blank to put them back in ${currentClass}.`
-                        : "Required — they have no class to return to."
+                        : "Required: they have no class to return to."
                     }
                   >
                     <SearchableSelect

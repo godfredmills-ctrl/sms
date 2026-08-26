@@ -174,8 +174,8 @@ console.log("\nWhat a cell prints\n");
 check("a mark prints as a number", formatScoreCell(45), "45.0");
 check("a zero prints as a zero", formatScoreCell(0), "0.0");
 check("an absence prints Abs", formatScoreCell(null, { absent: true }), "Abs");
-check("no component prints a dash", formatScoreCell(null), "—");
-check("undefined prints a dash", formatScoreCell(undefined), "—");
+check("no component prints a dash", formatScoreCell(null), "-");
+check("undefined prints a dash", formatScoreCell(undefined), "-");
 check("decimals can be asked for", formatScoreCell(45.678, { decimals: 2 }), "45.68");
 
 function round(value: number): number {

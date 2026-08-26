@@ -14,7 +14,7 @@ export function NewsletterForm({ gold, navy }: { gold: string; navy: string }) {
   );
 
   if (state.ok) {
-    return <p className="text-xs text-white/75">Thank you — you are on the list.</p>;
+    return <p className="text-xs text-white/75">Thank you: you are on the list.</p>;
   }
 
   return (

@@ -45,7 +45,7 @@ export function AdmissionStageCard({
     <Card>
       <CardHeader
         title="Admission pipeline"
-        description="Filling a form on the website makes nobody a student — these steps do."
+        description="Filling a form on the website makes nobody a student: these steps do."
       />
       <CardBody className="space-y-4">
         {state.error ? <Alert tone="danger">{state.error}</Alert> : null}

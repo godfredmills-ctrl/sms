@@ -133,7 +133,7 @@ export async function saveItemAction(
       entity: "LibraryItem",
       entityId: item.id,
       summary: `${id ? "Edited" : "Catalogued"} "${title.slice(0, 60)}"${
-        added ? ` — ${added} copy/copies added` : ""
+        added ? `, ${added} copy/copies added` : ""
       }`,
     },
   });
@@ -177,7 +177,7 @@ export async function setCopyStatusAction(formData: FormData): Promise<LibrarySt
   // ON_LOAN is set by the desk, not by hand — the loan is what makes it true,
   // and a copy marked on loan with nobody holding it can never be issued again.
   if (status === "ON_LOAN") {
-    return { error: "Issue the book to someone instead — that sets it on loan." };
+    return { error: "Issue the book to someone instead: that sets it on loan." };
   }
   if (copy.loans.length && status === "AVAILABLE") {
     return { error: "Someone still has this copy. Take it back in first." };
@@ -230,7 +230,7 @@ export async function issueLoanAction(
   if (!accessionNo) return { error: "Which book? Type the accession number." };
   if (!studentId && !staffId) return { error: "Who is borrowing it?" };
   if (studentId && staffId) {
-    return { error: "One borrower at a time — a pupil or a member of staff." };
+    return { error: "One borrower at a time: a pupil or a member of staff." };
   }
 
   const copy = await db.libraryCopy.findUnique({
@@ -304,7 +304,7 @@ export async function issueLoanAction(
       action: "library.loan.issue",
       entity: "LibraryCopy",
       entityId: copy.id,
-      summary: `Issued ${accessionNo} — ${copy.item.title.slice(0, 50)}`,
+      summary: `Issued ${accessionNo}, ${copy.item.title.slice(0, 50)}`,
     },
   });
 
@@ -400,7 +400,7 @@ export async function returnLoanAction(
     }
 
     return {
-      error: `${accessionNo} is not out — it is recorded as ${copy.status
+      error: `${accessionNo} is not out: it is recorded as ${copy.status
         .toLowerCase()
         .replace(/_/g, " ")}. Change that from the catalogue if it is wrong.`,
     };

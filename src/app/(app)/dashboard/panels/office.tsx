@@ -181,7 +181,7 @@ export async function PayrollStatusPanel({ viewer }: { viewer: Viewer }) {
         description={
           run.status === "DRAFT"
             ? `A draft of ${run.payslips.length} payslip${run.payslips.length === 1 ? "" : "s"} is waiting to be checked.`
-            : `Approved by ${run.approvedBy ?? "—"}. Not yet marked paid.`
+            : `Approved by ${run.approvedBy ?? "-"}. Not yet marked paid.`
         }
         action={
           <LinkButton

@@ -68,7 +68,7 @@ export function titleCase(value: string): string {
 
 /** Turns an enum member like ON_LEAVE into "On Leave" for display. */
 export function humanise(value: string | null | undefined): string {
-  if (!value) return "—";
+  if (!value) return "-";
   return titleCase(value);
 }
 
@@ -94,7 +94,7 @@ export function normalisePhone(input: string | null | undefined): string | null 
 
 export function formatPhone(input: string | null | undefined): string {
   const normalised = normalisePhone(input);
-  if (!normalised) return "—";
+  if (!normalised) return "-";
   const match = normalised.match(/^\+233(\d{2})(\d{3})(\d{4})$/);
   return match ? `+233 ${match[1]} ${match[2]} ${match[3]}` : normalised;
 }
@@ -119,9 +119,9 @@ export function formatDate(
   value: Date | string | null | undefined,
   style: "short" | "long" | "full" = "short",
 ): string {
-  if (!value) return "—";
+  if (!value) return "-";
   const date = typeof value === "string" ? new Date(value) : value;
-  if (Number.isNaN(date.getTime())) return "—";
+  if (Number.isNaN(date.getTime())) return "-";
 
   const options: Intl.DateTimeFormatOptions =
     style === "full"
@@ -134,9 +134,9 @@ export function formatDate(
 }
 
 export function formatDateTime(value: Date | string | null | undefined): string {
-  if (!value) return "—";
+  if (!value) return "-";
   const date = typeof value === "string" ? new Date(value) : value;
-  if (Number.isNaN(date.getTime())) return "—";
+  if (Number.isNaN(date.getTime())) return "-";
   return new Intl.DateTimeFormat("en-GB", {
     day: "2-digit",
     month: "short",
@@ -147,7 +147,7 @@ export function formatDateTime(value: Date | string | null | undefined): string 
 }
 
 export function relativeTime(value: Date | string | null | undefined): string {
-  if (!value) return "—";
+  if (!value) return "-";
   const date = typeof value === "string" ? new Date(value) : value;
   const seconds = Math.round((date.getTime() - Date.now()) / 1000);
   const formatter = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
@@ -210,7 +210,7 @@ export function countSchoolDays(start: Date, end: Date, holidays: Date[] = []): 
 // -----------------------------------------------------------------------------
 
 export function formatNumber(value: number | null | undefined, decimals = 0): string {
-  if (value === null || value === undefined || !Number.isFinite(value)) return "—";
+  if (value === null || value === undefined || !Number.isFinite(value)) return "-";
   return new Intl.NumberFormat("en-GH", {
     minimumFractionDigits: decimals,
     maximumFractionDigits: decimals,
@@ -218,7 +218,7 @@ export function formatNumber(value: number | null | undefined, decimals = 0): st
 }
 
 export function formatPercent(value: number | null | undefined, decimals = 1): string {
-  if (value === null || value === undefined || !Number.isFinite(value)) return "—";
+  if (value === null || value === undefined || !Number.isFinite(value)) return "-";
   return `${value.toFixed(decimals)}%`;
 }
 

@@ -105,7 +105,7 @@ export default async function GuardianTransportPage() {
               <Card key={assignment.id}>
                 <CardHeader
                   title={listName(assignment.student)}
-                  description={`Route ${assignment.route.code} — ${assignment.route.name}`}
+                  description={`Route ${assignment.route.code}, ${assignment.route.name}`}
                   action={
                     assignment.direction === "BOTH" ? null : (
                       <Badge tone="neutral">{directionLabel(assignment.direction)}</Badge>

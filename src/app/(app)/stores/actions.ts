@@ -115,7 +115,7 @@ export async function saveStockItemAction(
     if (String((error as { code?: string }).code) === "P2002") {
       return {
         error:
-          "Somebody else added an item to this category a moment ago and took the next code. Try again — a fresh code will be issued.",
+          "Somebody else added an item to this category a moment ago and took the next code. Try again: a fresh code will be issued.",
       };
     }
     throw error;
@@ -271,7 +271,7 @@ export async function recordCountAction(
   if (difference === 0) {
     return {
       ok: true,
-      message: `The count agrees with the book — ${formatQuantity(counted)} ${item.unit}. Nothing to record.`,
+      message: `The count agrees with the book, ${formatQuantity(counted)} ${item.unit}. Nothing to record.`,
     };
   }
 

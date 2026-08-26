@@ -131,7 +131,7 @@ export default async function AttendancePage({
           value={
             totalRecords.length
               ? formatPercent(percentOf(presentCount, totalRecords.length))
-              : "—"
+              : "-"
           }
           tone={
             !totalRecords.length

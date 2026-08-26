@@ -257,7 +257,7 @@ export default async function InvoicePage({
                       <td className="numeric py-2 pr-3 text-right">
                         {line.discountMinor
                           ? `−${formatMoney(line.discountMinor)}`
-                          : "—"}
+                          : "-"}
                       </td>
                       <td className="numeric py-2 text-right font-medium">
                         {formatMoney(line.amountMinor)}

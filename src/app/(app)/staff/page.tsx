@@ -145,7 +145,7 @@ export default async function StaffPage() {
         <StatCard
           label="Average teaching load"
           value={averageLoad}
-          hint="Class–subject assignments per teacher"
+          hint="Class-subject assignments per teacher"
           tone="info"
           icon={<BookOpen className="size-4" />}
         />
@@ -162,7 +162,7 @@ export default async function StaffPage() {
         <Alert tone="warning" className="mb-4">
           {withoutLogin} active staff member{withoutLogin === 1 ? " has" : "s have"} no
           user account, so they cannot sign in, take a register or enter marks. Open a
-          staff profile to create the account — it links the login to the person.
+          staff profile to create the account: it links the login to the person.
         </Alert>
       ) : null}
 

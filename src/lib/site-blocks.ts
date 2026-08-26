@@ -71,7 +71,7 @@ export const BLOCK_DEFS: BlockDef[] = [
         key: "badgeTitle",
         label: "Badge heading",
         kind: "text",
-        hint: "The small card over the photograph — e.g. “A Legacy of Excellence”.",
+        hint: "The small card over the photograph: e.g. “A Legacy of Excellence”.",
       },
       { key: "badgeText", label: "Badge detail", kind: "text", hint: "e.g. “Since 1998”." },
     ],
@@ -120,7 +120,7 @@ export const BLOCK_DEFS: BlockDef[] = [
     type: "imageText",
     label: "Image and text",
     description:
-      "A photograph beside copy, with optional statistics and fact cards — the classic “about our school” section.",
+      "A photograph beside copy, with optional statistics and fact cards: the classic “about our school” section.",
     fields: [
       { key: "eyebrow", label: "Eyebrow", kind: "text", hint: "e.g. “ABOUT OUR SCHOOL”." },
       { key: "heading", label: "Heading", kind: "text" },
@@ -168,7 +168,7 @@ export const BLOCK_DEFS: BlockDef[] = [
   {
     type: "cards",
     label: "Card row",
-    description: "Linked cards with pictures — programmes, departments, houses.",
+    description: "Linked cards with pictures: programmes, departments, houses.",
     fields: [
       { key: "eyebrow", label: "Eyebrow", kind: "text", hint: "e.g. “ACADEMICS”." },
       { key: "heading", label: "Heading", kind: "text" },
@@ -217,7 +217,7 @@ export const BLOCK_DEFS: BlockDef[] = [
     type: "cta",
     label: "Call to action",
     description:
-      "A section with one clear action — with a photograph it becomes a split banner, without one a coloured band.",
+      "A section with one clear action: with a photograph it becomes a split banner, without one a coloured band.",
     fields: [
       { key: "eyebrow", label: "Eyebrow", kind: "text", hint: "e.g. “ADMISSIONS”." },
       { key: "heading", label: "Heading", kind: "text" },
@@ -274,7 +274,7 @@ export const BLOCK_DEFS: BlockDef[] = [
         key: "levels",
         label: "Levels offered",
         kind: "list",
-        hint: "One per line — Nursery, KG, Primary, JHS…",
+        hint: "One per line: Nursery, KG, Primary, JHS…",
       },
       { key: "thanks", label: "Thank-you message", kind: "textarea" },
     ],
@@ -284,7 +284,7 @@ export const BLOCK_DEFS: BlockDef[] = [
         "Tell us about your child and we will be in touch within two school days.",
       levels: "Nursery\nKindergarten\nLower Primary\nUpper Primary\nJHS",
       thanks:
-        "Thank you — your enquiry has been received. The admissions office will contact you shortly.",
+        "Thank you: your enquiry has been received. The admissions office will contact you shortly.",
     },
   },
 ];

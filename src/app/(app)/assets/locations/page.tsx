@@ -84,7 +84,7 @@ export default async function AssetLocationsPage() {
             <Card>
               <CardBody>
                 <p className="text-sm text-[var(--text-muted)]">
-                  No locations yet. Add the first one on the right — an asset can be
+                  No locations yet. Add the first one on the right: an asset can be
                   entered without one, but then nobody knows where to go and look
                   for it.
                 </p>
@@ -96,7 +96,7 @@ export default async function AssetLocationsPage() {
         <Card className="h-fit">
           <CardHeader
             title="Add a location"
-            description="Two places cannot share a name in the same building — during a stock-take the name is all anybody has to go on."
+            description="Two places cannot share a name in the same building: during a stock-take the name is all anybody has to go on."
           />
           <CardBody>
             <LocationForm campuses={campuses} />

@@ -184,7 +184,7 @@ export default async function AccountPage() {
           <CardBody>
             <DescriptionList
               items={[
-                { label: "Username", value: account.username ?? "—" },
+                { label: "Username", value: account.username ?? "-" },
                 { label: "Status", value: humanise(account.status) },
                 {
                   label: "Last signed in",
@@ -255,7 +255,7 @@ export default async function AccountPage() {
         <CardBody className="border-t border-[var(--border)]">
           <p className="flex items-start gap-2 text-xs text-[var(--text-muted)]">
             <ShieldCheck className="mt-0.5 size-3.5 shrink-0" />
-            Some messages are sent regardless — an account security alert or an urgent
+            Some messages are sent regardless: an account security alert or an urgent
             school-wide notice is not something a preference should be able to
             suppress.
           </p>

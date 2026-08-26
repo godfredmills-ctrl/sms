@@ -608,7 +608,7 @@ export function RenderBlock({
             </blockquote>
             {props.attribution ? (
               <p className="mt-4 text-sm font-semibold" style={{ color: theme.goldText }}>
-                — {props.attribution}
+               : {props.attribution}
               </p>
             ) : null}
           </div>
@@ -805,7 +805,7 @@ export function RenderBlock({
             levels={levels.length ? levels : ["Nursery", "Primary", "JHS"]}
             thanks={
               props.thanks ||
-              "Thank you — your enquiry has been received. The admissions office will contact you shortly."
+              "Thank you: your enquiry has been received. The admissions office will contact you shortly."
             }
             accent={theme.primary}
           />

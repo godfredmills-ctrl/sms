@@ -95,8 +95,8 @@ export default async function TemplateEditorPage({
       {issued > 0 ? (
         <Alert tone="warning" className="mb-4">
           {issued} document{issued === 1 ? " has" : "s have"} already been issued from
-          this template. Editing it changes nothing already issued — those are stored
-          with their own snapshot — but the next one out will look different.
+          this template. Editing it changes nothing already issued: those are stored
+          with their own snapshot: but the next one out will look different.
         </Alert>
       ) : null}
 

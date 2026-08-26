@@ -109,7 +109,7 @@ export async function renderManifestPdf(input: Manifest): Promise<Buffer> {
     page = pdf.addPage([PAGE_W, PAGE_H]);
     y = PAGE_H - MARGIN;
     page.drawText(
-      clean(`${input.route.code} — ${runLabel} (continued)`),
+      clean(`${input.route.code}, ${runLabel} (continued)`),
       { x: MARGIN, y, size: 9, font: bold, color: MUTED },
     );
     y -= 18;
@@ -129,7 +129,7 @@ export async function renderManifestPdf(input: Manifest): Promise<Buffer> {
   });
   y -= 34;
 
-  page.drawText(clean(`Route ${input.route.code} — ${input.route.name}`), {
+  page.drawText(clean(`Route ${input.route.code}, ${input.route.name}`), {
     x: MARGIN,
     y,
     size: 20,
@@ -165,7 +165,7 @@ export async function renderManifestPdf(input: Manifest): Promise<Buffer> {
     contactLines.push(
       [
         vehicle.registration,
-        vehicle.grounded ? `DO NOT RUN — ${vehicle.grounded}` : null,
+        vehicle.grounded ? `DO NOT RUN, ${vehicle.grounded}` : null,
         driver ? `Driver: ${driver}` : null,
         assistant ? `Assistant: ${assistant}` : null,
       ]
@@ -365,7 +365,7 @@ export async function renderManifestPdf(input: Manifest): Promise<Buffer> {
     // precisely the child who gets left behind, and the sheet has to show it.
     drawStop(
       { name: "No stop recorded", children: input.unplaced },
-      "NO STOP RECORDED — check before the bus leaves",
+      "NO STOP RECORDED: check before the bus leaves",
       true,
     );
   }

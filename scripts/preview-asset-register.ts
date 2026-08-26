@@ -26,7 +26,7 @@ const money = (minor: number) =>
   `GHS ${(minor / 100).toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 const shortDate = (date: Date | null) =>
-  date ? date.toISOString().slice(0, 10) : "—";
+  date ? date.toISOString().slice(0, 10) : "-";
 
 type Row = RegisterLine & {
   tag: string;
@@ -43,7 +43,7 @@ const rows: Row[] = [
     name: "Toyota Hiace minibus",
     category: "Motor vehicles",
     location: "Transport yard",
-    custodian: "—",
+    custodian: "-",
     condition: "FAIR",
     status: "IN_USE",
     costMinor: 18_000_000,
@@ -57,7 +57,7 @@ const rows: Row[] = [
     name: "Perkins 60kVA standby generator with acoustic canopy",
     category: "Plant and machinery",
     location: "Administration block",
-    custodian: "—",
+    custodian: "-",
     condition: "GOOD",
     status: "IN_USE",
     costMinor: 24_500_000,
@@ -85,7 +85,7 @@ const rows: Row[] = [
     name: "Epson projector",
     category: "ICT equipment",
     location: "Assembly hall",
-    custodian: "—",
+    custodian: "-",
     condition: "GOOD",
     status: "MISSING",
     costMinor: 480_000,
@@ -98,8 +98,8 @@ const rows: Row[] = [
     tag: "SMIS/LND/0001",
     name: "School land, Adenta parcel",
     category: "Land and buildings",
-    location: "—",
-    custodian: "—",
+    location: "-",
+    custodian: "-",
     condition: "GOOD",
     status: "IN_USE",
     costMinor: 120_000_000,
@@ -112,8 +112,8 @@ const rows: Row[] = [
     tag: "SMIS/VEH/0003",
     name: "Nissan Urvan minibus (former)",
     category: "Motor vehicles",
-    location: "—",
-    custodian: "—",
+    location: "-",
+    custodian: "-",
     condition: "POOR",
     status: "DISPOSED",
     costMinor: 9_500_000,
@@ -203,7 +203,7 @@ for (const row of rows) {
 const sale = disposalResult(rows.find((row) => row.status === "DISPOSED")!);
 console.log(
   `\n    Disposal: sold for ${money(sale!.proceedsMinor)} against ${money(sale!.netBookMinor)} on the books` +
-    ` — ${sale!.gainMinor >= 0 ? "gain" : "loss"} of ${money(Math.abs(sale!.gainMinor))}`,
+    `, ${sale!.gainMinor >= 0 ? "gain" : "loss"} of ${money(Math.abs(sale!.gainMinor))}`,
 );
 console.log(
   `\n    Totals: cost ${money(totals.costMinor)} - depreciation ${money(totals.accumulatedMinor)}` +

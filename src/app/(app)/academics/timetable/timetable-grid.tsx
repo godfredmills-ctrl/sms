@@ -162,7 +162,7 @@ export function TimetableGrid({
                             Add
                           </span>
                         ) : (
-                          <span>—</span>
+                          <span>-</span>
                         )}
                       </button>
                     </td>

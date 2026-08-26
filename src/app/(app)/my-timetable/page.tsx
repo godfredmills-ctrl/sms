@@ -184,7 +184,7 @@ export default async function MyTimetablePage() {
 
           {clashPairs ? (
             <Alert tone="danger" className="mb-4">
-              You are booked in two classes at the same time — the affected lessons
+              You are booked in two classes at the same time: the affected lessons
               are outlined below. Tell whoever keeps the timetable before week one
               decides it for you.
             </Alert>
@@ -235,10 +235,10 @@ export default async function MyTimetablePage() {
                             </span>
                           </div>
                           <p className="truncate text-[10px] text-[var(--text-muted)]">
-                            {slot.offering?.subject.name ?? "—"}
+                            {slot.offering?.subject.name ?? "-"}
                           </p>
                           <p className="numeric mt-0.5 text-[10px] text-[var(--text-subtle)]">
-                            {slot.startTime}–{slot.endTime}
+                            {slot.startTime}-{slot.endTime}
                             {slot.room ?? slot.offering?.room
                               ? ` · ${slot.room ?? slot.offering?.room}`
                               : ""}

@@ -115,7 +115,7 @@ export function QuizPaper({
         <Alert tone="danger">
           <span className="flex items-start gap-2">
             <TriangleAlert className="mt-0.5 size-4 shrink-0" />
-            Less than a minute left. The paper submits itself when the time runs out —
+            Less than a minute left. The paper submits itself when the time runs out:
             nothing you have written will be lost.
           </span>
         </Alert>
@@ -185,7 +185,7 @@ export function QuizPaper({
 
             {question.type === "MULTIPLE_ANSWER" ? (
               <p className="mt-2 text-xs text-[var(--text-subtle)]">
-                Select every correct option — partial answers score nothing.
+                Select every correct option: partial answers score nothing.
               </p>
             ) : null}
           </CardBody>

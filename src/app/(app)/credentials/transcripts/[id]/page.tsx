@@ -83,7 +83,7 @@ export default async function TranscriptPage({
           >
             ← Credentials
           </Link>
-          <h1 className="mt-1 text-xl font-semibold">Transcript — {fullName}</h1>
+          <h1 className="mt-1 text-xl font-semibold">Transcript: {fullName}</h1>
           <p className="numeric text-sm text-[var(--text-muted)]">
             {transcript.serialNumber}
           </p>
@@ -93,7 +93,7 @@ export default async function TranscriptPage({
               ignored — so the toggle underneath shows the real file. */}
           <p className="no-print mt-0.5 text-xs text-[var(--text-subtle)]">
             {transcript.template
-              ? `The PDF is laid out by your "${transcript.template.name}" template — switch below to see it`
+              ? `The PDF is laid out by your "${transcript.template.name}" template: switch below to see it`
               : "No transcript template attached, so the PDF uses the built-in layout"}
           </p>
         </div>
@@ -127,7 +127,7 @@ export default async function TranscriptPage({
 
       {transcript.revokedAt ? (
         <Alert tone="danger" title="This transcript has been revoked" className="no-print mb-4">
-          {transcript.revokeReason} — revoked {formatDate(transcript.revokedAt)}.
+          {transcript.revokeReason}: revoked {formatDate(transcript.revokedAt)}.
         </Alert>
       ) : null}
 
@@ -167,11 +167,11 @@ export default async function TranscriptPage({
             { label: "Admission No.", value: transcript.student.admissionNo },
             { label: "Date of birth", value: formatDate(transcript.student.dateOfBirth) },
             { label: "Gender", value: humanise(transcript.student.gender) },
-            { label: "Nationality", value: transcript.student.nationality ?? "—" },
+            { label: "Nationality", value: transcript.student.nationality ?? "-" },
             { label: "Admitted", value: formatDate(transcript.student.admissionDate) },
             { label: "Serial", value: transcript.serialNumber },
             { label: "Issued", value: formatDate(transcript.issuedAt) },
-            { label: "Purpose", value: transcript.purpose ?? "—" },
+            { label: "Purpose", value: transcript.purpose ?? "-" },
           ].map((item) => (
             <div key={item.label}>
               <dt className="text-[9px] tracking-wide text-[var(--text-subtle)] uppercase">
@@ -185,7 +185,7 @@ export default async function TranscriptPage({
         {snapshot.terms.map((term, index) => (
           <section key={index} className="mt-4">
             <h3 className="border-b border-[var(--border-strong)] pb-0.5 text-[11px] font-bold uppercase">
-              {term.academicYear} — {term.termName} · {term.className}
+              {term.academicYear}: {term.termName} · {term.className}
             </h3>
             <table className="w-full border-collapse">
               <thead>
@@ -205,11 +205,11 @@ export default async function TranscriptPage({
                   <tr key={lineIndex} className="border-b border-[var(--border)]">
                     <td className="py-0.5">{line.subjectName}</td>
                     <td className="numeric py-0.5 text-right">
-                      {line.score?.toFixed(1) ?? "—"}
+                      {line.score?.toFixed(1) ?? "-"}
                     </td>
-                    <td className="py-0.5 text-center font-medium">{line.grade ?? "—"}</td>
-                    <td className="numeric py-0.5 pr-3 text-right">{line.point ?? "—"}</td>
-                    <td className="py-0.5 text-[10px]">{line.remark ?? "—"}</td>
+                    <td className="py-0.5 text-center font-medium">{line.grade ?? "-"}</td>
+                    <td className="numeric py-0.5 pr-3 text-right">{line.point ?? "-"}</td>
+                    <td className="py-0.5 text-[10px]">{line.remark ?? "-"}</td>
                   </tr>
                 ))}
               </tbody>
@@ -217,7 +217,7 @@ export default async function TranscriptPage({
             <p className="mt-1 text-right text-[10px]">
               Term average{" "}
               <span className="numeric font-semibold">
-                {term.average?.toFixed(1) ?? "—"}%
+                {term.average?.toFixed(1) ?? "-"}%
               </span>
               {term.position ? ` · Position ${term.position} of ${term.classSize}` : ""}
             </p>
@@ -229,7 +229,7 @@ export default async function TranscriptPage({
             <p>
               Cumulative GPA:{" "}
               <span className="numeric font-bold">
-                {toNumber(transcript.cumulativeGpa)?.toFixed(2) ?? "—"}
+                {toNumber(transcript.cumulativeGpa)?.toFixed(2) ?? "-"}
               </span>
             </p>
             {transcript.classification ? (
@@ -256,7 +256,7 @@ export default async function TranscriptPage({
 
       <div className="no-print mx-auto mt-4 max-w-[210mm]">
         <Badge tone="neutral">
-          Verification code {transcript.verifyCode} — anyone can check this at{" "}
+          Verification code {transcript.verifyCode}: anyone can check this at{" "}
           {verifyUrl}
         </Badge>
       </div>

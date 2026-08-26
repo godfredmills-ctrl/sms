@@ -84,7 +84,7 @@ export default async function MyPayslipsPage() {
     <>
       <PageHeader
         title="My payslips"
-        description="Your pay, month by month — what was earned, deducted and received."
+        description="Your pay, month by month: what was earned, deducted and received."
       />
 
       {payslips.length === 0 ? (
@@ -177,7 +177,7 @@ export default async function MyPayslipsPage() {
                         },
                         {
                           label: "Employer SSNIT (13%)",
-                          value: `${formatMoney(slip.ssnitEmployerMinor, "GHS")} — paid by the school on your behalf`,
+                          value: `${formatMoney(slip.ssnitEmployerMinor, "GHS")}: paid by the school on your behalf`,
                         },
                       ]}
                     />

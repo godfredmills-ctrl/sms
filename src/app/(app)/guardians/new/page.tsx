@@ -24,7 +24,7 @@ export default async function NewGuardianPage() {
         </Link>
         <PageHeader
           title="Add a guardian"
-          description="Wards are linked from the profile afterwards. If this parent already has a child here, their record already exists — search first, because a duplicate splits one family's fees and reminders in two."
+          description="Wards are linked from the profile afterwards. If this parent already has a child here, their record already exists: search first, because a duplicate splits one family's fees and reminders in two."
         />
       </div>
 

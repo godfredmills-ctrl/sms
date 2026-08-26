@@ -98,7 +98,7 @@ export default async function PayrollPage({
     <>
       <PageHeader
         title="Payroll"
-        description="Monthly runs, payslips, SSNIT and PAYE — prepared, approved, then paid."
+        description="Monthly runs, payslips, SSNIT and PAYE: prepared, approved, then paid."
         action={
           <>
             <LinkButton href="/payroll/salaries" variant="outline" size="sm">
@@ -127,7 +127,7 @@ export default async function PayrollPage({
         />
         <StatCard
           label="Last paid"
-          value={lastPaid ? payrollPeriodLabel(lastPaid.year, lastPaid.month) : "—"}
+          value={lastPaid ? payrollPeriodLabel(lastPaid.year, lastPaid.month) : "-"}
           hint={lastPaid ? formatMoney(lastPaidTotal, "GHS", { compact: true }) : "No run paid yet"}
           tone={lastPaid ? "success" : "neutral"}
           icon={<Banknote className="size-4" />}
@@ -144,7 +144,7 @@ export default async function PayrollPage({
                 title="No payroll runs yet"
                 description={
                   canManage
-                    ? "Open the first month alongside — everyone with a salary gets a payslip."
+                    ? "Open the first month alongside: everyone with a salary gets a payslip."
                     : "Nothing has been prepared yet."
                 }
               />

@@ -71,7 +71,7 @@ export function AuditTable({ rows }: { rows: AuditRow[] }) {
       header: "Detail",
       accessor: (row) => row.summary ?? "",
       cell: (row) => (
-        <span className="text-[var(--text-muted)]">{row.summary ?? "—"}</span>
+        <span className="text-[var(--text-muted)]">{row.summary ?? "-"}</span>
       ),
       sortable: false,
     },
@@ -147,7 +147,7 @@ export function AuditTable({ rows }: { rows: AuditRow[] }) {
                 <div>
                   <dt className="text-[var(--text-muted)]">Record</dt>
                   <dd>
-                    {detail.entity ?? "—"}
+                    {detail.entity ?? "-"}
                     {detail.entityId ? (
                       <span className="ml-1 font-mono text-[10px] text-[var(--text-subtle)]">
                         {detail.entityId}
@@ -157,11 +157,11 @@ export function AuditTable({ rows }: { rows: AuditRow[] }) {
                 </div>
                 <div>
                   <dt className="text-[var(--text-muted)]">IP address</dt>
-                  <dd className="numeric">{detail.ipAddress ?? "—"}</dd>
+                  <dd className="numeric">{detail.ipAddress ?? "-"}</dd>
                 </div>
                 <div className="sm:col-span-2">
                   <dt className="text-[var(--text-muted)]">Device</dt>
-                  <dd className="break-all">{detail.userAgent ?? "—"}</dd>
+                  <dd className="break-all">{detail.userAgent ?? "-"}</dd>
                 </div>
               </dl>
 

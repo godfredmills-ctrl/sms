@@ -359,7 +359,7 @@ export function MarkSheet({
 
                   <td className="numeric px-3 py-1.5 text-right">
                     {total === null ? (
-                      <span className="text-[var(--text-subtle)]">—</span>
+                      <span className="text-[var(--text-subtle)]">-</span>
                     ) : (
                       <span
                         className={cn(
@@ -391,7 +391,7 @@ export function MarkSheet({
 
       <p className="text-xs text-[var(--text-subtle)]">
         Press <kbd className="rounded border border-[var(--border)] px-1">Enter</kbd> or
-        the arrow keys to move down a column. Use the icon to mark a student absent —
+        the arrow keys to move down a column. Use the icon to mark a student absent:
         an absence is recorded, not scored as zero.
       </p>
     </div>

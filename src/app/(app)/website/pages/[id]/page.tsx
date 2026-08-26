@@ -131,7 +131,7 @@ export default async function EditPagePage({
               <EmptyState
                 icon={<Plus className="size-5" />}
                 title="No blocks yet"
-                description="Add one from the palette on the right — a hero banner is the usual place to start."
+                description="Add one from the palette on the right: a hero banner is the usual place to start."
               />
             </Card>
           ) : null}

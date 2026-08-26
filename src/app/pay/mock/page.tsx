@@ -161,7 +161,7 @@ export default async function MockCheckoutPage({
             <Lock className="size-5" />
           </span>
           <p className="text-sm font-semibold">Secure checkout</p>
-          <p className="text-xs text-[var(--text-subtle)]">Test gateway — no real money moves</p>
+          <p className="text-xs text-[var(--text-subtle)]">Test gateway: no real money moves</p>
         </div>
 
         <CardBody className="space-y-4">

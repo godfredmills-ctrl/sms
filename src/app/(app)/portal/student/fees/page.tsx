@@ -82,7 +82,7 @@ export default async function StudentFeesPage() {
 
       {statement.balanceMinor > 0 ? (
         <Alert tone="info" className="mb-4">
-          Part payments are accepted — any amount reduces the balance and is
+          Part payments are accepted: any amount reduces the balance and is
           receipted immediately. Ask your parent or guardian to pay through their
           portal, or at the school office.
         </Alert>

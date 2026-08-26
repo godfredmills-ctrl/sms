@@ -222,7 +222,7 @@ export function AttendanceRegister({
               className="flex flex-wrap items-center gap-3 px-4 py-2.5"
             >
               <span className="numeric w-6 shrink-0 text-xs text-[var(--text-subtle)]">
-                {student.rollNumber ?? "—"}
+                {student.rollNumber ?? "-"}
               </span>
               <Avatar name={student.fullName} src={student.photoUrl} size={32} />
               <div className="min-w-0 flex-1">
@@ -296,7 +296,7 @@ export function AttendanceRegister({
       ) : null}
 
       <p className="text-xs text-[var(--text-subtle)]">
-        <Badge tone="neutral">Tip</Badge> Everyone starts as present — mark only the
+        <Badge tone="neutral">Tip</Badge> Everyone starts as present: mark only the
         exceptions, then save.
       </p>
     </div>

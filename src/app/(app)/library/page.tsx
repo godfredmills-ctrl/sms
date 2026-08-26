@@ -269,7 +269,7 @@ export default async function LibraryPage({
                             ) : (
                               <span
                                 key={copy.id}
-                                title={`${copy.accessionNo} — ${copy.status
+                                title={`${copy.accessionNo}, ${copy.status
                                   .toLowerCase()
                                   .replace(/_/g, " ")}`}
                                 className={

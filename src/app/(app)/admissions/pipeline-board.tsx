@@ -123,7 +123,7 @@ export function PipelineBoard({
     return (
       <Alert tone="info" title="No applications yet">
         An applicant is a pupil record with the status Applicant. Admit one under
-        Students, then start their application here — the entrance papers, the
+        Students, then start their application here: the entrance papers, the
         interview and the offer all hang off it.
       </Alert>
     );
@@ -202,7 +202,7 @@ export function PipelineBoard({
                             {row.interviewAttendees ? (
                               <span className="text-[var(--text-subtle)]">
                                 {" "}
-                                — {row.interviewAttendees}
+                               : {row.interviewAttendees}
                               </span>
                             ) : null}
                           </p>
@@ -213,7 +213,7 @@ export function PipelineBoard({
                             {row.papers
                               .map(
                                 (paper) =>
-                                  `${paper.paper} ${paper.score ?? "—"}/${paper.maxScore}`,
+                                  `${paper.paper} ${paper.score ?? "-"}/${paper.maxScore}`,
                               )
                               .join("   ")}
                           </p>
@@ -479,7 +479,7 @@ function OfferForm({
       <Field
         label="Offer lapses on"
         htmlFor="offer-expiry"
-        hint="Leave empty and the place is held until somebody says otherwise — which is how a seat ends up held all year by a family who chose elsewhere in March."
+        hint="Leave empty and the place is held until somebody says otherwise: which is how a seat ends up held all year by a family who chose elsewhere in March."
       >
         <Input
           id="offer-expiry"

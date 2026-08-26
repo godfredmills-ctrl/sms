@@ -81,14 +81,14 @@ export default async function GuardianCalendarPage() {
       <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatCard
           label="Current term"
-          value={term?.name ?? "—"}
+          value={term?.name ?? "-"}
           hint={term?.academicYear.name}
           tone="violet"
           icon={<CalendarDays className="size-4" />}
         />
         <StatCard
           label="Term ends"
-          value={term ? formatDate(term.endDate) : "—"}
+          value={term ? formatDate(term.endDate) : "-"}
           hint={daysLeft !== null ? `${daysLeft} days away` : undefined}
           tone="info"
         />

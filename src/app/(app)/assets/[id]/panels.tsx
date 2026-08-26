@@ -72,7 +72,7 @@ export function MovePanel({
 
         <Field label="Sign it out to" htmlFor="toStaffId">
           <Select id="toStaffId" name="toStaffId" defaultValue={currentCustodianId ?? ""}>
-            <option value="">Nobody — return it to the school</option>
+            <option value="">Nobody: return it to the school</option>
             {staff.map((entry) => (
               <option key={entry.id} value={entry.id}>
                 {entry.firstName} {entry.lastName}
@@ -109,8 +109,8 @@ export function VerifyPanel({ id, condition }: { id: string; condition: string }
       <div className="grid gap-3 sm:grid-cols-2">
         <Field label="Was it there?" htmlFor="seen">
           <Select id="seen" name="seen" defaultValue="yes">
-            <option value="yes">Yes — I have seen it</option>
-            <option value="no">No — it could not be found</option>
+            <option value="yes">Yes: I have seen it</option>
+            <option value="no">No: it could not be found</option>
           </Select>
         </Field>
 
@@ -192,7 +192,7 @@ export function ServicePanel({
             ))}
           </Select>
         </Field>
-        <Field label="Next one due" htmlFor="nextDueOn" hint="Optional — the interval works this out otherwise.">
+        <Field label="Next one due" htmlFor="nextDueOn" hint="Optional: the interval works this out otherwise.">
           <Input id="nextDueOn" name="nextDueOn" type="date" />
         </Field>
       </div>

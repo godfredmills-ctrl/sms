@@ -242,7 +242,7 @@ export default async function StoresPage({
                       </span>
                     </td>
                     <td className="px-3 py-2 text-xs text-[var(--text-muted)]">
-                      {row.locationName ?? "—"}
+                      {row.locationName ?? "-"}
                     </td>
                     <td className="numeric px-3 py-2 text-right font-medium">
                       {row.quantityLabel}
@@ -268,7 +268,7 @@ export default async function StoresPage({
                       ) : null}
                     </td>
                     <td className="numeric px-3 py-2 text-right text-xs text-[var(--text-muted)]">
-                      {row.averageCostMinor === null ? "—" : formatMoney(row.averageCostMinor)}
+                      {row.averageCostMinor === null ? "-" : formatMoney(row.averageCostMinor)}
                     </td>
                     <td className="numeric px-3 py-2 text-right font-medium">
                       {formatMoney(row.valueMinor)}
@@ -289,7 +289,7 @@ export default async function StoresPage({
           description={
             filter.search || filter.categoryId || filter.needsAttention
               ? "Clear the filters to see everything the store keeps."
-              : "Add what the store keeps — exercise books, chalk, cleaning materials, the provisions the dining hall cooks with — and the store will value them and say when to buy more."
+              : "Add what the store keeps: exercise books, chalk, cleaning materials, the provisions the dining hall cooks with: and the store will value them and say when to buy more."
           }
         />
       )}
@@ -306,7 +306,7 @@ export default async function StoresPage({
       {rows.length ? (
         <p className="mt-4 text-xs text-[var(--text-subtle)]">
           Stock is valued at weighted average cost: every delivery moves the average,
-          and anything issued leaves at it. The balance is the sum of the movements —
+          and anything issued leaves at it. The balance is the sum of the movements:
           there is no separate quantity to disagree with them.
         </p>
       ) : null}

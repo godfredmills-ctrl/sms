@@ -242,7 +242,7 @@ export async function allocateBedAction(formData: FormData): Promise<BoardingSta
       });
       if (taken >= capacity) {
         throw new Error(
-          `${room.name} filled up while you were looking at it — ${taken} of ${capacity} beds are taken.`,
+          `${room.name} filled up while you were looking at it, ${taken} of ${capacity} beds are taken.`,
         );
       }
 

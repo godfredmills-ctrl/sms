@@ -211,7 +211,7 @@ export default async function PaymentsPage({
       {failed > 0 ? (
         <Alert tone="warning" className="mb-4">
           {failed} payment{failed === 1 ? " attempt" : " attempts"} failed. Failed
-          attempts are kept deliberately — a parent who says they paid usually has a
+          attempts are kept deliberately: a parent who says they paid usually has a
           failed attempt behind them, and the record is what settles it.
         </Alert>
       ) : null}

@@ -29,7 +29,7 @@ export function ScaleForm() {
         <Field
           label="Highest grade point"
           htmlFor="maxPoint"
-          hint="Used to normalise GPA — 4.0, 7.0, or blank for none."
+          hint="Used to normalise GPA: 4.0, 7.0, or blank for none."
         >
           <Input id="maxPoint" name="maxPoint" type="number" step="0.1" min="0" />
         </Field>

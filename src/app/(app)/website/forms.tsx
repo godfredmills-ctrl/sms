@@ -54,7 +54,7 @@ export function SiteSettingsForm({ values }: { values: SiteValues }) {
         <Field
           label="Name caption"
           htmlFor="nameCaption"
-          hint="The small line under the school name in the header — e.g. INTERNATIONAL SCHOOL."
+          hint="The small line under the school name in the header: e.g. INTERNATIONAL SCHOOL."
         >
           <Input id="nameCaption" name="nameCaption" defaultValue={values.nameCaption} />
         </Field>
@@ -62,7 +62,7 @@ export function SiteSettingsForm({ values }: { values: SiteValues }) {
         <Field
           label="Tagline"
           htmlFor="tagline"
-          hint="Shown in the footer — e.g. Inspiring minds. Shaping futures."
+          hint="Shown in the footer: e.g. Inspiring minds. Shaping futures."
         >
           <Input id="tagline" name="tagline" defaultValue={values.tagline} />
         </Field>
@@ -101,8 +101,8 @@ export function SiteSettingsForm({ values }: { values: SiteValues }) {
             clearable={false}
             defaultValue={values.headingFont}
             options={[
-              { value: "serif", label: "Serif — classic, collegiate" },
-              { value: "sans", label: "Sans-serif — modern, plain" },
+              { value: "serif", label: "Serif: classic, collegiate" },
+              { value: "sans", label: "Sans-serif: modern, plain" },
             ]}
           />
         </Field>

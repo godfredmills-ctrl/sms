@@ -130,7 +130,7 @@ export default async function LeavePage() {
             <Card>
               <CardHeader
                 title="Waiting for a decision"
-                description="Your own requests are excluded — someone else signs those."
+                description="Your own requests are excluded: someone else signs those."
               />
               {queue.length ? (
                 <ul className="divide-y divide-[var(--border)]">
@@ -154,7 +154,7 @@ export default async function LeavePage() {
                         <p className="mt-0.5 text-xs text-[var(--text-muted)]">
                           {humanise(request.leaveType)} ·{" "}
                           <span className="numeric">
-                            {formatDate(request.startDate)} – {formatDate(request.endDate)}
+                            {formatDate(request.startDate)} to {formatDate(request.endDate)}
                           </span>{" "}
                           · {request.days} day{request.days === 1 ? "" : "s"}
                         </p>
@@ -191,7 +191,7 @@ export default async function LeavePage() {
                       <p className="text-sm font-medium">
                         {humanise(request.leaveType)}
                         <span className="numeric ml-2 text-xs font-normal text-[var(--text-subtle)]">
-                          {formatDate(request.startDate)} – {formatDate(request.endDate)} ·{" "}
+                          {formatDate(request.startDate)} to {formatDate(request.endDate)} ·{" "}
                           {request.days} day{request.days === 1 ? "" : "s"}
                         </span>
                       </p>
@@ -259,7 +259,7 @@ export default async function LeavePage() {
             <Card className="lg:sticky lg:top-20">
               <CardHeader
                 title="Request leave"
-                description="Working days only — weekends are not counted against you."
+                description="Working days only: weekends are not counted against you."
               />
               <RequestLeaveForm />
             </Card>

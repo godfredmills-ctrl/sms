@@ -251,7 +251,7 @@ export default async function TimetablePage({
       {Object.keys(clashes).length ? (
         <Alert tone="danger" className="mb-4">
           A teacher is booked in more than one class at the same time. The affected
-          cells are outlined below — a clash found now is a timetable fix; found in
+          cells are outlined below: a clash found now is a timetable fix; found in
           week one it is a lesson nobody teaches.
         </Alert>
       ) : null}

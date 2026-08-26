@@ -430,7 +430,7 @@ export async function createMemoAction(
   revalidatePath("/communications/memos");
   return {
     ok: true,
-    message: issueNow ? "Memo issued." : "Draft saved — find it under Drafts.",
+    message: issueNow ? "Memo issued." : "Draft saved: find it under Drafts.",
   };
 }
 

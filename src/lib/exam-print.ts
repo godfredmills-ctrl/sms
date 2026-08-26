@@ -44,7 +44,7 @@ function clock(date: Date): string {
 }
 
 function span(startsAt: Date, durationMins: number): string {
-  return `${clock(startsAt)}–${clock(new Date(startsAt.getTime() + durationMins * 60_000))}`;
+  return `${clock(startsAt)}-${clock(new Date(startsAt.getTime() + durationMins * 60_000))}`;
 }
 
 export type TimetablePaper = {
@@ -94,9 +94,9 @@ export function timetableMarkdown(input: {
     for (const paper of papers) {
       lines.push(
         `| ${span(paper.startsAt, paper.durationMins)} | ${paper.subject}${
-          paper.title ? ` — ${paper.title}` : ""
+          paper.title ? `, ${paper.title}` : ""
         } | ${paper.classLevel} | ${paper.halls.join(", ") || "To be announced"} | ${
-          paper.materials ?? "—"
+          paper.materials ?? "-"
         } |`,
       );
     }
@@ -142,7 +142,7 @@ export function hallListMarkdown(input: {
   const lines: string[] = [];
 
   lines.push(
-    `**${paper.subject}${paper.title ? ` — ${paper.title}` : ""}** · ${paper.classLevel}`,
+    `**${paper.subject}${paper.title ? `, ${paper.title}` : ""}** · ${paper.classLevel}`,
     "",
     `${day(paper.startsAt)} · ${span(paper.startsAt, paper.durationMins)} · ${paper.durationMins} minutes${
       paper.maxMarks ? ` · out of ${paper.maxMarks}` : ""
@@ -180,7 +180,7 @@ export function hallListMarkdown(input: {
 
   for (const [hall, seats] of byHall) {
     lines.push(
-      `## ${hall} — ${seats.length} candidate${seats.length === 1 ? "" : "s"}`,
+      `## ${hall}, ${seats.length} candidate${seats.length === 1 ? "" : "s"}`,
       "",
       "| Seat | Index | Candidate | Class | Signature |",
       "| --- | --- | --- | --- | --- |",
@@ -245,8 +245,8 @@ export function candidateSlipMarkdown(input: {
   )) {
     lines.push(
       `| ${day(paper.startsAt)} ${span(paper.startsAt, paper.durationMins)} | ${paper.subject}${
-        paper.title ? ` — ${paper.title}` : ""
-      } | ${paper.venue ?? "—"} | ${paper.seatNo} | ${paper.materials ?? "—"} |`,
+        paper.title ? `, ${paper.title}` : ""
+      } | ${paper.venue ?? "-"} | ${paper.seatNo} | ${paper.materials ?? "-"} |`,
     );
   }
   lines.push("");

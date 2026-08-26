@@ -125,7 +125,7 @@ export function MemoForm({
         {state.error ? <Alert tone="danger">{state.error}</Alert> : null}
         {state.ok ? <Alert tone="success">{state.message ?? "Saved."}</Alert> : null}
 
-        <Field label="To" hint="Grouped by department — type to find someone." required>
+        <Field label="To" hint="Grouped by department: type to find someone." required>
           <SearchableSelect
             multiple
             placeholder="Choose staff…"
