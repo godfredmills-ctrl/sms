@@ -28,15 +28,10 @@ export default async function LoginPage({
     <div className="grid min-h-dvh lg:grid-cols-2">
       {/* Brand panel — hidden on small screens where it would just push the
           form below the fold. */}
-      <div className="relative hidden flex-col justify-between overflow-hidden bg-[var(--primary)] p-12 text-white lg:flex">
-        <div
-          aria-hidden
-          className="absolute inset-0 opacity-20"
-          style={{
-            backgroundImage:
-              "radial-gradient(circle at 20% 20%, rgba(255,255,255,.35) 0, transparent 45%), radial-gradient(circle at 80% 70%, rgba(217,163,37,.5) 0, transparent 40%)",
-          }}
-        />
+      <div
+        className="relative hidden flex-col justify-between overflow-hidden p-12 lg:flex"
+        style={{ background: "#eef4fb", color: "#1b2b45" }}
+      >
         <div className="relative">
           <div className="flex items-center gap-3">
             {school?.logoUrl ? (
@@ -57,12 +52,12 @@ export default async function LoginPage({
           <h1 className="text-3xl font-semibold tracking-tight text-balance">
             {school?.motto ?? "One system for the whole school."}
           </h1>
-          <p className="mt-4 text-sm leading-relaxed text-white/70">
+          <p className="mt-4 text-sm leading-relaxed" style={{ color: "#41536f" }}>
             Admissions and records, attendance and assessment, fees and payments,
             communication, elections and learning: for staff, students and parents.
           </p>
 
-          <ul className="mt-8 grid grid-cols-2 gap-3 text-sm text-white/80">
+          <ul className="mt-8 grid grid-cols-2 gap-3 text-sm" style={{ color: "#2f4262" }}>
             {[
               "Full student profiles",
               "Mobile money & card fees",
@@ -72,14 +67,39 @@ export default async function LoginPage({
               "Works offline",
             ].map((feature) => (
               <li key={feature} className="flex items-center gap-2">
-                <span className="size-1.5 rounded-full bg-[var(--color-gold-300)]" />
+                <span className="size-1.5 shrink-0 rounded-full bg-[var(--primary)]" />
                 {feature}
               </li>
             ))}
           </ul>
         </div>
 
-        <p className="relative text-xs text-white/40">
+        {/*
+          The illustration, blended rather than laid on top.
+
+          It is drawn on pure white, so multiply drops that ground into the
+          panel tint and the drawing appears painted onto the panel. Placed as
+          an ordinary image it would be a white rectangle with a visible edge,
+          and stretched to cover a tall half-screen it would crop straight
+          through the desk.
+
+          In the flow rather than positioned behind the text: absolute, it sat
+          underneath the copyright line and made both hard to read.
+
+          The panel keeps its light tint in both themes. This is a light
+          drawing and there is no dark version of it, so a dark panel would
+          leave it floating in a bright rectangle.
+        */}
+        <div className="relative mt-8 flex justify-center">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/brand/login-illustration.webp"
+            alt=""
+            className="w-full max-w-lg object-contain mix-blend-multiply"
+          />
+        </div>
+
+        <p className="relative mt-6 text-xs" style={{ color: "#7c8ba5" }}>
           © {new Date().getFullYear()} {school?.name ?? "School Management System"}
         </p>
       </div>

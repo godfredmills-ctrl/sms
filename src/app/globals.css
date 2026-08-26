@@ -322,10 +322,70 @@ body {
      Sidebar
      ---------------------------------------------------------------------- */
 
+  /*
+   * Glass, not paint.
+   *
+   * The panel was one flat brand colour, which is honest and completely inert.
+   * What follows is the same colour treated as a pane of tinted glass: a
+   * gradient down its length so the foot is deeper than the head, two soft
+   * blooms of light inside it, a hairline of white along the top and inner
+   * edge where light would catch, and a blur behind it.
+   *
+   * The blooms are inside the panel on purpose. A backdrop blur alone does
+   * almost nothing here, because the sidebar is fixed and the page is padded
+   * out of its way, so there is rarely anything behind it to blur. The light
+   * has to come from within or the glass reads as flat tint.
+   *
+   * Every colour is mixed from --sidebar-bg, so a school that sets its own
+   * primary colour in Settings gets its own glass rather than ours.
+   */
   .sidebar {
-    background: var(--sidebar-bg);
     color: var(--sidebar-text);
     border-color: var(--sidebar-line);
+    background:
+      linear-gradient(
+        180deg,
+        color-mix(in srgb, var(--sidebar-bg) 92%, #ffffff) 0%,
+        var(--sidebar-bg) 42%,
+        color-mix(in srgb, var(--sidebar-bg) 82%, #000000) 100%
+      );
+    backdrop-filter: blur(22px) saturate(150%);
+    -webkit-backdrop-filter: blur(22px) saturate(150%);
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.14),
+      inset -1px 0 0 rgb(255 255 255 / 0.06),
+      0 0 60px -20px rgb(0 0 0 / 0.45);
+  }
+
+  /*
+   * The light inside the pane.
+   *
+   * z-index: -1 rather than 0, and no rule touching the children. The backdrop
+   * filter above makes the sidebar a stacking context, and inside one a
+   * negative layer paints above the element's own background but below all of
+   * its content. Lifting the content instead, with a rule on every direct
+   * child, would have set position: relative on the collapse button and
+   * dropped it out of the corner it is pinned to.
+   *
+   * Pointer-events off regardless: it covers the whole panel.
+   */
+  .sidebar::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: -1;
+    background:
+      radial-gradient(
+        70% 40% at 18% 8%,
+        rgb(255 255 255 / 0.16) 0%,
+        transparent 70%
+      ),
+      radial-gradient(
+        60% 35% at 90% 72%,
+        color-mix(in srgb, var(--color-gold-300, #e6c15a) 45%, transparent) 0%,
+        transparent 70%
+      );
   }
 
   .sidebar * {
@@ -397,10 +457,22 @@ body {
      Collapsed rail: tooltips and flyout submenus
      -------------------------------------------------------------------- */
 
+  /*
+   * Fixed, not absolute, and positioned by the shell from the item's own
+   * rectangle.
+   *
+   * The nav that holds these scrolls vertically, and CSS will not let one axis
+   * scroll while the other stays visible: the other becomes auto. So an
+   * absolutely positioned flyout sitting to the right of a 72px rail did two
+   * things at once. It was clipped by the scroll container, so hovering an icon
+   * appeared to do nothing, and it widened the scrollable area, so a horizontal
+   * scrollbar appeared along the bottom of the sidebar.
+   *
+   * Taking them out of the flow fixes both: nothing overflows the nav, and
+   * nothing clips them.
+   */
   .rail-pop {
-    position: absolute;
-    left: calc(100% + 0.5rem);
-    top: 0;
+    position: fixed;
     z-index: 60;
     opacity: 0;
     pointer-events: none;
@@ -417,24 +489,35 @@ body {
     transform: translateX(0);
   }
 
+  /* The flyout and the tooltip are cut from the same pane as the sidebar:
+     tinted, blurred, and lit along the top edge. A flat panel beside a glass
+     one looks like a mistake. */
   .rail-tooltip {
     white-space: nowrap;
-    border-radius: 0.375rem;
-    background: var(--sidebar-tooltip);
+    border-radius: 0.5rem;
+    background: color-mix(in srgb, var(--sidebar-tooltip) 82%, transparent);
     color: var(--sidebar-tooltip-text);
-    padding: 0.3rem 0.55rem;
+    padding: 0.35rem 0.6rem;
     font-size: 0.75rem;
     font-weight: 500;
-    box-shadow: 0 6px 18px -6px rgb(0 0 0 / 0.45);
+    backdrop-filter: blur(16px) saturate(140%);
+    -webkit-backdrop-filter: blur(16px) saturate(140%);
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.12),
+      0 8px 22px -8px rgb(0 0 0 / 0.55);
   }
 
   .rail-flyout {
     min-width: 13rem;
-    border-radius: 0.625rem;
-    background: var(--sidebar-flyout);
-    border: 1px solid var(--sidebar-line);
+    border-radius: 0.75rem;
+    background: color-mix(in srgb, var(--sidebar-flyout) 84%, transparent);
+    border: 1px solid rgb(255 255 255 / 0.1);
     padding: 0.375rem;
-    box-shadow: 0 12px 32px -12px rgb(0 0 0 / 0.5);
+    backdrop-filter: blur(20px) saturate(150%);
+    -webkit-backdrop-filter: blur(20px) saturate(150%);
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.12),
+      0 16px 38px -14px rgb(0 0 0 / 0.6);
   }
 
   /* ----------------------------------------------------------------------

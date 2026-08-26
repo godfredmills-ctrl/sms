@@ -180,7 +180,7 @@ export function AppShell({
         {/* ---------------------------------------------------------------- */}
         {/* Navigation                                                        */}
         {/* ---------------------------------------------------------------- */}
-        <nav className="flex-1 overflow-y-auto px-3 py-3 scrollbar-none">
+        <nav className="flex-1 overflow-x-hidden overflow-y-auto px-3 py-3 scrollbar-none">
           {navigation.map((group) => (
             <div key={group.label} className="mb-4 last:mb-0">
               {collapsed ? (
@@ -420,8 +420,35 @@ function NavEntry({
 
   // ---- Collapsed rail --------------------------------------------------
   if (collapsed) {
+    /**
+     * Where the flyout sits, measured when the pointer arrives.
+     *
+     * The flyout is fixed rather than absolute, because the nav around it
+     * scrolls and would otherwise clip it, so its position has to be supplied
+     * rather than inherited. Measuring on hover rather than on render means it
+     * follows the item after the nav has been scrolled.
+     */
+    const place = (event: React.SyntheticEvent<HTMLLIElement>) => {
+      const item = event.currentTarget;
+      const pop = item.querySelector<HTMLElement>(".rail-pop");
+      if (!pop) return;
+
+      const rect = item.getBoundingClientRect();
+      pop.style.left = `${rect.right + 8}px`;
+
+      // Kept on screen: a submenu near the foot of a long sidebar would
+      // otherwise open below the bottom of the window.
+      const height = pop.offsetHeight;
+      const top = Math.min(rect.top, window.innerHeight - height - 12);
+      pop.style.top = `${Math.max(12, top)}px`;
+    };
+
     return (
-      <li className="rail-item relative hidden lg:block">
+      <li
+        className="rail-item relative hidden lg:block"
+        onMouseEnter={place}
+        onFocus={place}
+      >
         {item.locked ? (
           <span
             aria-label={`${item.label}: you do not have access`}
