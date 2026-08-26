@@ -124,6 +124,12 @@ const LINK_PATTERNS = [
   { pattern: /\brouter\.(?:push|replace)\("(\/[^"#?]*)/g, kind: "router" },
   { pattern: /window\.location\.href\s*=\s*`(\/[^`$?#]*)/g, kind: "navigation" },
   { pattern: /window\.location\.href\s*=\s*"(\/[^"#?]*)/g, kind: "navigation" },
+  // window.open was missing from this list, and that is how a "Print ID cards"
+  // button pointing at /print/id-cards survived in the students table: a route
+  // that has never existed in this application, opened in a new tab, showing a
+  // 404 to whoever pressed it. A link is a link whichever function opens it.
+  { pattern: /window\.open\(`(\/[^`$?#]*)/g, kind: "window.open" },
+  { pattern: /window\.open\("(\/[^"#?]*)/g, kind: "window.open" },
 ];
 
 /** A path is a prefix when what followed it in the source was an interpolation. */

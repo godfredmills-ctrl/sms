@@ -135,7 +135,19 @@ export async function GET(request: Request) {
   } else {
     const sectionId = url.searchParams.get("sectionId");
     const studentId = url.searchParams.get("studentId");
-    if (!sectionId && !studentId) {
+    // A selection from the students table: several pupils who share no class.
+    // Trimmed and de-duplicated, because a list built from tick boxes is a
+    // list somebody could have got wrong.
+    const studentIds = [
+      ...new Set(
+        (url.searchParams.get("studentIds") ?? "")
+          .split(",")
+          .map((value) => value.trim())
+          .filter(Boolean),
+      ),
+    ];
+
+    if (!sectionId && !studentId && !studentIds.length) {
       return message(400, "Nothing chosen", "Choose a class or a student first.");
     }
 
@@ -151,12 +163,14 @@ export async function GET(request: Request) {
     const students = await db.student.findMany({
       where: studentId
         ? { id: studentId, status: "ENROLLED" }
-        : {
-            status: "ENROLLED",
-            enrollments: {
-              some: { classSectionId: sectionId ?? "", status: "ACTIVE" },
+        : studentIds.length
+          ? { id: { in: studentIds }, status: "ENROLLED" }
+          : {
+              status: "ENROLLED",
+              enrollments: {
+                some: { classSectionId: sectionId ?? "", status: "ACTIVE" },
+              },
             },
-          },
       orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
       take: MAX_CARDS + 1,
       select: {

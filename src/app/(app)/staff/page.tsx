@@ -38,6 +38,11 @@ export default async function StaffPage() {
       specialisations: true,
       hireDate: true,
       userId: true,
+      // Carried so the status panel opens with what is already recorded. Left
+      // out, the form would post blanks and quietly erase the reason somebody
+      // left when the panel was opened merely to look at it.
+      exitDate: true,
+      exitReason: true,
       campus: { select: { name: true } },
       formClasses: {
         take: 1,
@@ -73,6 +78,8 @@ export default async function StaffPage() {
       ? Math.floor((now - member.hireDate.getTime()) / (365.25 * 24 * 60 * 60 * 1000))
       : null,
     hasAccount: Boolean(member.userId),
+    exitDate: member.exitDate?.toISOString().slice(0, 10) ?? "",
+    exitReason: member.exitReason ?? "",
   }));
 
   const active = rows.filter((row) => row.status === "ACTIVE").length;
@@ -159,7 +166,7 @@ export default async function StaffPage() {
         </Alert>
       ) : null}
 
-      <StaffTable rows={rows} />
+      <StaffTable rows={rows} can={{ status: userCan(user, "staff.update") }} />
     </>
   );
 }

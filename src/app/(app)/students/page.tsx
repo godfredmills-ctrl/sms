@@ -145,8 +145,14 @@ export default async function StudentsPage() {
     (row) => row.attendanceRate !== null && row.attendanceRate < 85,
   ).length;
 
-  // For the admission modal: class options with room left shown alongside.
-  const admissionSections = userCan(user, "student.create")
+  const canEdit = userCan(user, "student.update");
+  const canTransfer = userCan(user, "academic.enrollment.manage");
+
+  // Class options with room left shown alongside. One query serves both the
+  // admission modal and the row controls: a second fetch of the same list is a
+  // second answer to "which classes have space".
+  const admissionSections =
+    userCan(user, "student.create") || canEdit || canTransfer
     ? (
         await db.classSection.findMany({
           where: { isActive: true },
@@ -222,7 +228,11 @@ export default async function StudentsPage() {
         />
       </div>
 
-      <StudentsTable rows={rows} />
+      <StudentsTable
+        rows={rows}
+        can={{ edit: canEdit, status: canEdit, transfer: canTransfer }}
+        sections={admissionSections}
+      />
     </>
   );
 }

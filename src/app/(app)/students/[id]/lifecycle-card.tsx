@@ -38,12 +38,23 @@ export function LifecycleCard({
   currentClass,
   sections,
   canTransfer,
+  only,
 }: {
   studentId: string;
   status: string;
   currentClass: string | null;
   sections: SelectOption[];
   canTransfer: boolean;
+  /**
+   * Render one half of this card rather than both.
+   *
+   * The students table opens these same two forms from a row, and a row has
+   * room for one thing at a time. Reusing this component rather than building
+   * a second pair of forms in the table is the point: withdrawing a child
+   * needs a reason, a date and sometimes the name of the receiving school, and
+   * two implementations of that would drift apart on the first change.
+   */
+  only?: "transfer" | "status";
 }) {
   const [state, action] = useActionState<StudentState, FormData>(
     setStudentLifecycleAction,
@@ -65,9 +76,11 @@ export function LifecycleCard({
     description: entry.description,
   }));
 
+  const show = (part: "transfer" | "status") => !only || only === part;
+
   return (
     <div className="space-y-4">
-      {canTransfer && status === "ENROLLED" ? (
+      {show("transfer") && canTransfer && status === "ENROLLED" ? (
         <Card>
           <CardHeader
             title="Move to another class"
@@ -99,6 +112,7 @@ export function LifecycleCard({
         </Card>
       ) : null}
 
+      {show("status") ? (
       <Card>
         <CardHeader
           title="Change of status"
@@ -188,6 +202,7 @@ export function LifecycleCard({
           </CardBody>
         </form>
       </Card>
+      ) : null}
     </div>
   );
 }
