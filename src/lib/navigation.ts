@@ -348,6 +348,27 @@ export const STAFF_NAVIGATION: NavGroup[] = [
         ],
       },
       {
+        label: "General Ledger",
+        href: "/finance/ledger",
+        icon: "BookOpen",
+        permissions: ["finance.ledger.read"],
+        children: [
+          { label: "Ledger", href: "/finance/ledger", icon: "BookOpen" },
+          {
+            label: "Chart of accounts",
+            href: "/finance/ledger/accounts",
+            icon: "ListTree",
+            permissions: ["finance.ledger.manage"],
+          },
+          {
+            label: "New entry",
+            href: "/finance/ledger/new",
+            icon: "Plus",
+            permissions: ["finance.ledger.record"],
+          },
+        ],
+      },
+      {
         label: "Payroll",
         href: "/payroll",
         icon: "Banknote",

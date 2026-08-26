@@ -173,6 +173,9 @@ async function main() {
   // After assets, because the store is kept in one of the locations the asset
   // register created — the two share them on purpose.
   await seedStore(staff);
+  // After expenditure and payroll, because the ledger records in double entry
+  // what those two did in their own books.
+  await seedLedger(terms, year.id);
   await seedBoarding(students, staff, year.id);
   await seedAdmissions(levels, staff, year.id, roles);
 
@@ -262,6 +265,9 @@ async function reset() {
     // so they clear first; a room points at its house.
     "boardingExeat", "boardingAllocation", "boardingRoom", "boardingHouse",
     "payslip", "payrollRun",
+    // The ledger before the years and terms its entries are filed against.
+    // Lines before entries, and both before the accounts they point at.
+    "journalLine", "journalEntry", "ledgerAccount",
     // The store before the locations it is kept in and the bills it came in
     // on. Movements before items, because the balance is the history.
     "stockMovement", "stockItem", "stockCategory",
@@ -5746,5 +5752,247 @@ async function seedStore(staff: StaffRow[]) {
         },
       });
     }
+  }
+}
+
+/**
+ * The general ledger.
+ *
+ * A chart of accounts a Ghanaian school would recognise, and a term's worth of
+ * entries that actually balance: fees billed, fees collected, salaries paid, a
+ * supplier bill still outstanding, and one entry posted to the wrong account
+ * and reversed, because a ledger with no corrections in it does not show what
+ * a correction looks like.
+ */
+async function seedLedger(terms: TermRow[], academicYearId: string) {
+  console.log("  General ledger…");
+
+  const term = terms.find((entry) => entry.sequence === 1) ?? terms[0];
+  if (!term) return;
+
+  const chart = await Promise.all(
+    [
+      // 1000s: what the school owns or is owed.
+      { code: "1100", name: "Bank: main account", type: "ASSET", isSystem: true, sortOrder: 10 },
+      { code: "1150", name: "Cash at the office", type: "ASSET", isSystem: true, sortOrder: 20 },
+      { code: "1200", name: "Fees receivable", type: "ASSET", isSystem: true, sortOrder: 30 },
+      { code: "1400", name: "Furniture and equipment", type: "ASSET", sortOrder: 40 },
+      { code: "1450", name: "Motor vehicles", type: "ASSET", sortOrder: 50 },
+      { code: "1500", name: "Stores and provisions", type: "ASSET", sortOrder: 60 },
+
+      // 2000s: what the school owes.
+      { code: "2100", name: "Suppliers", type: "LIABILITY", isSystem: true, sortOrder: 10 },
+      { code: "2200", name: "SSNIT payable", type: "LIABILITY", sortOrder: 20 },
+      { code: "2250", name: "PAYE payable", type: "LIABILITY", sortOrder: 30 },
+      { code: "2300", name: "Fees received in advance", type: "LIABILITY", sortOrder: 40 },
+
+      // 3000s: the school's own funds.
+      { code: "3100", name: "Accumulated fund", type: "EQUITY", isSystem: true, sortOrder: 10 },
+
+      // 4000s: what the school earns.
+      { code: "4100", name: "Tuition fees", type: "INCOME", isSystem: true, sortOrder: 10 },
+      { code: "4200", name: "Boarding fees", type: "INCOME", sortOrder: 20 },
+      { code: "4300", name: "Transport fees", type: "INCOME", sortOrder: 30 },
+      { code: "4400", name: "Admission and assessment fees", type: "INCOME", sortOrder: 40 },
+
+      // 5000s: what the school spends.
+      { code: "5100", name: "Salaries and wages", type: "EXPENSE", isSystem: true, sortOrder: 10 },
+      { code: "5150", name: "Staff welfare and training", type: "EXPENSE", sortOrder: 20 },
+      { code: "5200", name: "Utilities", type: "EXPENSE", sortOrder: 30 },
+      { code: "5250", name: "Repairs and maintenance", type: "EXPENSE", sortOrder: 40 },
+      { code: "5300", name: "Teaching and learning materials", type: "EXPENSE", sortOrder: 50 },
+      { code: "5400", name: "Transport and fuel", type: "EXPENSE", sortOrder: 60 },
+      { code: "5500", name: "Catering and provisions", type: "EXPENSE", sortOrder: 70 },
+      { code: "5700", name: "Professional services", type: "EXPENSE", sortOrder: 80 },
+      { code: "5900", name: "Depreciation", type: "EXPENSE", sortOrder: 90 },
+    ].map((account) =>
+      db.ledgerAccount.create({
+        data: { ...account, type: account.type as never, isSystem: account.isSystem ?? false },
+        select: { id: true, code: true },
+      }),
+    ),
+  );
+
+  const account = (code: string) => chart.find((entry) => entry.code === code)!.id;
+
+  const daysAgo = (days: number) => new Date(Date.now() - days * 86_400_000);
+
+  type Draft = {
+    reference: string;
+    narration: string;
+    daysAgo: number;
+    status?: "DRAFT" | "POSTED";
+    lines: Array<[string, number, number]>; // code, debit, credit
+  };
+
+  const drafts: Draft[] = [
+    {
+      reference: "JV/2026/0001",
+      narration: "Opening funds brought forward",
+      daysAgo: 150,
+      lines: [
+        ["1100", 4_500_000, 0],
+        ["1400", 2_400_000, 0],
+        ["1450", 18_000_000, 0],
+        ["3100", 0, 24_900_000],
+      ],
+    },
+    {
+      reference: "JV/2026/0002",
+      narration: `Tuition billed for ${term.name}`,
+      daysAgo: 120,
+      lines: [
+        ["1200", 42_000_000, 0],
+        ["4100", 0, 42_000_000],
+      ],
+    },
+    {
+      reference: "JV/2026/0003",
+      narration: `Boarding and transport billed for ${term.name}`,
+      daysAgo: 120,
+      lines: [
+        ["1200", 11_500_000, 0],
+        ["4200", 0, 8_200_000],
+        ["4300", 0, 3_300_000],
+      ],
+    },
+    {
+      reference: "JV/2026/0004",
+      narration: "Fees collected to date",
+      daysAgo: 60,
+      lines: [
+        ["1100", 34_800_000, 0],
+        ["1150", 1_900_000, 0],
+        ["1200", 0, 36_700_000],
+      ],
+    },
+    {
+      reference: "JV/2026/0005",
+      narration: "Payroll for the month",
+      daysAgo: 30,
+      lines: [
+        ["5100", 12_400_000, 0],
+        ["2200", 0, 1_612_000],
+        ["2250", 0, 1_240_000],
+        ["1100", 0, 9_548_000],
+      ],
+    },
+    {
+      reference: "JV/2026/0006",
+      narration: "Electricity and water",
+      daysAgo: 25,
+      lines: [
+        ["5200", 1_850_000, 0],
+        ["1100", 0, 1_850_000],
+      ],
+    },
+    {
+      reference: "JV/2026/0007",
+      narration: "Provisions for the dining hall, on account",
+      daysAgo: 20,
+      lines: [
+        ["5500", 2_640_000, 0],
+        ["2100", 0, 2_640_000],
+      ],
+    },
+    // Posted to the wrong account, then reversed. A ledger with no corrections
+    // in it does not show anybody what a correction looks like.
+    {
+      reference: "JV/2026/0008",
+      narration: "Generator servicing",
+      daysAgo: 14,
+      lines: [
+        ["5400", 320_000, 0],
+        ["1100", 0, 320_000],
+      ],
+    },
+    {
+      reference: "JV/2026/0010",
+      narration: "Generator servicing, to repairs",
+      daysAgo: 12,
+      lines: [
+        ["5250", 320_000, 0],
+        ["1100", 0, 320_000],
+      ],
+    },
+    {
+      reference: "JV/2026/0011",
+      narration: "Depreciation for the term",
+      daysAgo: 5,
+      lines: [
+        ["5900", 1_180_000, 0],
+        ["1400", 0, 280_000],
+        ["1450", 0, 900_000],
+      ],
+    },
+    // Left as a draft on purpose: a draft affects nothing until somebody posts
+    // it, and the ledger should be able to show that state.
+    {
+      reference: "JV/2026/0012",
+      narration: "Speech day expenses, awaiting receipts",
+      daysAgo: 2,
+      status: "DRAFT",
+      lines: [
+        ["5150", 480_000, 0],
+        ["1150", 0, 480_000],
+      ],
+    },
+  ];
+
+  const created = new Map<string, string>();
+
+  for (const draft of drafts) {
+    const entry = await db.journalEntry.create({
+      data: {
+        reference: draft.reference,
+        narration: draft.narration,
+        entryDate: daysAgo(draft.daysAgo),
+        status: (draft.status ?? "POSTED") as never,
+        source: "manual",
+        termId: term.id,
+        academicYearId,
+        postedAt: draft.status === "DRAFT" ? null : daysAgo(draft.daysAgo),
+        postedByLabel: draft.status === "DRAFT" ? null : "Bursar",
+        createdByLabel: "Bursar",
+        lines: {
+          create: draft.lines.map(([code, debitMinor, creditMinor], index) => ({
+            accountId: account(code),
+            debitMinor,
+            creditMinor,
+            sortOrder: index,
+          })),
+        },
+      },
+      select: { id: true, reference: true },
+    });
+    created.set(entry.reference, entry.id);
+  }
+
+  // The reversal of JV/2026/0008, which put the generator service under
+  // transport instead of repairs.
+  const wrong = created.get("JV/2026/0008");
+  if (wrong) {
+    await db.journalEntry.create({
+      data: {
+        reference: "JV/2026/0009",
+        narration: "Reversal of JV/2026/0008: posted to transport instead of repairs",
+        entryDate: daysAgo(12),
+        status: "POSTED",
+        source: "reversal",
+        sourceId: wrong,
+        reversesId: wrong,
+        termId: term.id,
+        academicYearId,
+        postedAt: daysAgo(12),
+        postedByLabel: "Head Teacher",
+        createdByLabel: "Head Teacher",
+        lines: {
+          create: [
+            { accountId: account("5400"), debitMinor: 0, creditMinor: 320_000, sortOrder: 0 },
+            { accountId: account("1100"), debitMinor: 320_000, creditMinor: 0, sortOrder: 1 },
+          ],
+        },
+      },
+    });
   }
 }

@@ -128,6 +128,14 @@ export const PERMISSIONS: PermissionDef[] = [
     ["expense.pay", "update", "Mark expenditure as paid"],
     ["vendor.manage", "update", "Manage vendors and expense categories"],
     ["budget.manage", "update", "Set the annual budget"],
+    // Writing an entry and posting it are separate, for the same reason
+    // recording a bill and approving it are: posting is the moment a figure
+    // reaches the accounts, and the person who can do that should be able to
+    // be somebody other than the person who typed it.
+    ["ledger.read", "read", "View the general ledger and its statements"],
+    ["ledger.record", "create", "Write journal entries"],
+    ["ledger.post", "approve", "Post and reverse journal entries"],
+    ["ledger.manage", "update", "Manage the chart of accounts"],
   ]),
 
   // The register is its own group rather than part of finance, because the

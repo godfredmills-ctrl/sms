@@ -419,6 +419,7 @@ model AcademicYear {
   examSessions   ExamSession[]
   boardingBeds   BoardingAllocation[]
   admissions     AdmissionApplication[]
+  journalEntries JournalEntry[]
 
   @@unique([schoolId, name])
 }
@@ -444,6 +445,7 @@ model Term {
   feeStructures     FeeStructure[]
   expenses          Expense[]
   examSessions      ExamSession[]
+  journalEntries    JournalEntry[]
 
   @@unique([academicYearId, sequence])
 }
@@ -4911,4 +4913,146 @@ model StockMovement {
   @@index([itemId, occurredOn])
   @@index([kind])
   @@index([reference])
+}
+
+// =============================================================================
+// GENERAL LEDGER
+//
+// Double entry, underneath everything else that touches money.
+//
+// The fee ledger already knows what a family owes and the expenditure module
+// already knows what a bill cost. What neither could do is answer the question
+// an auditor actually asks: show me the trial balance. This is that layer. It
+// does not replace either of them, it records what they did in the form an
+// accountant reads.
+//
+// Two rules run through the whole of it. An entry balances or it is not an
+// entry. And a posted entry is never edited or deleted, because a ledger that
+// can be rewritten is a statement of opinion rather than a record.
+// =============================================================================
+
+enum LedgerAccountType {
+  /// What the school owns or is owed.
+  ASSET
+  /// What the school owes.
+  LIABILITY
+  /// The school's own funds and accumulated surplus.
+  EQUITY
+  /// What the school earns.
+  INCOME
+  /// What the school spends.
+  EXPENSE
+}
+
+enum JournalStatus {
+  /// Written, balanced or not, and affecting nothing.
+  DRAFT
+  /// In the accounts. Immutable from here: a correction is a reversing entry.
+  POSTED
+  /// Written in error and reversed. Kept so the reference is never reused.
+  VOID
+}
+
+/// One line of the chart of accounts.
+model LedgerAccount {
+  id   String            @id @default(cuid())
+  /// "1100", "4200". Conventionally 1000s assets, 2000s liabilities, 3000s
+  /// funds, 4000s income, 5000s expenditure.
+  code String            @unique
+  name String
+  type LedgerAccountType
+
+  /// Sub-accounts, so "Tuition" and "Boarding" can sit under "Fee income" on a
+  /// statement without either losing its own balance.
+  parentId String?
+  parent   LedgerAccount?  @relation("LedgerAccountTree", fields: [parentId], references: [id], onDelete: SetNull)
+  children LedgerAccount[] @relation("LedgerAccountTree")
+
+  description String?
+
+  /// Created by the system and relied on by the automatic postings. It can be
+  /// renamed but not deleted, because deleting it would break the posting that
+  /// happens when somebody records a payment.
+  isSystem Boolean @default(false)
+  isActive Boolean @default(true)
+
+  sortOrder Int @default(0)
+
+  lines JournalLine[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([type])
+  @@index([isActive])
+}
+
+/// One transaction: a date, a narration, and the lines that balance.
+model JournalEntry {
+  id String @id @default(cuid())
+
+  /// "JV/2026/0041". Unique, quoted on any correction, never reused.
+  reference String @unique
+
+  entryDate DateTime
+  narration String
+
+  status JournalStatus @default(DRAFT)
+
+  /// Where it came from. A manual entry says so; the rest name the module and
+  /// the record, so a figure on a statement can be traced back to the payment
+  /// or the bill that caused it.
+  source   String  @default("manual")
+  sourceId String?
+
+  academicYearId String?
+  academicYear   AcademicYear? @relation(fields: [academicYearId], references: [id], onDelete: SetNull)
+  termId         String?
+  term           Term?         @relation(fields: [termId], references: [id], onDelete: SetNull)
+
+  /// The entry this one reverses, and the entry that reversed this one.
+  reversesId String?       @unique
+  reverses   JournalEntry? @relation("JournalReversal", fields: [reversesId], references: [id], onDelete: SetNull)
+  reversedBy JournalEntry? @relation("JournalReversal")
+
+  postedAt      DateTime?
+  postedById    String?
+  postedByLabel String?
+
+  createdById    String?
+  createdByLabel String?
+
+  lines JournalLine[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([entryDate])
+  @@index([status])
+  @@index([source, sourceId])
+  @@index([academicYearId])
+}
+
+/// One side of one transaction.
+model JournalLine {
+  id      String       @id @default(cuid())
+  entryId String
+  entry   JournalEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+
+  accountId String
+  account   LedgerAccount @relation(fields: [accountId], references: [id])
+
+  /// Exactly one of these is non-zero, and neither is ever negative. The
+  /// migration adds a CHECK that Prisma cannot express, so a row that is a
+  /// debit and a credit at once cannot exist to be read two ways.
+  debitMinor  Int @default(0)
+  creditMinor Int @default(0)
+
+  memo String?
+
+  /// Position in the entry, so it prints in the order it was written.
+  sortOrder Int @default(0)
+
+  @@index([entryId])
+  @@index([accountId])
 }
