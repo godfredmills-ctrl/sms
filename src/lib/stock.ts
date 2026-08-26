@@ -5,6 +5,7 @@ import type { Prisma } from "@prisma/client";
 import { db } from "./db";
 import {
   formatQuantity,
+  formatUnits,
   MILLI,
   runningStock,
   stockLevel,
@@ -169,7 +170,7 @@ export async function storeListing(
         ? [item.location.name, item.location.building].filter(Boolean).join(", ")
         : null,
       quantityMilli: state.quantityMilli,
-      quantityLabel: `${formatQuantity(state.quantityMilli)} ${item.unit}`,
+      quantityLabel: formatUnits(state.quantityMilli, item.unit),
       valueMinor: state.valueMinor,
       averageCostMinor: state.averageCostMinor,
       level: stockLevel(state.quantityMilli, reorderLevelMilli),
@@ -428,4 +429,4 @@ export async function voucher(reference: string) {
   };
 }
 
-export { toMilli, formatQuantity };
+export { toMilli, formatQuantity, formatUnits };

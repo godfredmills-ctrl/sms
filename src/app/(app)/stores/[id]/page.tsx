@@ -16,7 +16,7 @@ import {
 import { requirePermission, userCan } from "@/lib/auth";
 import { formatMoney } from "@/lib/money";
 import { itemDetail, stockPickLists } from "@/lib/stock";
-import { expiryState, formatQuantity, movementLabel } from "@/lib/stock-rules";
+import { expiryState, formatQuantity, formatUnits, movementLabel } from "@/lib/stock-rules";
 import { formatDate } from "@/lib/utils";
 
 import { CountForm, IssueForm, ReceiveForm } from "../store-forms";
@@ -66,7 +66,7 @@ export default async function StockItemPage({
   const mayAdjust = userCan(user, "stock.adjust");
   const mayManage = userCan(user, "stock.manage");
 
-  const onHand = `${formatQuantity(state.quantityMilli)} ${item.unit}`;
+  const onHand = formatUnits(state.quantityMilli, item.unit);
   const expiry = expiryState(item.expiresOn, asOf);
 
   return (
@@ -127,7 +127,7 @@ export default async function StockItemPage({
 
       {suggestedOrderMilli > 0 ? (
         <Alert tone="warning" className="mb-4">
-          Order about {formatQuantity(suggestedOrderMilli)} {item.unit} to bring this
+          Order about {formatUnits(suggestedOrderMilli, item.unit)} to bring this
           back up.
         </Alert>
       ) : null}
@@ -180,9 +180,22 @@ export default async function StockItemPage({
                               {movementLabel(movement.kind)}
                             </span>
                             {movement.reference ? (
-                              <span className="numeric block text-xs text-[var(--text-subtle)]">
-                                {movement.reference}
-                              </span>
+                              // Only an issue produces a voucher. A delivery
+                              // note number is the supplier's paper, not ours,
+                              // and linking it to a slip that does not exist
+                              // would be a button that 404s.
+                              movement.kind === "ISSUE" ? (
+                                <a
+                                  href={`/api/stores/voucher/${encodeURIComponent(movement.reference)}`}
+                                  className="numeric block text-xs text-[var(--primary)] hover:underline"
+                                >
+                                  {movement.reference}
+                                </a>
+                              ) : (
+                                <span className="numeric block text-xs text-[var(--text-subtle)]">
+                                  {movement.reference}
+                                </span>
+                              )
                             ) : null}
                           </td>
                           <td

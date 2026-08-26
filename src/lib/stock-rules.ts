@@ -34,6 +34,32 @@ export function formatQuantity(milli: number): string {
   return Number.isInteger(value) ? String(value) : String(Number(value.toFixed(3)));
 }
 
+/**
+ * The unit, agreeing with the number in front of it.
+ *
+ * "6 sack" and "12.5 litre" are what a store voucher says when nobody has
+ * thought about it, and it is the first thing anyone notices on a document
+ * they are being asked to sign. Units are free text because suppliers invent
+ * them, so this handles the ordinary English cases and leaves anything already
+ * plural alone.
+ */
+export function pluraliseUnit(unit: string, milli: number): string {
+  const trimmed = unit.trim();
+  if (!trimmed) return "";
+  if (milli === MILLI) return trimmed;
+
+  const lower = trimmed.toLowerCase();
+  // "each" is invariant, and anything already plural stays as it is.
+  if (lower === "each" || lower.endsWith("s")) return trimmed;
+  if (/(x|z|ch|sh)$/.test(lower)) return `${trimmed}es`;
+  return `${trimmed}s`;
+}
+
+/** A quantity and its unit, agreeing: "6 sacks", "1 sack", "2.5 litres". */
+export function formatUnits(milli: number, unit: string): string {
+  return `${formatQuantity(milli)} ${pluraliseUnit(unit, milli)}`.trim();
+}
+
 // -----------------------------------------------------------------------------
 // Movements
 // -----------------------------------------------------------------------------

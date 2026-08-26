@@ -11,11 +11,13 @@
 import {
   expiryState,
   formatQuantity,
+  formatUnits,
   fromMilli,
   isInward,
   issueValueMinor,
   MOVEMENT_KINDS,
   movementLabel,
+  pluraliseUnit,
   runningStock,
   signedQuantityMilli,
   stockLevel,
@@ -78,6 +80,22 @@ check("whole numbers print plainly", formatQuantity(12_000), "12");
 check("fractions print without padding", formatQuantity(2_500), "2.5");
 check("thousandths survive printing", formatQuantity(1_250), "1.25");
 check("zero prints as zero", formatQuantity(0), "0");
+
+// The unit has to agree with the number in front of it: "6 sack" is the first
+// thing anybody notices on a voucher they are signing.
+check("exactly one stays singular", formatUnits(1_000, "sack"), "1 sack");
+check("more than one is plural", formatUnits(6_000, "sack"), "6 sacks");
+check("a fraction is plural too", formatUnits(2_500, "litre"), "2.5 litres");
+check("less than one is plural", formatUnits(500, "litre"), "0.5 litres");
+check("none is plural", formatUnits(0, "ream"), "0 reams");
+check("box takes -es", pluraliseUnit("box", 6_000), "boxes");
+check("bunch takes -es", pluraliseUnit("bunch", 6_000), "bunches");
+check("each is invariant", pluraliseUnit("each", 6_000), "each");
+check("and singular each is still each", pluraliseUnit("each", 1_000), "each");
+// A supplier who writes the unit already plural must not get "packss".
+check("an already plural unit is left alone", pluraliseUnit("packs", 6_000), "packs");
+check("case is preserved", pluraliseUnit("Sack", 6_000), "Sacks");
+check("an empty unit yields nothing", formatUnits(6_000, ""), "6");
 
 // -----------------------------------------------------------------------------
 // Direction
