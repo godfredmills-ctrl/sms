@@ -37,6 +37,7 @@
     "integrations:check": "tsx --conditions=react-server scripts/check-integrations.ts",
     "assets:check": "tsx scripts/check-assets.ts",
     "stock:check": "tsx scripts/check-stock.ts",
+    "docs:pdf": "tsx --conditions=react-server scripts/make-documents.ts",
     "setup:integrations": "node scripts/setup-integrations.mjs"
   },
   "prisma": {
