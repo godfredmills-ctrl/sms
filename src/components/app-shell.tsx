@@ -98,7 +98,7 @@ export function AppShell({
     <div className="min-h-dvh">
       <aside
         className={cn(
-          "sidebar fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r",
+          "sidebar fixed inset-y-0 left-0 z-50 flex w-64 flex-col",
           // The collapse control sits half outside the panel.
           "lg:overflow-visible",
           width,
@@ -126,10 +126,10 @@ export function AppShell({
         >
           <Link
             href="/account"
-            className="flex min-w-0 items-center gap-3 rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-white/40"
+            className="flex min-w-0 items-center gap-3 rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-[var(--sidebar-active-text)]"
             aria-label="Your profile"
           >
-            <span className="shrink-0 rounded-full ring-2 ring-white/25">
+            <span className="shrink-0">
               <Avatar name={user.fullName} src={user.avatarUrl} size={38} />
             </span>
             <span className={cn("min-w-0", collapsed && "lg:hidden")}>
@@ -166,7 +166,7 @@ export function AppShell({
           aria-label={collapsed ? "Expand the menu" : "Collapse the menu"}
           className={cn(
             "absolute top-[30px] -right-3 z-10 hidden size-6 items-center justify-center rounded-full",
-            "border border-[var(--sidebar-line)] bg-[var(--sidebar-flyout)] text-[var(--sidebar-muted)] shadow-sm",
+            "bg-[var(--sidebar-flyout)] text-[var(--sidebar-muted)] shadow-md",
             "transition-colors hover:text-[var(--sidebar-text)] lg:flex",
           )}
         >
@@ -228,7 +228,7 @@ export function AppShell({
               </p>
               <Link
                 href="/help"
-                className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-xl bg-white px-3 py-2 text-xs font-semibold text-[var(--sidebar-bg)] transition-opacity hover:opacity-90"
+                className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-xl bg-[var(--sidebar-accent)] px-3 py-2 text-xs font-semibold text-[var(--sidebar-on-accent)] transition-opacity hover:opacity-90"
               >
                 <LifeBuoy className="size-3.5" />
                 Open the help centre
@@ -279,7 +279,10 @@ export function AppShell({
             ) : (
               <span
                 className="flex size-8 shrink-0 items-center justify-center rounded-lg text-xs font-bold text-white"
-                style={{ background: "var(--sidebar-bg)" }}
+                // The brand colour, not the sidebar's. The sidebar is a pale
+                // panel in the light theme now, and white initials on it would
+                // be invisible.
+                style={{ background: "var(--primary)" }}
               >
                 {schoolName.slice(0, 2).toUpperCase()}
               </span>

@@ -4,7 +4,6 @@ import { GraduationCap } from "lucide-react";
 
 import { getCurrentUser, landingPath } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { env } from "@/lib/env";
 import { VENDOR_NAME } from "@/lib/vendor";
 
 import { LoginForm } from "./login-form";
@@ -36,9 +35,13 @@ export default async function LoginPage({
           <div className="flex items-center gap-3">
             {school?.logoUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={school.logoUrl} alt="" className="size-11 rounded-lg bg-white/10 object-contain p-1" />
+              <img
+                src={school.logoUrl}
+                alt=""
+                className="size-11 rounded-lg bg-white object-contain p-1 shadow-sm"
+              />
             ) : (
-              <span className="flex size-11 items-center justify-center rounded-xl bg-white/15">
+              <span className="flex size-11 items-center justify-center rounded-xl bg-[var(--primary)] text-white">
                 <GraduationCap className="size-6" />
               </span>
             )}
@@ -48,30 +51,37 @@ export default async function LoginPage({
           </div>
         </div>
 
-        <div className="relative max-w-md">
-          <h1 className="text-3xl font-semibold tracking-tight text-balance">
-            {school?.motto ?? "One system for the whole school."}
-          </h1>
-          <p className="mt-4 text-sm leading-relaxed" style={{ color: "#41536f" }}>
-            Admissions and records, attendance and assessment, fees and payments,
-            communication, elections and learning: for staff, students and parents.
-          </p>
+        {/*
+          A greeting, a name and one sentence.
 
-          <ul className="mt-8 grid grid-cols-2 gap-3 text-sm" style={{ color: "#2f4262" }}>
-            {[
-              "Full student profiles",
-              "Mobile money & card fees",
-              "Terminal report cards",
-              "SMS, email & push",
-              "AI insights for teaching",
-              "Works offline",
-            ].map((feature) => (
-              <li key={feature} className="flex items-center gap-2">
-                <span className="size-1.5 shrink-0 rounded-full bg-[var(--primary)]" />
-                {feature}
-              </li>
-            ))}
-          </ul>
+          What stood here was the school's motto, a paragraph naming every
+          module, and a six-item feature grid. A sign-in page is not a
+          brochure: the person reading it has already chosen this system and is
+          trying to get into it, and everything beyond telling them where they
+          are is furniture in the way.
+        */}
+        <div className="relative max-w-md">
+          <span
+            className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold"
+            style={{ background: "#ffffff", color: "#2f4262" }}
+          >
+            <span className="size-2 rounded-full bg-[var(--success)]" />
+            Welcome back
+          </span>
+
+          <h1 className="mt-5 text-4xl font-bold tracking-tight text-balance">
+            Sign in to{" "}
+            <span style={{ color: "var(--primary)" }}>
+              {school?.name ?? "your school"}
+            </span>
+            .
+          </h1>
+
+          <p className="mt-4 text-sm leading-relaxed" style={{ color: "#41536f" }}>
+            {school?.motto
+              ? `${school.motto}. Pick up where you left off.`
+              : "Pick up where you left off."}
+          </p>
         </div>
 
         {/*
@@ -114,24 +124,24 @@ export default async function LoginPage({
             <p className="text-lg font-semibold">{school?.name ?? "School Management System"}</p>
           </div>
 
-          <h2 className="text-2xl font-semibold tracking-tight">Welcome back</h2>
+          {/* The greeting is on the panel beside this. Saying "Welcome back"
+              in both places reads as a page that has not been proofread. */}
+          <h2 className="text-2xl font-semibold tracking-tight">Sign in</h2>
           <p className="mt-1 mb-7 text-sm text-[var(--text-muted)]">
-            Sign in to continue to your portal.
+            Enter your details to continue.
           </p>
 
           <LoginForm next={next} />
 
-          {env.nodeEnv !== "production" ? (
-            <div className="mt-8 rounded-lg border border-dashed border-[var(--border-strong)] p-3 text-xs text-[var(--text-muted)]">
-              <p className="mb-1 font-medium text-[var(--text)]">Demo accounts</p>
-              <p className="numeric">
-                {env.seed.adminEmail} · {env.seed.adminPassword}
-              </p>
-              <p className="mt-1 text-[var(--text-subtle)]">
-                Teacher, bursar, parent and student logins are listed in the seed output.
-              </p>
-            </div>
-          ) : null}
+          {/*
+            The demo credentials used to be printed here in development: an
+            administrator's email address and password, in full, on the sign-in
+            page. It was gated on NODE_ENV, which is the right gate and still
+            the wrong place to put them. Anyone demonstrating the system from a
+            laptop was showing an audience how to sign in as the administrator,
+            and a screenshot of the login screen carried the password with it.
+            They are printed by the seed, where whoever ran it can read them.
+          */}
 
           <p className="mt-8 text-center text-[11px] text-[var(--text-subtle)]">
             Powered by {VENDOR_NAME}

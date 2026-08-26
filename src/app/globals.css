@@ -66,24 +66,43 @@
 
   /* --------------------------------------------------------------------
      Sidebar
-     Its own palette rather than the page's, and the same one in both
-     themes: solid school blue with white text. The navigation is the one
-     part of the frame that should look identical however the pages are
-     themed — it is the school's colour, not the reader's preference.
+
+     Its own palette, and its own in each theme. It used to be one solid
+     school blue in both, on the argument that the navigation is the school's
+     flag rather than the reader's preference. That is a fair argument and it
+     lost to a plainer one: a saturated blue panel beside white pages is a
+     block of colour the eye keeps returning to, and beside dark pages it is
+     the brightest thing on the screen. The panel is pale here and deep in the
+     dark theme, tinted with the school's colour either way.
      -------------------------------------------------------------------- */
-  --sidebar-bg: #2c66ce;
-  --sidebar-text: #ffffff;
-  --sidebar-muted: rgb(255 255 255 / 0.72);
-  --sidebar-faint: rgb(255 255 255 / 0.5);
-  --sidebar-hover: rgb(255 255 255 / 0.12);
-  /* White rather than a brighter blue — no blue reads as "selected" on blue. */
-  --sidebar-active-bg: rgb(255 255 255 / 0.2);
-  --sidebar-active-text: #ffffff;
-  --sidebar-line: rgb(255 255 255 / 0.16);
-  --sidebar-tree: rgb(255 255 255 / 0.28);
-  --sidebar-flyout: #1c3f7d;
-  --sidebar-tooltip: #0f2547;
+  --sidebar-top: #f8fafd;
+  --sidebar-bg: #eef2f9;
+  --sidebar-bottom: #e4ebf6;
+  --sidebar-text: #16202e;
+  --sidebar-muted: #4c5a6e;
+  --sidebar-faint: #7d879a;
+  --sidebar-hover: rgb(20 32 56 / 0.06);
+  /* On a pale panel the brand colour is what reads as selected, where on the
+     old blue panel only white could. */
+  --sidebar-active-bg: rgb(44 102 206 / 0.12);
+  --sidebar-active-text: #1f4fa8;
+  --sidebar-line: rgb(20 32 56 / 0.09);
+  --sidebar-tree: rgb(20 32 56 / 0.18);
+  --sidebar-flyout: #ffffff;
+  /* A tooltip stays dark in both themes: it is a label floating over the page,
+     and it has to separate from whatever is behind it. */
+  --sidebar-tooltip: #16202e;
   --sidebar-tooltip-text: #ffffff;
+
+  /* The glass: light blooming inside the pane, and the shadow it casts on the
+     page. Named rather than written into the rule so the dark panel is lit
+     from the same place without needing a second rule. */
+  --sidebar-glow-a: rgb(255 255 255 / 0.85);
+  --sidebar-glow-b: rgb(44 102 206 / 0.1);
+  --sidebar-cast: rgb(20 32 56 / 0.1);
+  /* The filled button in the help card, which has to invert the panel. */
+  --sidebar-accent: #2c66ce;
+  --sidebar-on-accent: #ffffff;
 
   color-scheme: light;
 }
@@ -126,8 +145,29 @@
   --teal: #4fbecb;
   --teal-soft: #0d2a2e;
 
-  /* The sidebar palette is inherited from the light block unchanged: solid
-     #2C66CE with white text, identical in both themes by design. */
+  /* The sidebar has its own palette here rather than inheriting the light one.
+     A pale panel is right beside pale pages and wrong beside dark ones: it
+     stops being part of the frame and becomes a lamp. */
+  --sidebar-top: #1c2c4d;
+  --sidebar-bg: #172542;
+  --sidebar-bottom: #101c33;
+  --sidebar-text: #eef2f8;
+  --sidebar-muted: rgb(255 255 255 / 0.72);
+  --sidebar-faint: rgb(255 255 255 / 0.48);
+  --sidebar-hover: rgb(255 255 255 / 0.08);
+  --sidebar-active-bg: rgb(255 255 255 / 0.14);
+  --sidebar-active-text: #ffffff;
+  --sidebar-line: rgb(255 255 255 / 0.1);
+  --sidebar-tree: rgb(255 255 255 / 0.22);
+  --sidebar-flyout: #1b2c4e;
+  --sidebar-tooltip: #0b1526;
+  --sidebar-tooltip-text: #ffffff;
+
+  --sidebar-glow-a: rgb(255 255 255 / 0.14);
+  --sidebar-glow-b: rgb(230 193 90 / 0.13);
+  --sidebar-cast: rgb(0 0 0 / 0.45);
+  --sidebar-accent: #ffffff;
+  --sidebar-on-accent: #16233c;
 
   color-scheme: dark;
 }
@@ -147,10 +187,19 @@
   --primary-soft: color-mix(in srgb, var(--brand-primary) 13%, transparent);
   --primary-text: #ffffff;
   --ring: var(--brand-primary);
-  --sidebar-bg: var(--brand-primary);
-  --sidebar-active-bg: rgb(255 255 255 / 0.2);
-  --sidebar-flyout: color-mix(in srgb, var(--brand-primary) 70%, #000);
-  --sidebar-tooltip: color-mix(in srgb, var(--brand-primary) 55%, #000);
+
+  /* The light panel, tinted with the school's colour rather than painted in
+     it. A wash of about a tenth keeps the panel pale enough to read dark type
+     on while still being recognisably the school's. */
+  --sidebar-top: color-mix(in srgb, var(--brand-primary) 4%, #ffffff);
+  --sidebar-bg: color-mix(in srgb, var(--brand-primary) 9%, #ffffff);
+  --sidebar-bottom: color-mix(in srgb, var(--brand-primary) 15%, #ffffff);
+  --sidebar-active-bg: color-mix(in srgb, var(--brand-primary) 14%, transparent);
+  --sidebar-active-text: color-mix(in srgb, var(--brand-primary) 80%, #000);
+  --sidebar-glow-b: color-mix(in srgb, var(--brand-primary) 12%, transparent);
+  --sidebar-flyout: #ffffff;
+  --sidebar-accent: var(--brand-primary);
+  --sidebar-on-accent: #ffffff;
 }
 
 /* In dark mode the brand colour is lightened before use — a deep navy chosen
@@ -161,8 +210,19 @@
   --primary-soft: color-mix(in srgb, var(--brand-primary) 30%, transparent);
   --primary-text: #0b1220;
   --ring: color-mix(in srgb, var(--brand-primary) 60%, #fff);
-  /* The sidebar keeps the true brand colour — it is the school's flag. */
-  --sidebar-bg: var(--brand-primary);
+
+  /* The dark panel, deepened from the school's colour rather than replaced by
+     it. Mixing towards black rather than using the brand neat keeps white type
+     readable: a mid-blue panel with white text on it is the combination that
+     fails a contrast check. */
+  --sidebar-top: color-mix(in srgb, var(--brand-primary) 34%, #0b1526);
+  --sidebar-bg: color-mix(in srgb, var(--brand-primary) 26%, #0b1526);
+  --sidebar-bottom: color-mix(in srgb, var(--brand-primary) 16%, #0b1526);
+  --sidebar-flyout: color-mix(in srgb, var(--brand-primary) 30%, #0b1526);
+  --sidebar-tooltip: color-mix(in srgb, var(--brand-primary) 18%, #050c17);
+  --sidebar-glow-b: color-mix(in srgb, var(--brand-primary) 22%, transparent);
+  --sidebar-accent: #ffffff;
+  --sidebar-on-accent: color-mix(in srgb, var(--brand-primary) 30%, #0b1526);
 }
 
 @theme inline {
@@ -342,19 +402,19 @@ body {
   .sidebar {
     color: var(--sidebar-text);
     border-color: var(--sidebar-line);
-    background:
-      linear-gradient(
-        180deg,
-        color-mix(in srgb, var(--sidebar-bg) 92%, #ffffff) 0%,
-        var(--sidebar-bg) 42%,
-        color-mix(in srgb, var(--sidebar-bg) 82%, #000000) 100%
-      );
+    background: linear-gradient(
+      180deg,
+      var(--sidebar-top) 0%,
+      var(--sidebar-bg) 45%,
+      var(--sidebar-bottom) 100%
+    );
     backdrop-filter: blur(22px) saturate(150%);
     -webkit-backdrop-filter: blur(22px) saturate(150%);
-    box-shadow:
-      inset 0 1px 0 rgb(255 255 255 / 0.14),
-      inset -1px 0 0 rgb(255 255 255 / 0.06),
-      0 0 60px -20px rgb(0 0 0 / 0.45);
+    /* No hairlines along the top or the inner edge. They were meant to read as
+       light catching on glass and read instead as a pale border drawn round
+       the panel. The gradient and the cast shadow separate it from the page on
+       their own. */
+    box-shadow: 0 0 60px -20px var(--sidebar-cast);
   }
 
   /*
@@ -376,21 +436,10 @@ body {
     pointer-events: none;
     z-index: -1;
     background:
-      radial-gradient(
-        70% 40% at 18% 8%,
-        rgb(255 255 255 / 0.16) 0%,
-        transparent 70%
-      ),
-      radial-gradient(
-        60% 35% at 90% 72%,
-        color-mix(in srgb, var(--color-gold-300, #e6c15a) 45%, transparent) 0%,
-        transparent 70%
-      );
+      radial-gradient(70% 40% at 18% 8%, var(--sidebar-glow-a) 0%, transparent 70%),
+      radial-gradient(60% 35% at 90% 72%, var(--sidebar-glow-b) 0%, transparent 70%);
   }
 
-  .sidebar * {
-    border-color: var(--sidebar-line);
-  }
 
   .sidebar-link {
     display: flex;
@@ -502,22 +551,17 @@ body {
     font-weight: 500;
     backdrop-filter: blur(16px) saturate(140%);
     -webkit-backdrop-filter: blur(16px) saturate(140%);
-    box-shadow:
-      inset 0 1px 0 rgb(255 255 255 / 0.12),
-      0 8px 22px -8px rgb(0 0 0 / 0.55);
+    box-shadow: 0 8px 22px -8px rgb(0 0 0 / 0.55);
   }
 
   .rail-flyout {
     min-width: 13rem;
     border-radius: 0.75rem;
     background: color-mix(in srgb, var(--sidebar-flyout) 84%, transparent);
-    border: 1px solid rgb(255 255 255 / 0.1);
     padding: 0.375rem;
     backdrop-filter: blur(20px) saturate(150%);
     -webkit-backdrop-filter: blur(20px) saturate(150%);
-    box-shadow:
-      inset 0 1px 0 rgb(255 255 255 / 0.12),
-      0 16px 38px -14px rgb(0 0 0 / 0.6);
+    box-shadow: 0 16px 38px -14px rgb(0 0 0 / 0.6);
   }
 
   /* ----------------------------------------------------------------------
