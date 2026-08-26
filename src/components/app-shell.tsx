@@ -67,6 +67,14 @@ export function AppShell({
   const [mobileOpen, setMobileOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
+  /**
+   * The one rail item whose flyout is showing.
+   *
+   * Held here rather than in each item so that opening one closes the last by
+   * construction. Left to CSS hover, two could show at once while one faded
+   * out under the other.
+   */
+  const [railOpen, setRailOpen] = useState<string | null>(null);
 
   useEffect(() => {
     setCollapsed(window.localStorage.getItem("sidebar:collapsed") === "1");
@@ -82,6 +90,7 @@ export function AppShell({
   useEffect(() => {
     setMobileOpen(false);
     setAccountOpen(false);
+    setRailOpen(null);
   }, [pathname]);
 
   useEffect(() => {
@@ -201,6 +210,8 @@ export function AppShell({
                     item={item}
                     pathname={pathname}
                     collapsed={collapsed}
+                    railOpen={railOpen}
+                    onRailOpen={setRailOpen}
                   />
                 ))}
               </ul>
@@ -216,7 +227,7 @@ export function AppShell({
             <Link
               href="/help"
               aria-label="Help centre"
-              className="mx-auto hidden size-10 items-center justify-center rounded-xl bg-[var(--sidebar-hover)] text-[var(--sidebar-text)] transition-colors hover:bg-[var(--sidebar-active-bg)] lg:flex"
+              className="mx-auto hidden size-10 items-center justify-center rounded-xl bg-[var(--sidebar-accent)] text-[var(--sidebar-on-accent)] transition-opacity hover:opacity-90 lg:flex"
             >
               <LifeBuoy className="size-5" />
             </Link>
@@ -408,10 +419,15 @@ function NavEntry({
   item,
   pathname,
   collapsed,
+  railOpen,
+  onRailOpen,
 }: {
   item: NavItem;
   pathname: string;
   collapsed: boolean;
+  /** The one rail item whose flyout is showing, if any. */
+  railOpen: string | null;
+  onRailOpen: (href: string | null) => void;
 }) {
   const isActive =
     pathname === item.href ||
@@ -432,11 +448,11 @@ function NavEntry({
      * follows the item after the nav has been scrolled.
      */
     const place = (event: React.SyntheticEvent<HTMLLIElement>) => {
-      const item = event.currentTarget;
-      const pop = item.querySelector<HTMLElement>(".rail-pop");
+      const element = event.currentTarget;
+      const pop = element.querySelector<HTMLElement>(".rail-pop");
       if (!pop) return;
 
-      const rect = item.getBoundingClientRect();
+      const rect = element.getBoundingClientRect();
       pop.style.left = `${rect.right + 8}px`;
 
       // Kept on screen: a submenu near the foot of a long sidebar would
@@ -446,11 +462,26 @@ function NavEntry({
       pop.style.top = `${Math.max(12, top)}px`;
     };
 
+    /** Measure first, then claim the one open slot: opening closes the last. */
+    const reveal = (event: React.SyntheticEvent<HTMLLIElement>) => {
+      place(event);
+      onRailOpen(item.href);
+    };
+
     return (
       <li
         className="rail-item relative hidden lg:block"
-        onMouseEnter={place}
-        onFocus={place}
+        onMouseEnter={reveal}
+        onFocus={reveal}
+        onMouseLeave={() => onRailOpen(null)}
+        // Closing on blur as well as on mouse leave: tabbing out of a submenu
+        // has to shut it, or keyboard users are left with a panel over the
+        // page that nothing will dismiss.
+        onBlur={(event) => {
+          if (!event.currentTarget.contains(event.relatedTarget as Node)) {
+            onRailOpen(null);
+          }
+        }}
       >
         {item.locked ? (
           <span
@@ -471,7 +502,7 @@ function NavEntry({
           </Link>
         )}
 
-        <div className="rail-pop">
+        <div className="rail-pop" data-open={railOpen === item.href}>
           {hasChildren ? (
             <div className="rail-flyout">
               <p className="px-2 py-1.5 text-xs font-semibold text-[var(--sidebar-text)]">
