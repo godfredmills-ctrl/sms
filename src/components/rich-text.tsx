@@ -365,6 +365,23 @@ export function MarkdownPreview({ blocks }: { blocks: Block[] }) {
               </div>
             );
 
+          case "image":
+            return (
+              <figure key={index} className="my-3">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={block.src}
+                  alt={block.alt}
+                  className="w-full rounded-lg border border-[var(--border)]"
+                />
+                {block.alt ? (
+                  <figcaption className="mt-1.5 text-xs text-[var(--text-muted)]">
+                    {block.alt}
+                  </figcaption>
+                ) : null}
+              </figure>
+            );
+
           default:
             return (
               <p key={index}>

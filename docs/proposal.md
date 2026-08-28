@@ -8,6 +8,8 @@ This is a complete administrative system for an international school in Ghana. I
 
 It runs in a web browser. Staff use it from the office, teachers from their phones, and parents from home.
 
+![The staff dashboard: money taken today, arrears, the clinic, and the payroll waiting to be checked.](screenshots/dashboard.png)
+
 Three things separate it from the alternatives, and the rest of this document is mostly about them.
 
 It works completely before the school has signed up with anybody. Messages are written to a log rather than sent, payments are simulated rather than charged, and everything else behaves exactly as it will in September. A school can run a full term as a rehearsal and then connect a provider when it is ready.
@@ -46,15 +48,23 @@ A single system answers those questions because the same fact is only stored onc
 
 **Payroll.** Salaries and allowances, monthly runs with SSNIT and PAYE, approval before payment, and payslips staff can see themselves.
 
+**The general ledger.** A chart of accounts, journal entries in proper double entry, posting separated from writing so the person who types a figure is not the person who commits it, corrections made by reversal rather than by editing, and a trial balance, income statement and balance sheet drawn from the entries themselves.
+
 **Boarding.** Houses, rooms and beds, allocation that will not overfill a room or put a child in the wrong house, leave-out from request through approval to the gate, and a printed pass the pupil carries.
 
 **The asset register.** What the school owns, where it is, who has it, straight line depreciation, servicing due dates, physical verification, disposal with the gain or loss against book value, and a printed register.
 
 **The school store.** Stock in and out, weighted average valuation, reorder levels, expiry dates, signed issue vouchers, and counts recorded as adjustments so the history is never rewritten.
 
+**The cafeteria.** Meal plans priced by term, a cycle menu, and a serving register that records who actually ate. Every dish carries its allergens, every pupil already has their allergies on file, and the two are matched at the counter at the moment the child reaches it. A severe allergy will not record a meal without somebody typing what is being served instead.
+
+**Alumni.** A register of people who have left, what they went on to do, and what they have done with the school since. It keeps their own contact details rather than the school ones, dates them, and says plainly how many of the names on it can actually be written to.
+
 **Communication.** Announcements, SMS, email, push notifications, internal memos, message templates with placeholders, audience selection down to "guardians with an outstanding balance", cost shown before sending, and a delivery log that reports what actually arrived.
 
 **Portals.** Guardians see their own children's fees, results, attendance, announcements and documents, and can pay online. Pupils see their timetable, assignments, results and certificates.
+
+![The serving counter. The dish is read from the menu, its allergens travel with it, and every name in the queue is priced against that pupil's own meal plan.](screenshots/cafeteria-serving.png)
 
 **The website.** The school's public site is part of the system. Enquiries from the contact form arrive as admissions applications rather than in somebody's inbox.
 
@@ -69,6 +79,8 @@ Most systems of this kind are unusable until the school has a payment merchant a
 Here, every integration has a working fallback. Text messages are written to the server log with their cost calculated exactly as it would be. Payments go through a simulated checkout that records everything except the money moving. Email is logged. The school can enrol pupils, bill a term, take payments, produce report cards and rehearse a whole broadcast to nine hundred parents without spending anything or signing anything.
 
 When the school is ready, each provider is connected from a settings screen inside the system, not by an engineer editing configuration files. Each one has a test that contacts the provider and reports what happened, and for messaging there is a test send, because a balance check does not prove the sender name is registered and an unregistered sender name is the usual reason messages are accepted and never arrive.
+
+![A family's statement: what was billed, what has been paid, and what is left.](screenshots/fee-statement.png)
 
 ### The paper matters
 
@@ -114,6 +126,8 @@ This one is built the other way round. If the SMS provider name is not one the s
 
 The build itself enforces some of this. Eight automated checks refuse to build the system if, for example, a provider credential is read from the wrong place, a page links somewhere that does not exist, a printed document could have a column truncated, or a form exists with no code behind it.
 
+![The guardian portal. A parent sees their own children and nobody else's.](screenshots/guardian-portal.png)
+
 ### Built for here
 
 Money is held in pesewas as whole numbers, so nothing rounds away over a term of fee collection.
@@ -158,11 +172,11 @@ When the school is ready to go further: an account with a payment provider, an a
 
 It is worth being straight about the edges.
 
-There is no accounting general ledger. The system records income and expenditure and produces a statement, but a school that needs full double entry bookkeeping should expect to hand figures to an accountant or an accounting package.
+There is no fixed asset revaluation and no foreign currency accounting. The ledger is a straightforward double entry set of books in cedis, which is what a school needs and is not what a group of companies needs.
 
-There is no cafeteria or meal plan module. Boarding and the store are there, and provisions are tracked, but meal plans per pupil are not.
+The cafeteria does not cost a meal against the provisions used to cook it. It knows what was served and what was charged; working out what the kitchen consumed to do it is still a matter of reading the store issues alongside it.
 
-There is no alumni module yet, although pupil records survive graduation intact and the status exists.
+Timetabling is a builder with checks rather than an automatic solver. It will refuse to double book a teacher or a room and it will not generate a timetable from constraints on its own.
 
 The system needs an internet connection. It is not an offline application.
 

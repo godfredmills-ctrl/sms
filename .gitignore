@@ -34,3 +34,6 @@ scripts/_*
 # a hundred megabytes.
 /.pgdata/
 sweep-report.json
+
+# Rasterised PDF pages, for looking at a document that has just been built.
+/.preview/

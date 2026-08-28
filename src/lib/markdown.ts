@@ -40,6 +40,14 @@ export type Block =
   | { type: "list"; ordered: boolean; items: Inline[][] }
   | { type: "quote"; runs: Inline[] }
   | { type: "rule" }
+  /**
+   * A figure: a screenshot, with its caption underneath.
+   *
+   * Its own block rather than an inline run. A picture in the middle of a
+   * sentence is not something these documents ever need, and one that has to
+   * flow with the text around it is a great deal of machinery for nobody.
+   */
+  | { type: "image"; src: string; alt: string }
   | { type: "table"; header: Inline[][]; rows: Inline[][][] };
 
 /**
@@ -283,6 +291,16 @@ export function parseMarkdown(source: string): Block[] {
       continue;
     }
 
+    // A line that is only a picture. Anything else on the line is a paragraph
+    // that happens to mention one, and is left alone.
+    const image = /^!\[([^\]]*)\]\(([^)\s]+)\)$/.exec(trimmed);
+    if (image) {
+      flushParagraph();
+      blocks.push({ type: "image", alt: image[1].trim(), src: image[2].trim() });
+      index += 1;
+      continue;
+    }
+
     if (/^-{3,}$|^\*{3,}$|^_{3,}$/.test(trimmed)) {
       flushParagraph();
       blocks.push({ type: "rule" });
@@ -422,6 +440,10 @@ function textRuns(blocks: Block[]): Inline[][] {
         return block.items;
       case "table":
         return [...block.header, ...block.rows.flat()];
+      // A figure carries no prose. Its caption is left out of the word count
+      // deliberately: it describes the picture rather than being the text.
+      case "image":
+        return [];
       default:
         return [block.runs];
     }
@@ -478,6 +500,10 @@ export function markdownToText(source: string): string {
           return [block.header, ...block.rows]
             .map((row) => row.map((cell) => cell.map((run) => run.text).join("")).join("  "))
             .join("\n");
+        // The caption, so a plain-text rendering says a picture was here
+        // rather than skipping a step of whatever it illustrated.
+        case "image":
+          return block.alt ? `[${block.alt}]` : "";
         default:
           return block.runs.map((run) => run.text).join("");
       }

@@ -8,7 +8,7 @@ This manual is written for two groups of people at once.
 
 If you are going to use the system day to day, read the part that covers your job. A bursar does not need to know how the examinations hall seating works, and a form teacher does not need to know how payroll is approved. Each part stands on its own.
 
-If you are training other people, read Part 12 first. It sets out an order for the sessions, how long each one takes, and the exercises that seem to work. Then read the parts you are going to teach.
+If you are training other people, read Part 14 first. It sets out an order for the sessions, how long each one takes, and the exercises that seem to work. Then read the parts you are going to teach.
 
 The system has a lot in it. Nobody learns all of it, and nobody needs to. Most people use four or five screens and never touch the rest.
 
@@ -68,6 +68,8 @@ The academic year or term is not the current one. A great deal of the system is 
 
 Something upstream is missing. You cannot invoice a term with no fee structure, allocate a bed in a house with no rooms, or add an asset before somebody has created an asset category. The system tells you what is missing and where to go and do it.
 
+![Signing in. The school sets what is on the left of this screen.](screenshots/sign-in.png)
+
 ## Part 2: The school year
 
 ### 2.1 Academic years and terms
@@ -126,6 +128,8 @@ The stages run: enquiry, applied, assessed, interviewed, offered, accepted, enro
 
 **Places.** The Places strip counts, for each year group, how many seats exist from the section capacities, how many children are already enrolled, and how many are promised to somebody. Offers with no year group attached are counted separately so they are not lost.
 
+![The pupil list. Search, filter, and the controls at the end of each row.](screenshots/students.png)
+
 ### 3.2 Admitting a pupil
 
 Once a family accepts, enrol the child from the admissions board. The pupil record is created, the status changes, and the child appears in the class you place them in.
@@ -176,6 +180,8 @@ A register that has been submitted can be amended by somebody with the amend per
 
 Attendance reports show patterns rather than single days. A pupil missing every Friday is a different problem from a pupil who was ill for a week, and the report makes that visible.
 
+![Taking a register.](screenshots/attendance.png)
+
 ### 4.2 The gradebook
 
 The gradebook is where marks are entered.
@@ -193,6 +199,8 @@ A subject's mark is made of components. Typically continuous assessment counts f
 Each component has a weight. The subject total is worked out from the weights of the components that actually have marks, so a subject where the examination has not been sat yet shows a continuous assessment result rather than a misleadingly low total.
 
 Grading scales are also set under Settings. A scale turns a percentage into a grade and a remark.
+
+![The gradebook. A blank is not a zero.](screenshots/gradebook.png)
 
 ### 4.4 Report cards
 
@@ -250,6 +258,8 @@ Invoices carry a number that is never reused and a due date taken from the billi
 
 Review before issuing. An invoice that has been issued is visible to the family.
 
+![Invoices for a term, and what is still owed on each.](screenshots/invoices.png)
+
 ### 5.3 Taking a payment at the desk
 
 Finance, then Payments, then record a payment.
@@ -282,6 +292,8 @@ Reminders respect quiet hours, which are set under Settings. Nobody should get a
 
 Reminders go to the bill payer rather than to every guardian.
 
+![Expenditure, with what has been approved and what is waiting.](screenshots/expenses.png)
+
 ### 5.7 Expenditure and budget
 
 Finance, then Expenditure. Every bill the school pays is recorded here with its category, its supplier, the amount, any withholding tax and whether it has been paid.
@@ -298,6 +310,24 @@ The run works out gross pay, deductions including SSNIT and PAYE, and net pay. R
 
 Payslips are printed for the whole run or for one person. Staff can also see their own payslips in the system without going to the bursar for a copy.
 
+### 5.9 The general ledger
+
+Finance, then Ledger.
+
+The rest of Part 5 records what a school does with money. The ledger records it a second time, in the form an accountant and an auditor recognise: every transaction as a pair of equal and opposite entries, so the books balance by construction rather than by somebody checking.
+
+**The chart of accounts.** A numbered list of the accounts the school posts to. The ranges follow the usual convention: 1000s for what the school owns or is owed, 2000s for what it owes, 3000s for reserves, 4000s for income, 5000s for expenditure. The system refuses an account whose number does not match its type, because a bank account numbered in the 5000s prints as an expense on the statement and nobody looks at the code afterwards.
+
+**Writing an entry.** Every entry has at least two lines, and the debits must equal the credits before it will save. A line is a debit or a credit, never both and never negative. This is not a formality. An entry that does not balance makes every statement drawn from the ledger afterwards wrong by an amount nobody can find.
+
+**Posting.** Writing an entry and posting it are separate permissions on purpose. Writing it is bookkeeping; posting it is the moment the figure reaches the accounts. In a school small enough that one person does both, they still hold both permissions and nothing is lost. In a school large enough to care, the bursar writes and the head teacher posts.
+
+**Correcting.** A posted entry is never edited. It is reversed, which writes a second entry that is its mirror image, and then the correct one is written. That is how an audit trail works: the record shows what was thought at the time, what was wrong with it, and what replaced it. An edited entry shows only the last opinion.
+
+**The statements.** The trial balance, the income statement and the balance sheet are drawn from the entries every time they are opened. They are not stored figures that could drift from the entries behind them. If the trial balance does not balance, something is wrong with the entries and the screen says so rather than hiding it.
+
+![The general ledger. Every account, its balance, and which side of the books it belongs on.](screenshots/ledger.png)
+
 ## Part 6: Boarding
 
 ### 6.1 Houses, rooms and beds
@@ -305,6 +335,8 @@ Payslips are printed for the whole run or for one person. Staff can also see the
 Boarding, then Houses and rooms.
 
 A house has a house parent and a set of rooms. Each room has a number of beds. The system tracks which bed each boarder is in, not just which house.
+
+![Boarding houses, and how full each one is.](screenshots/boarding.png)
 
 ### 6.2 Allocating a bed
 
@@ -348,6 +380,8 @@ The register works out what each asset is now worth. The method is straight line
 
 **The printed register.** Prints on letterhead, with every asset, what it cost, what has been depreciated and what it is now worth, plus totals and a note explaining the basis of the valuation. This is the document an auditor asks for.
 
+![The asset register: what the school owns and what it is now worth.](screenshots/assets.png)
+
 ### 7.2 The school store
 
 Store, then Stock.
@@ -366,13 +400,115 @@ Each item has a unit, which is how the store counts it, and a reorder level. Whe
 
 Nothing can be issued that is not there. If the shelf does not have it, the system says how much is actually there and asks for a count rather than recording a fiction.
 
-## Part 8: Talking to families
+## Part 8: The cafeteria
 
-### 8.1 Announcements
+### 8.1 What this part is for
+
+A school kitchen has three jobs: knowing who is entitled to eat, knowing what is being cooked, and knowing who actually ate. The third is the one that matters most and is the one most often missing. A boarding school that cannot say whether a child came to supper cannot say whether a child is missing. A day school billing termly for lunches it did not serve is billing for air.
+
+There is a fourth thing this part does, and it is the reason to set the module up even in a school that is content with its catering arrangements. Every school already holds its pupils' allergies. Almost none of them get that fact to the person holding the ladle. This does.
+
+### 8.2 Meal plans
+
+Cafeteria, then Meal plans.
+
+A plan is a named set of sittings at a termly price. "Lunch only" covers lunch. "Full board" covers breakfast, lunch and supper, which is what a boarder needs. Each plan also carries what one meal costs somebody who is not covered, because a pupil on a lunch plan who turns up to supper is served and charged rather than turned away.
+
+A plan that covers no sittings is refused. It would sell, bill, and then turn the child away at every counter.
+
+Withdrawing a plan stops new families choosing it and leaves everybody already on it exactly where they are.
+
+![Meal plans. What a family can buy, and what one meal costs somebody who has not bought it.](screenshots/cafeteria-plans.png)
+
+### 8.3 Who is on what
+
+Cafeteria, then Subscriptions.
+
+Put a pupil on a plan for a term. A pupil already on a different plan that term has the old one ended the day before the new one starts, rather than overwritten, so the weeks already billed under it stay explainable.
+
+**Suspending.** A plan can be suspended, usually over arrears. Suspending does not turn a child away from the counter. It moves their meals from the plan to cash, so the school has a record of what was eaten and what it cost. A system that can refuse a child lunch over a billing question is not one a school should be able to run by accident.
+
+**Charging.** Raise the term's charges once from the same screen. Each one is added as a line on that family's existing invoice for the term rather than as a bill of its own, so a parent gets one invoice. A pupil with no open invoice for the term is skipped and counted rather than silently dropped, and the message says how many. Running it a second time finds nothing.
+
+### 8.4 The menu
+
+Cafeteria, then Menu.
+
+The menu is a cycle: a fortnight of dishes that repeats, which is how most kitchens already work. Set how many weeks it runs for and the date the cycle counts from, and the screen works out which week the school is in.
+
+Each dish records what is in it, ticked from a fixed list rather than typed. This matters more than it looks. A pupil's allergy is recorded as free text by whoever took the history, and "groundnut" and "peanut" are the same allergy and a different word. The list is what joins them. A dish with nothing ticked raises no warnings for anybody, which the screen says out loud rather than leaving to be discovered.
+
+Publishing a menu makes it the live one. There is only ever one, because "what is for lunch" is a question that has to have one answer.
+
+![The cycle menu, a fortnight at a time, with what is in each dish.](screenshots/cafeteria-menu.png)
+
+### 8.5 Serving
+
+Cafeteria, then Serving. This is the screen that is open three times a day with somebody standing in front of it.
+
+Open the sitting. That counts who was entitled to it, and that count is what makes the missing list mean anything afterwards. Then find each person by name or admission number and tap to serve them.
+
+Each name shows what the meal costs them: nothing if their plan covers this sitting, or the amount to collect if it does not.
+
+**The warning.** If the dish contains something a pupil is allergic to, it is on the screen before anybody is served, with the severity, the reaction and the treatment as the nurse recorded them. A severe or anaphylactic allergy will not record the meal at all until somebody types what is being given instead. That is deliberately more friction than a tick box. A box gets ticked; a sentence has to be composed by somebody who has looked at the plate. What they type is kept against that meal with their name on it.
+
+If the person serving cannot see medical records, the screen says so plainly rather than showing no warnings. It has not found nothing. It has not looked.
+
+**Closing.** Close the sitting when the hall is empty. That fixes the register: nobody else can be added and nothing can be removed, which is what makes the count of who did not come worth reading. In a boarding house that count is a roll call, not a catering figure.
+
+![The serving counter, with the dish, its allergens, and every name in the queue priced against that pupil's own plan.](screenshots/cafeteria-serving.png)
+
+## Part 9: Alumni
+
+### 9.1 What the register is for
+
+A school spends thirteen years building a relationship with a family and loses it in the eighteen months after somebody's last day. The register is the answer to that, and it is worth being clear about what makes it different from a copy of the pupil list.
+
+Every contact detail on it decays. A school email is switched off at graduation. A parent's phone stops being the way to reach a thirty-year-old. So the register keeps their own details, dates them, and records who last confirmed they still work.
+
+That is why the number at the top of the screen is not the number of names. A register of nine hundred people last checked in 2019 reads as nine hundred contactable alumni and is closer to two hundred. The screen shows both figures and the gap between them, because the gap is the only part anybody can do anything about.
+
+![The alumni register. The count that matters is the second one.](screenshots/alumni.png)
+
+### 9.2 Adding people
+
+Alumni, then Bring leavers forward. That takes this year's graduates and puts them on the register with what the school already knows as a starting point.
+
+Graduates only. A child who left in Primary 4 because the family moved to Kumasi is not an old boy of this school, and adding them turns a list of people with a connection into a list of everybody who ever passed through. Add those by hand if the school disagrees, which makes it a decision rather than a default.
+
+Add somebody by hand for anyone who left before the school had a system. Most schools adopting this have decades of alumni who were never in any software, and a register that can only hold people it already had rows for is a register that starts the year the software was installed.
+
+Record the name they were known by at school when it differs from the name they use now. A register that cannot connect the two cannot find anybody in its own photographs.
+
+### 9.3 Permission to write to them
+
+Nothing may be sent to a former pupil who has not agreed to receive it. Leaving school is not agreement.
+
+Under the Data Protection Act 2012 the school has to be able to say when and how somebody agreed, not merely that a box is ticked, so the record keeps both. Consent with no source recorded is refused. The bring-forward does not tick anybody's box.
+
+The date consent was given is not moved forward when somebody corrects a phone number. It is a fact about a conversation, and restamping it destroys the evidence it exists to be.
+
+### 9.4 Keeping it alive
+
+**Confirming details.** When somebody has actually rung or written and the details are still good, press "Details are current" on the record. Two years later it goes back on the stale list. That one button is the difference between a register and a spreadsheet with a login.
+
+**Recording what they do.** Donations, mentoring, coming to something, speaking at something, offering a placement, or just sending an update. Involvement is scored by what the act cost the person rather than by what it was worth to the school, and it fades over five years: somebody who mentored a pupil last term is more use than somebody who came to a dinner in 2011, and a raw count says the opposite.
+
+The score is deliberately not weighted by the size of a gift. A register sorted by who gave the most stops seeing everybody else, and the person who gives their Saturdays is the one a school actually runs on.
+
+Only a donation carries an amount. An amount recorded against a visit gets added into the donation total by the first report that forgets to filter, and the figure that comes out is wrong in a way nobody can trace back to a row.
+
+**Somebody who has died.** Record the date. The school stops writing to them and they stay on the register, because they are still part of their year group.
+
+## Part 10: Talking to families
+
+### 10.1 Announcements
 
 Communication, then Announcements. Write it once, choose who it goes to, and publish. It appears in the portals and can also be sent out by message.
 
-### 8.2 Sending a message
+![Composing a message. The audience and the cost are shown before it is sent.](screenshots/communications.png)
+
+### 10.2 Sending a message
 
 Communication, then Send message.
 
@@ -384,23 +520,23 @@ Before you send, the system tells you how many people it will reach and roughly 
 
 After sending, the delivery log shows what actually arrived. "Sent" only means the aggregator accepted it. Whether a parent's telephone rang is a second question, answered later, and the log answers it.
 
-### 8.3 Memos
+### 10.3 Memos
 
 Memos are internal. They are drafted, approved and issued, and staff see them in the system. Use them for anything that would otherwise be a piece of paper on the staff room noticeboard.
 
-### 8.4 Templates
+### 10.4 Templates
 
 Templates save you writing the same message every term. They contain placeholders such as the pupil's name, the invoice balance and the due date, which are filled in per recipient when the message goes out.
 
-### 8.5 The website
+### 10.5 The website
 
 The system includes the school's public website. Pages are edited under Website, media is uploaded to the media library, and enquiries from the website's contact form arrive in the system rather than in somebody's personal inbox.
 
 An enquiry can be turned into an admissions application without retyping anything.
 
-## Part 9: The portals
+## Part 11: The portals
 
-### 9.1 The guardian portal
+### 11.1 The guardian portal
 
 Guardians sign in and see their own children.
 
@@ -408,15 +544,19 @@ They can see fees and what is outstanding, pay online if the school has set that
 
 Guardians see only their own children. This is enforced on every screen rather than by hiding links.
 
-### 9.2 The student portal
+![The guardian portal.](screenshots/guardian-portal.png)
+
+### 11.2 The student portal
 
 Pupils sign in and see their own timetable, assignments, results, attendance, library loans and certificates.
 
 Older pupils can also take part in school elections, which the system runs with a secret ballot and a verifiable receipt.
 
-## Part 10: Running the system
+## Part 12: Running the system
 
-### 10.1 Users and roles
+![Roles, and the permissions each one carries.](screenshots/roles.png)
+
+### 12.1 Users and roles
 
 Users, then All users. Create an account by inviting somebody by email. Assign them a role.
 
@@ -424,7 +564,7 @@ A person can hold more than one role. A teacher who is also a house parent holds
 
 Users, then Roles, is where roles are edited. Each role is a list of permissions with tick boxes. Change with care and test with a real account afterwards.
 
-### 10.2 Settings
+### 12.2 Settings
 
 Settings, then School profile, holds the school's name, address, telephone number, crest and motto. These appear on every printed document, so fill them in before printing anything for a family.
 
@@ -434,7 +574,9 @@ Settings, then Custom fields, lets the school add its own fields to pupil and st
 
 Settings, then Grading, holds the grading scales and the weighting between continuous assessment and examinations.
 
-### 10.3 Integrations
+![Integrations. Nothing here has to be set up to start.](screenshots/integrations.png)
+
+### 12.3 Integrations
 
 Settings, then Integrations, is where the school connects its payment provider, its SMS aggregator, its email host and its notification keys.
 
@@ -444,13 +586,13 @@ Anything the deployment has fixed in its own environment variables is shown read
 
 Credentials typed here are encrypted before they are stored. They are never shown back in full, only enough of one to tell it apart from another.
 
-### 10.4 The audit trail
+### 12.4 The audit trail
 
 Users, then Audit trail. Every significant change is recorded with who did it, what changed and when.
 
 The audit trail is how a disagreement about who altered a mark or reversed a payment gets settled. It is not editable by anybody.
 
-### 10.5 Scheduled jobs
+### 12.5 Scheduled jobs
 
 Three jobs need to run on a schedule. They are ordinary web addresses that a scheduler calls with a shared secret.
 
@@ -462,15 +604,15 @@ Three jobs need to run on a schedule. They are ordinary web addresses that a sch
 
 The README that ships with the system has the exact addresses and the go live checklist.
 
-## Part 11: What the system prints
+## Part 13: What the system prints
 
 Everything in this list prints on the school's letterhead and is generated fresh each time rather than stored, so a document is always current.
 
 Report cards. Transcripts. Certificates. Examination timetables, hall lists and candidate slips. Invoices and fee statements. Receipts. Payslips and the payroll schedule. Admission offer letters. Boarding leave-out passes. Visitor passes. Pupil and staff ID cards. Class registers. The asset register. Store issue vouchers. Transport manifests. The income and expenditure statement. Letters written from the letters module. Any report built in the report builder.
 
-## Part 12: For trainers
+## Part 14: For trainers
 
-### 12.1 Before the first session
+### 14.1 Before the first session
 
 Have the system set up with real data before anybody sits down. A training session on an empty system teaches nothing, because every screen says "nothing here yet".
 
@@ -478,7 +620,7 @@ Set up the academic year, the terms, the class levels and sections, the subjects
 
 Create a real account for each person you are training, with the role they will actually hold. Do not train everybody on an administrator account. People remember where the buttons were, and if they were on an administrator account, half of them will not be there on Monday.
 
-### 12.2 A suggested order
+### 14.2 A suggested order
 
 Train by job, not by module. Five sessions, roughly half a day each.
 
@@ -492,9 +634,11 @@ Train by job, not by module. Five sessions, roughly half a day each.
 
 **Session five: heads of department and senior staff.** Examinations, analytics, reports, memos, approvals.
 
-Boarding, the asset register and the store are trained separately with the people who actually run them, usually an hour each.
+Boarding, the asset register, the store, the cafeteria and the alumni register are trained separately with the people who actually run them, usually an hour each.
 
-### 12.3 Exercises that work
+The cafeteria session is the one to do standing at the counter with the screen the kitchen will actually use, not in a classroom. Do it with a real pupil who has an allergy on file and a dish that contains it, so the people serving see the warning once before the day it matters.
+
+### 14.3 Exercises that work
 
 Give people a task and a piece of paper, not a demonstration to watch.
 
@@ -508,7 +652,7 @@ For house parents: allocate these four boarders to beds, then process a leave-ou
 
 Then ask them to find something they entered an hour ago. Finding things again is the skill people lack, and search is the answer to most of it.
 
-### 12.4 The things people get wrong in the first week
+### 14.4 The things people get wrong in the first week
 
 **Entering marks against the wrong term.** Show people where the term selector is and make them look at it before they type.
 
@@ -522,7 +666,7 @@ Then ask them to find something they entered an hour ago. Finding things again i
 
 **Not scheduling the reconciliation job before going live with online payments.** Covered in section 10.5. It matters.
 
-### 12.5 Questions you will be asked
+### 14.5 Questions you will be asked
 
 **"Can I undo it?"** Mostly yes, and the change is recorded either way. Payments are reversed rather than deleted. Stock corrections are another movement rather than an edit. Nothing important is quietly rewritten.
 

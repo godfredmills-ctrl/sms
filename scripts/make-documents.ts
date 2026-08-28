@@ -29,8 +29,21 @@ const USABLE = PAGE_W - MARGIN * 2;
 const INK = rgb(0.09, 0.11, 0.15);
 const MUTED = rgb(0.42, 0.47, 0.55);
 const RULE = rgb(0.85, 0.87, 0.9);
-const ACCENT = rgb(0.13, 0.31, 0.55);
 const BAND = rgb(0.96, 0.97, 0.98);
+
+/*
+ * The palette comes off the Mills Technologies mark rather than being chosen
+ * beside it. The deep indigo is the ground the logo is drawn on, sampled from
+ * the file; the violet is the bird itself. A document whose accent colour is
+ * a different blue from the logo at the top of it looks like two documents.
+ */
+const NAVY = rgb(0.055, 0.0, 0.4); // #0e0066, the top of the logo ground
+const NAVY_DEEP = rgb(0.027, 0.0, 0.196); // #070032, the bottom of it
+const VIOLET = rgb(0.373, 0.325, 1); // #5f53ff, the mark
+const ACCENT = VIOLET;
+
+/** Who made it. On the cover, and in the footer of every page after it. */
+const VENDOR = "Mills Technologies";
 
 type Fonts = { regular: PDFFont; bold: PDFFont; italic: PDFFont; mono: PDFFont };
 
@@ -66,6 +79,9 @@ export const overflows: Array<{ text: string; width: number; available: number }
 
 /** Characters actually drawn, so "nothing rendered" cannot pass as success. */
 export const drawn = { characters: 0 };
+
+/** Figures the markdown asks for and the filesystem does not have. */
+export const missing: string[] = [];
 
 /** Wraps mixed-weight pieces into lines that fit a width. */
 function layout(
@@ -128,6 +144,32 @@ async function render(
 
   const clean = (value: string) => sanitisePdfText(value, fonts.regular);
 
+  /**
+   * The mark, cut out of its background by scripts/make-logo-mark.mjs.
+   *
+   * Missing is not fatal. A document that refuses to build because a logo file
+   * has moved is a document nobody can produce in a hurry, and the cover reads
+   * perfectly well without it.
+   */
+  const mark = await (async () => {
+    try {
+      return await pdf.embedPng(
+        readFileSync(path.join(root, "public/brand/mills-technologies-mark.png")),
+      );
+    } catch {
+      return null;
+    }
+  })();
+
+  /**
+   * Screenshots, embedded up front.
+   *
+   * All of them before anything is drawn, because embedding is asynchronous
+   * and drawing a block is not. Threading a promise through the block loop to
+   * save reading a handful of PNGs would be the tail wagging the dog.
+   */
+  const figures = new Map<string, Awaited<ReturnType<typeof pdf.embedPng>>>();
+
   let page: PDFPage = pdf.addPage([PAGE_W, PAGE_H]);
   let y = PAGE_H - MARGIN;
   let pageNumber = 1;
@@ -143,6 +185,16 @@ async function render(
       font: fonts.regular,
       color: MUTED,
     });
+    // The credit, centred, where a publisher's name sits on a printed page.
+    const credit = clean(VENDOR);
+    target.drawText(credit, {
+      x: (PAGE_W - fonts.regular.widthOfTextAtSize(credit, 7.5)) / 2,
+      y: MARGIN - 22,
+      size: 7.5,
+      font: fonts.regular,
+      color: MUTED,
+    });
+
     const label = String(number);
     target.drawText(label, {
       x: PAGE_W - MARGIN - fonts.regular.widthOfTextAtSize(label, 7.5),
@@ -192,26 +244,63 @@ async function render(
   }
 
   // --- Cover -----------------------------------------------------------------
-  y = PAGE_H - 210;
+  //
+  // Dark, because the mark's wordmark is white type and there is no version of
+  // it that is not. Rather than treat that as a constraint to work around, the
+  // whole cover takes the mark's own ground: the same indigo, the same
+  // gradient, sampled from the file. The result is a cover the logo belongs on
+  // instead of one it has been placed on.
+
+  // pdf-lib has no gradient, so it is banded. Ninety strips over an A4 page is
+  // a quarter of a point each, which is finer than any printer resolves.
+  const BANDS = 90;
+  for (let index = 0; index < BANDS; index += 1) {
+    const t = index / (BANDS - 1);
+    page.drawRectangle({
+      x: 0,
+      y: PAGE_H - ((index + 1) * PAGE_H) / BANDS,
+      width: PAGE_W,
+      height: PAGE_H / BANDS + 1,
+      color: rgb(
+        NAVY.red + (NAVY_DEEP.red - NAVY.red) * t,
+        NAVY.green + (NAVY_DEEP.green - NAVY.green) * t,
+        NAVY.blue + (NAVY_DEEP.blue - NAVY.blue) * t,
+      ),
+    });
+  }
+
+  if (mark) {
+    const width = 150;
+    const height = (mark.height / mark.width) * width;
+    page.drawImage(mark, {
+      x: MARGIN,
+      y: PAGE_H - 110 - height,
+      width,
+      height,
+    });
+  }
+
+  y = PAGE_H - 330;
   page.drawText(clean(meta.title), {
     x: MARGIN,
     y,
-    size: 30,
+    size: 32,
     font: fonts.bold,
-    color: INK,
+    color: rgb(1, 1, 1),
   });
-  y -= 34;
+  y -= 36;
   page.drawText(clean(meta.subtitle), {
     x: MARGIN,
     y,
-    size: 15,
+    size: 16,
     font: fonts.regular,
-    color: MUTED,
+    color: rgb(0.72, 0.71, 0.92),
   });
-  y -= 26;
-  page.drawRectangle({ x: MARGIN, y, width: 64, height: 2.5, color: ACCENT });
 
-  y -= 40;
+  y -= 28;
+  page.drawRectangle({ x: MARGIN, y, width: 72, height: 3, color: VIOLET });
+
+  y -= 42;
   page.drawText(
     clean(
       new Date().toLocaleDateString("en-GB", {
@@ -220,8 +309,17 @@ async function render(
         year: "numeric",
       }),
     ),
-    { x: MARGIN, y, size: 9.5, font: fonts.regular, color: MUTED },
+    { x: MARGIN, y, size: 9.5, font: fonts.regular, color: rgb(0.62, 0.61, 0.85) },
   );
+
+  // The credit, at the foot of the cover where a publisher's name goes.
+  page.drawText(clean(`Designed and built by ${VENDOR}`), {
+    x: MARGIN,
+    y: MARGIN + 6,
+    size: 9,
+    font: fonts.regular,
+    color: rgb(0.62, 0.61, 0.85),
+  });
 
   newPage();
 
@@ -238,6 +336,21 @@ async function render(
     }
     return true;
   });
+
+  for (const block of body) {
+    if (block.type !== "image" || figures.has(block.src)) continue;
+    try {
+      figures.set(
+        block.src,
+        await pdf.embedPng(readFileSync(path.join(root, "docs", block.src))),
+      );
+    } catch {
+      // Named and counted below rather than swallowed: a manual that silently
+      // drops half its screenshots is a manual whose figure numbers stop
+      // matching the text it refers to them from.
+      missing.push(block.src);
+    }
+  }
 
   for (const block of body) {
     drawBlock(block);
@@ -330,6 +443,75 @@ async function render(
         y -= 6;
         page.drawRectangle({ x: MARGIN, y, width: USABLE, height: 0.75, color: RULE });
         y -= 10;
+        break;
+      }
+
+      case "image": {
+        const image = figures.get(block.src);
+        if (!image) break;
+
+        const caption = block.alt
+          ? layout(
+              [{ text: block.alt, bold: false, italic: false, code: false }],
+              fonts,
+              8.5,
+              USABLE,
+            )
+          : [];
+
+        // Full column width, and never more than two thirds of a page tall. A
+        // screenshot of a wide table set to the full height of A4 pushes
+        // whatever it illustrates onto the next page, which is exactly where a
+        // reader is not looking when they read the caption.
+        const capHeight = caption.length * 11.5 + 21;
+        const maxHeight = (PAGE_H - MARGIN * 2) * 0.66;
+
+        /*
+         * A figure shrinks into what is left of the page rather than always
+         * breaking to the next one.
+         *
+         * Breaking unconditionally left half-empty pages all through the
+         * manual: a section of prose, then a third of a page of white, then a
+         * picture at the top of the next. A screenshot is legible over a wide
+         * range of sizes, so giving up some of that range to keep the page
+         * whole is the right trade. The floor is there because below about
+         * half column width the interface in the picture stops being readable,
+         * and an illegible figure is worse than a page break.
+         */
+        const spare = y - MARGIN - 10 - capHeight - 12;
+        const wanted = Math.min(USABLE / image.width, maxHeight / image.height);
+        const fitting = spare > 0 ? spare / image.height : 0;
+        const floor = (USABLE * 0.55) / image.width;
+
+        const scale = fitting >= floor && fitting < wanted ? fitting : wanted;
+        const width = image.width * scale;
+        const height = image.height * scale;
+
+        // The picture and its caption move together. A caption stranded at the
+        // top of the next page describes something the reader cannot see.
+        room(height + capHeight);
+
+        y -= 12;
+        page.drawImage(image, { x: MARGIN, y: y - height, width, height });
+
+        // A hairline, because a screenshot of a pale interface on a white page
+        // has no edge and reads as part of the page.
+        page.drawRectangle({
+          x: MARGIN,
+          y: y - height,
+          width,
+          height,
+          borderColor: RULE,
+          borderWidth: 0.75,
+        });
+
+        y -= height + 9;
+
+        if (caption.length) {
+          writeLines(caption, 8.5, 11.5, { color: MUTED });
+        }
+
+        y -= 8;
         break;
       }
 
@@ -529,6 +711,7 @@ async function main() {
 
     overflows.length = 0;
     drawn.characters = 0;
+    missing.length = 0;
     const pdf = await render(markdown, document);
     const target = path.join(out, document.file);
     writeFileSync(target, pdf);
@@ -538,6 +721,16 @@ async function main() {
       `  wrote ${target}
          ${reloaded.getPageCount()} pages, ${(pdf.length / 1024).toFixed(0)} KB, ${drawn.characters} characters drawn from ${markdown.length} of source`,
     );
+
+    // A manual that quietly drops half its screenshots is a manual whose text
+    // refers to figures the reader cannot see.
+    if (missing.length) {
+      console.error(
+        `\n  ${missing.length} figure(s) named in the markdown and not on disk:`,
+      );
+      for (const src of missing) console.error(`    docs/${src}`);
+      process.exit(1);
+    }
 
     if (overflows.length) {
       console.error(`
