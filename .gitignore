@@ -28,3 +28,9 @@ scripts/_*
 
 # Sample PDFs from `npm run pdf:preview`, written to look at and then discard.
 /*.pdf
+
+# The throwaway Postgres used to verify the application locally. Its data is
+# rebuilt from the migrations and the seed in a couple of minutes, and it is
+# a hundred megabytes.
+/.pgdata/
+sweep-report.json

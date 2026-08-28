@@ -41,7 +41,10 @@
     "cafeteria:check": "tsx scripts/check-cafeteria.ts",
     "alumni:check": "tsx scripts/check-alumni.ts",
     "docs:pdf": "tsx --conditions=react-server scripts/make-documents.ts",
-    "setup:integrations": "node scripts/setup-integrations.mjs"
+    "setup:integrations": "node scripts/setup-integrations.mjs",
+    "dev:db": "node scripts/dev-db.mjs",
+    "verify:pages": "node scripts/sweep.mjs",
+    "docs:screenshots": "node scripts/screenshots.mjs"
   },
   "prisma": {
     "seed": "tsx --conditions=react-server prisma/seed.ts"
@@ -66,6 +69,7 @@
     "zod": "^3.24.0"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.3.16",
     "@tailwindcss/postcss": "^4.0.0",
     "@types/node": "^22.13.0",
     "@types/nodemailer": "^6.4.17",
@@ -73,8 +77,10 @@
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@types/web-push": "^3.6.4",
+    "pglite-server": "^0.1.5",
     "postcss": "^8.5.0",
     "prisma": "^6.19.0",
+    "puppeteer-core": "^25.9.0",
     "tailwindcss": "^4.0.0",
     "tsx": "^4.19.0",
     "typescript": "^5.7.0"
