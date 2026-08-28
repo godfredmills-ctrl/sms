@@ -1,13 +1,16 @@
 "use client";
 
-import { useState } from "react";
-import { BadgeCheck, IdCard } from "lucide-react";
+import { useCallback, useState } from "react";
+import { useRouter } from "next/navigation";
+import { BadgeCheck, IdCard, Pencil, UserX } from "lucide-react";
 
 import { DataTable, TagList, type Column } from "@/components/data-table";
 import { Modal } from "@/components/modal";
+import { RowActions, RowButton, RowLink } from "@/components/row-actions";
 import { Avatar, Badge, StatusBadge } from "@/components/ui";
 import { formatDate, formatPhone, humanise } from "@/lib/utils";
 
+import { StaffEditPanel } from "./edit-panel";
 import { StaffStatusCard } from "./profile-cards";
 
 export type StaffRow = {
@@ -35,10 +38,19 @@ export type StaffRow = {
   exitReason: string;
 };
 
-export type StaffAbilities = { status: boolean };
+export type StaffAbilities = { status: boolean; edit: boolean };
 
 export function StaffTable({ rows, can }: { rows: StaffRow[]; can: StaffAbilities }) {
-  const [panel, setPanel] = useState<StaffRow | null>(null);
+  const [panel, setPanel] = useState<{ row: StaffRow; part: "edit" | "status" } | null>(
+    null,
+  );
+
+  const router = useRouter();
+  const close = useCallback(() => setPanel(null), []);
+  const saved = useCallback(() => {
+    router.refresh();
+    setPanel(null);
+  }, [router]);
 
   const columns: Array<Column<StaffRow>> = [
     {
@@ -165,36 +177,53 @@ export function StaffTable({ rows, can }: { rows: StaffRow[]; can: StaffAbilitie
       align: "right",
       sortable: false,
       searchable: false,
-      width: "72px",
+      width: "104px",
       cell: (row) => (
-        <div className="flex items-center justify-end gap-0.5">
+        <RowActions>
+          {/* Opens over the list. The page at /staff/[id]/edit still works. */}
+          {can.edit ? (
+            <RowButton
+              label={`Edit ${row.name}`}
+              onClick={() => setPanel({ row, part: "edit" })}
+            >
+              <Pencil className="size-3.5" />
+            </RowButton>
+          ) : null}
+
           {/* A card asserts current employment, and the route prints active
               staff only, so it is not offered for anybody who has left. */}
           {row.status === "ACTIVE" ? (
-            <a
+            <RowLink
               href={`/api/id-cards?kind=staff&staffId=${row.id}`}
-              target="_blank"
-              rel="noreferrer noopener"
-              title="Print an ID card"
-              aria-label="Print an ID card"
-              className="flex size-7 items-center justify-center rounded-md text-[var(--text-subtle)] transition-colors hover:bg-[var(--bg-subtle)] hover:text-[var(--text)]"
+              label={`Print an ID card for ${row.name}`}
+              newTab
             >
               <IdCard className="size-3.5" />
-            </a>
+            </RowLink>
           ) : null}
 
+          {/* The deactivating control, opening the employment status panel.
+              Resigned, terminated and retired are three different endings with
+              three different last days, so the panel asks rather than a bare
+              button choosing one. */}
           {can.status ? (
-            <button
-              type="button"
-              onClick={() => setPanel(row)}
-              title="Employment status"
-              aria-label="Employment status"
-              className="flex size-7 items-center justify-center rounded-md text-[var(--text-subtle)] transition-colors hover:bg-[var(--bg-subtle)] hover:text-[var(--text)]"
+            <RowButton
+              label={
+                row.status === "ACTIVE"
+                  ? `Deactivate ${row.name}`
+                  : `Employment status of ${row.name}`
+              }
+              tone={row.status === "ACTIVE" ? "danger" : undefined}
+              onClick={() => setPanel({ row, part: "status" })}
             >
-              <BadgeCheck className="size-3.5" />
-            </button>
+              {row.status === "ACTIVE" ? (
+                <UserX className="size-3.5" />
+              ) : (
+                <BadgeCheck className="size-3.5" />
+              )}
+            </RowButton>
           ) : null}
-        </div>
+        </RowActions>
       ),
     },
   ];
@@ -214,19 +243,36 @@ export function StaffTable({ rows, can }: { rows: StaffRow[]; can: StaffAbilitie
     />
 
     <Modal
-      open={panel !== null}
-      onClose={() => setPanel(null)}
-      title={panel ? `${panel.name}: employment status` : ""}
+      open={panel?.part === "edit"}
+      onClose={close}
+      title={panel ? `Edit ${panel.row.name}` : ""}
+      wide
     >
-      {panel ? (
+      {panel?.part === "edit" ? (
+        <StaffEditPanel staffId={panel.row.id} onSaved={saved} />
+      ) : null}
+    </Modal>
+
+    <Modal
+      open={panel?.part === "status"}
+      onClose={close}
+      title={
+        panel
+          ? panel.row.status === "ACTIVE"
+            ? `Deactivate ${panel.row.name}`
+            : `${panel.row.name}: employment status`
+          : ""
+      }
+    >
+      {panel?.part === "status" ? (
         // The same card the staff member's own page uses. Recording that
         // somebody has left ends their access, and a second copy of that form
         // would be a second place for it to go wrong.
         <StaffStatusCard
-          staffId={panel.id}
-          status={panel.status}
-          exitDate={panel.exitDate}
-          exitReason={panel.exitReason}
+          staffId={panel.row.id}
+          status={panel.row.status}
+          exitDate={panel.row.exitDate}
+          exitReason={panel.row.exitReason}
         />
       ) : null}
     </Modal>

@@ -2,6 +2,7 @@ import "server-only";
 
 import { db } from "@/lib/db";
 import { allocatePaymentToOldestInvoices, recalculateInvoice } from "@/lib/finance";
+import { guardianLinks } from "@/lib/guardian-contact";
 import { notifyUsers } from "@/lib/messaging";
 import { formatMoney } from "@/lib/money";
 
@@ -85,7 +86,7 @@ export async function settlePayment(
           firstName: true,
           lastName: true,
           guardians: {
-            where: { isBillPayer: true },
+            where: guardianLinks.billPayers,
             select: { guardian: { select: { user: { select: { id: true } } } } },
           },
         },

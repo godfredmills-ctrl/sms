@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { authorize } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { guardianLinks } from "@/lib/guardian-contact";
 import { notifyUsers } from "@/lib/messaging";
 
 export type ClinicState = { ok?: boolean; error?: string; message?: string };
@@ -76,7 +77,7 @@ export async function logClinicVisitAction(
 
   if (notifyGuardian) {
     const guardians = await db.studentGuardian.findMany({
-      where: { studentId, isEmergency: true },
+      where: { studentId, ...guardianLinks.emergency },
       select: { guardian: { select: { user: { select: { id: true } } } } },
     });
     const userIds = guardians

@@ -128,6 +128,10 @@ export default async function StudentProfilePage({
     include: {
       campus: { select: { name: true } },
       medical: { include: { visits: { orderBy: { visitedAt: "desc" }, take: 10 } } },
+      // guardian-contact: the family record rather than a contact list. A
+      // parent who has left the family still belongs on their child's
+      // Family tab, marked inactive. This is the one screen that has to
+      // say what happened to them.
       guardians: {
         orderBy: [{ isPrimary: "desc" }, { sortKey: "asc" }],
         include: { guardian: true },

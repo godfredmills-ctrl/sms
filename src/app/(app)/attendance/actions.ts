@@ -5,6 +5,7 @@ import type { AttendanceStatus } from "@prisma/client";
 
 import { authorize } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { guardianLinks } from "@/lib/guardian-contact";
 import { notifyUsers } from "@/lib/messaging";
 import { sectionOutOfScope } from "@/lib/scope";
 import { toDateOnly } from "@/lib/utils";
@@ -159,7 +160,7 @@ async function notifyGuardiansOfAbsence(studentIds: string[]): Promise<number> {
       firstName: true,
       lastName: true,
       guardians: {
-        where: { isPrimary: true },
+        where: guardianLinks.primary,
         select: { guardian: { select: { user: { select: { id: true } } } } },
       },
     },

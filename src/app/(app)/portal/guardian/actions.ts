@@ -35,6 +35,11 @@ export async function startCheckout(
   if (amountMinor <= 0) return { error: "Enter an amount greater than zero." };
 
   // Confirm this guardian is actually linked to the student.
+  //
+  // guardian-contact: a scoping check, not a contact list. It asks whether the
+  // signed-in person is linked to this child at all. A deactivated guardian
+  // never reaches it: switching one off disables the login and drops the
+  // sessions, so there is nobody here to scope.
   const link = await db.studentGuardian.findFirst({
     where: { studentId, guardian: { userId: user.id } },
     select: {

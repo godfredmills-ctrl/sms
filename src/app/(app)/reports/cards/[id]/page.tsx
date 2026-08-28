@@ -7,6 +7,7 @@ import { Badge, Button, Card, CardHeader, StatusBadge } from "@/components/ui";
 import { PrintButton } from "@/components/print-button";
 import { isAiEnabled } from "@/lib/ai/client";
 import { requirePermission, userCan } from "@/lib/auth";
+import { guardianLinks } from "@/lib/guardian-contact";
 import { studentOutOfScope } from "@/lib/scope";
 import { db } from "@/lib/db";
 import { formatScoreCell } from "@/lib/marks-math";
@@ -64,7 +65,10 @@ export default async function ReportCardPage({
           gender: true,
           photoUrl: true,
           userId: true,
-          guardians: { select: { guardian: { select: { userId: true } } } },
+          guardians: {
+            where: guardianLinks.reportRecipients,
+            select: { guardian: { select: { userId: true } } },
+          },
         },
       },
       term: { select: { name: true, endDate: true } },

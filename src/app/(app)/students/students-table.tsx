@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   ArrowRightLeft,
   DoorOpen,
@@ -9,6 +10,7 @@ import {
   MessageSquare,
   Pencil,
   Printer,
+  UserX,
 } from "lucide-react";
 
 import { DataTable, type Column } from "@/components/data-table";
@@ -18,7 +20,10 @@ import { Avatar, Badge, Button, StatusBadge } from "@/components/ui";
 import { formatMoney } from "@/lib/money";
 import { calculateAge, formatDate, formatPhone } from "@/lib/utils";
 
+import { RowActions, RowButton, RowLink } from "@/components/row-actions";
+
 import { LifecycleCard } from "./[id]/lifecycle-card";
+import { StudentEditPanel } from "./edit-panel";
 
 /**
  * What the viewer is allowed to do, decided on the server and passed down.
@@ -66,9 +71,17 @@ export function StudentsTable({
 }) {
   // Which row has a panel open, and which panel. Held here rather than per row
   // so only one is ever mounted.
-  const [panel, setPanel] = useState<{ row: StudentRow; part: "status" | "transfer" } | null>(
-    null,
-  );
+  const [panel, setPanel] = useState<{
+    row: StudentRow;
+    part: "status" | "transfer" | "edit";
+  } | null>(null);
+
+  const router = useRouter();
+  const close = useCallback(() => setPanel(null), []);
+  const saved = useCallback(() => {
+    router.refresh();
+    setPanel(null);
+  }, [router]);
 
   const columns: Array<Column<StudentRow>> = [
     {
@@ -240,11 +253,16 @@ export function StudentsTable({
       searchable: false,
       width: "132px",
       cell: (row) => (
-        <div className="flex items-center justify-end gap-0.5">
+        <RowActions>
+          {/* Opens over the list rather than navigating. The page at
+              /students/[id]/edit is still there for a bookmark or a tab. */}
           {can.edit ? (
-            <RowLink href={`/students/${row.id}/edit`} label="Edit this record">
+            <RowButton
+              label={`Edit ${row.fullName}`}
+              onClick={() => setPanel({ row, part: "edit" })}
+            >
               <Pencil className="size-3.5" />
-            </RowLink>
+            </RowButton>
           ) : null}
 
           {/* The card route prints enrolled pupils only, so the button is not
@@ -268,15 +286,29 @@ export function StudentsTable({
             </RowButton>
           ) : null}
 
+          {/* The deactivating control. It opens the same panel a change of
+              status opens, because withdrawing, graduating and transferring
+              out are all "this pupil is no longer here" and each needs its own
+              date and reason. A bare Deactivate button would have to pick one
+              of them silently. */}
           {can.status ? (
             <RowButton
-              label="Change of status"
+              label={
+                row.status === "ENROLLED"
+                  ? `Deactivate ${row.fullName}`
+                  : `Change status of ${row.fullName}`
+              }
+              tone={row.status === "ENROLLED" ? "danger" : undefined}
               onClick={() => setPanel({ row, part: "status" })}
             >
-              <DoorOpen className="size-3.5" />
+              {row.status === "ENROLLED" ? (
+                <UserX className="size-3.5" />
+              ) : (
+                <DoorOpen className="size-3.5" />
+              )}
             </RowButton>
           ) : null}
-        </div>
+        </RowActions>
       ),
     },
   ];
@@ -338,15 +370,28 @@ export function StudentsTable({
     />
 
     <Modal
-      open={panel !== null}
-      onClose={() => setPanel(null)}
+      open={panel?.part === "edit"}
+      onClose={close}
+      title={panel ? `Edit ${panel.row.fullName}` : ""}
+      wide
+    >
+      {panel?.part === "edit" ? (
+        <StudentEditPanel studentId={panel.row.id} onSaved={saved} />
+      ) : null}
+    </Modal>
+
+    <Modal
+      open={panel?.part === "status" || panel?.part === "transfer"}
+      onClose={close}
       title={
         panel?.part === "transfer"
           ? `Move ${panel.row.fullName}`
-          : `${panel?.row.fullName ?? ""}: change of status`
+          : panel?.row.status === "ENROLLED"
+            ? `Deactivate ${panel?.row.fullName ?? ""}`
+            : `${panel?.row.fullName ?? ""}: change of status`
       }
     >
-      {panel ? (
+      {panel && panel.part !== "edit" ? (
         // The same component the pupil's own page uses. Withdrawing a child
         // needs a reason, a date and sometimes the receiving school, and a
         // second copy of that form here would drift from the real one.
@@ -361,52 +406,5 @@ export function StudentsTable({
       ) : null}
     </Modal>
     </>
-  );
-}
-
-/** A small square control in a row, with the label only a screen reader reads. */
-function RowLink({
-  href,
-  label,
-  newTab,
-  children,
-}: {
-  href: string;
-  label: string;
-  newTab?: boolean;
-  children: React.ReactNode;
-}) {
-  return (
-    <a
-      href={href}
-      title={label}
-      aria-label={label}
-      {...(newTab ? { target: "_blank", rel: "noreferrer noopener" } : {})}
-      className="flex size-7 items-center justify-center rounded-md text-[var(--text-subtle)] transition-colors hover:bg-[var(--bg-subtle)] hover:text-[var(--text)]"
-    >
-      {children}
-    </a>
-  );
-}
-
-function RowButton({
-  label,
-  onClick,
-  children,
-}: {
-  label: string;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      title={label}
-      aria-label={label}
-      onClick={onClick}
-      className="flex size-7 items-center justify-center rounded-md text-[var(--text-subtle)] transition-colors hover:bg-[var(--bg-subtle)] hover:text-[var(--text)]"
-    >
-      {children}
-    </button>
   );
 }

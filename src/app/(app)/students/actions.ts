@@ -3,11 +3,13 @@
 import { revalidatePath } from "next/cache";
 
 
-import { authorize } from "@/lib/auth";
+import { authorize, userCan } from "@/lib/auth";
 import { houseRefusal } from "@/lib/boarding-rules";
 import { db } from "@/lib/db";
 
 import { LIFECYCLE_TRANSITIONS } from "./lifecycle";
+import type { StudentFormValues } from "./[id]/edit/student-form";
+import { studentFormValues } from "./[id]/edit/values";
 import { generateCode, hashPassword } from "@/lib/crypto";
 import { parseAttachedDocuments } from "@/lib/person-documents";
 import { studentOutOfScope } from "@/lib/scope";
@@ -559,6 +561,45 @@ export type StudentState = { ok?: boolean; error?: string; message?: string };
  * is its own decision with its own reasons and dates, and it belongs to
  * setStudentLifecycleAction below rather than to a field on a long form.
  */
+/**
+ * The values behind the edit panel that opens over the students list.
+ *
+ * Fetched when the panel opens rather than carried on every row: the form has
+ * forty fields, and a table of eight hundred pupils would ship all of them to
+ * the browser so that one of them could be corrected.
+ *
+ * It repeats the permission and scope checks rather than trusting the caller,
+ * because a Server Action is a POST endpoint of its own. Whatever the table
+ * decided about which buttons to draw proves nothing about who is calling.
+ */
+export async function loadStudentForEditAction(id: string): Promise<
+  | { ok: true; values: StudentFormValues; canSeeBackground: boolean }
+  | { ok: false; error: string }
+> {
+  let user;
+  try {
+    user = await authorize("student.update");
+  } catch (error) {
+    return { ok: false, error: (error as Error).message };
+  }
+
+  if (!id) return { ok: false, error: "No student given." };
+  if (await studentOutOfScope(user, id)) {
+    return { ok: false, error: "That student is outside your classes." };
+  }
+
+  const student = await db.student.findUnique({ where: { id } });
+  if (!student) return { ok: false, error: "Student not found." };
+
+  return {
+    ok: true,
+    values: studentFormValues(student),
+    // The family's circumstances sit behind their own permission on the
+    // profile, and an edit panel is not a way around a read gate.
+    canSeeBackground: userCan(user, "student.background.read"),
+  };
+}
+
 export async function updateStudentAction(
   _previous: StudentState,
   formData: FormData,

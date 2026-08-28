@@ -6,6 +6,7 @@ import type { PaymentChannel } from "@prisma/client";
 import { authorize } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { generateTermInvoices, recordPayment } from "@/lib/finance";
+import { guardianLinks } from "@/lib/guardian-contact";
 import { notifyUsers } from "@/lib/messaging";
 import { formatMoney, toMinor } from "@/lib/money";
 
@@ -91,7 +92,7 @@ export async function recordPaymentAction(
 
     // Let the guardians know a payment landed on their account.
     const guardians = await db.studentGuardian.findMany({
-      where: { studentId, isBillPayer: true },
+      where: { studentId, ...guardianLinks.billPayers },
       select: { guardian: { select: { user: { select: { id: true } } } } },
     });
     const userIds = guardians
@@ -173,7 +174,7 @@ export async function sendInvoiceReminderAction(invoiceId: string) {
           firstName: true,
           lastName: true,
           guardians: {
-            where: { isBillPayer: true },
+            where: guardianLinks.billPayers,
             select: { guardian: { select: { user: { select: { id: true } } } } },
           },
         },

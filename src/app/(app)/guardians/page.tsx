@@ -19,8 +19,11 @@ export default async function GuardiansPage() {
   const user = await requirePermission("student.read");
   const canSeeFinance = userCan(user, "finance.read");
 
+  // Deactivated guardians are listed too, marked, and filterable. This is the
+  // register of who the school's families are, and leaving people off it is
+  // how a member of staff comes to believe a record was deleted.
   const guardians = await db.guardian.findMany({
-    orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
+    orderBy: [{ isActive: "desc" }, { lastName: "asc" }, { firstName: "asc" }],
     select: {
       id: true,
       title: true,
@@ -38,6 +41,22 @@ export default async function GuardiansPage() {
       isPtaMember: true,
       isAlumni: true,
       userId: true,
+      isActive: true,
+      deactivatedReason: true,
+
+      // Carried so the edit panel opens filled in without a second query. It
+      // is a few hundred rows of short strings, which is cheaper than the
+      // round trip it saves on every correction.
+      gender: true,
+      whatsapp: true,
+      address: true,
+      digitalAddr: true,
+      nationality: true,
+      nationalId: true,
+      jobTitle: true,
+      workPhone: true,
+      religion: true,
+      notes: true,
       students: {
         select: {
           relation: true,
@@ -107,14 +126,46 @@ export default async function GuardiansPage() {
       isBillPayer: links.some((link) => link.isBillPayer),
       isEmergency: links.some((link) => link.isEmergency),
       outstandingMinor,
+      isActive: guardian.isActive,
+      deactivatedReason: guardian.deactivatedReason,
+      values: {
+        id: guardian.id,
+        title: guardian.title ?? "",
+        firstName: guardian.firstName,
+        lastName: guardian.lastName,
+        otherNames: guardian.otherNames ?? "",
+        gender: guardian.gender,
+        email: guardian.email ?? "",
+        phone: guardian.phone,
+        altPhone: guardian.altPhone ?? "",
+        whatsapp: guardian.whatsapp ?? "",
+        address: guardian.address ?? "",
+        digitalAddr: guardian.digitalAddr ?? "",
+        city: guardian.city ?? "",
+        nationality: guardian.nationality ?? "",
+        nationalId: guardian.nationalId ?? "",
+        occupation: guardian.occupation ?? "",
+        employer: guardian.employer ?? "",
+        jobTitle: guardian.jobTitle ?? "",
+        workPhone: guardian.workPhone ?? "",
+        religion: guardian.religion ?? "",
+        preferredChannel: guardian.preferredChannel,
+        notes: guardian.notes ?? "",
+      },
     };
   });
 
-  const withoutLogin = rows.filter((row) => !row.hasAccount).length;
-  const billPayers = rows.filter((row) => row.isBillPayer).length;
+  // Every count above the table is about the working list. A deactivated
+  // guardian with no portal login is not a gap to chase, and counting them as
+  // one sends somebody to create an account for a parent who has left.
+  const active = rows.filter((row) => row.isActive);
+  const deactivated = rows.length - active.length;
+
+  const withoutLogin = active.filter((row) => !row.hasAccount).length;
+  const billPayers = active.filter((row) => row.isBillPayer).length;
   const owing = rows.filter((row) => row.outstandingMinor > 0);
   const totalOwed = owing.reduce((sum, row) => sum + row.outstandingMinor, 0);
-  const unlinked = rows.filter((row) => row.childCount === 0).length;
+  const unlinked = active.filter((row) => row.childCount === 0).length;
 
   return (
     <>
@@ -134,7 +185,8 @@ export default async function GuardiansPage() {
       <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatCard
           label="Guardians"
-          value={rows.length.toLocaleString()}
+          value={active.length.toLocaleString()}
+          hint={deactivated ? `${deactivated} deactivated` : "All contactable"}
           tone="violet"
           icon={<Contact className="size-4" />}
         />
@@ -147,7 +199,7 @@ export default async function GuardiansPage() {
         />
         <StatCard
           label="Portal accounts"
-          value={(rows.length - withoutLogin).toLocaleString()}
+          value={(active.length - withoutLogin).toLocaleString()}
           hint={`${withoutLogin} without a login`}
           tone={withoutLogin ? "warning" : "success"}
           icon={<Users className="size-4" />}
@@ -163,7 +215,7 @@ export default async function GuardiansPage() {
         ) : (
           <StatCard
             label="PTA members"
-            value={rows.filter((row) => row.isPtaMember).length}
+            value={active.filter((row) => row.isPtaMember).length}
             tone="teal"
           />
         )}
@@ -177,7 +229,11 @@ export default async function GuardiansPage() {
         </Alert>
       ) : null}
 
-      <GuardiansTable rows={rows} />
+      <GuardiansTable
+        rows={rows}
+        can={{ manage: userCan(user, "student.guardian.manage") }}
+        documentCategories={DOCUMENT_CATEGORIES.guardian}
+      />
     </>
   );
 }

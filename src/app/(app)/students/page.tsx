@@ -12,6 +12,7 @@ import { LinkButton, PageHeader, StatCard } from "@/components/ui";
 import { RefreshButton } from "@/components/refresh-button";
 import { requirePermission, userCan } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { guardianLinks } from "@/lib/guardian-contact";
 import { DOCUMENT_CATEGORIES } from "@/lib/person-documents";
 import { ownSectionIdsFor } from "@/lib/scope";
 import { toNumber } from "@/lib/utils";
@@ -66,7 +67,7 @@ export default async function StudentsPage() {
         },
       },
       guardians: {
-        where: { isPrimary: true },
+        where: guardianLinks.primary,
         take: 1,
         select: {
           guardian: { select: { firstName: true, lastName: true, phone: true } },

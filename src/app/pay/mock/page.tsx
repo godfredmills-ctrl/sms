@@ -5,6 +5,7 @@ import { Lock, Smartphone } from "lucide-react";
 import { Alert, Button, Card, CardBody } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { guardianLinks } from "@/lib/guardian-contact";
 import { integrationConfig } from "@/lib/integrations/config";
 import { allocatePaymentToOldestInvoices } from "@/lib/finance";
 import { formatMoney } from "@/lib/money";
@@ -47,6 +48,9 @@ async function mayApprove(userId: string, studentId: string): Promise<boolean> {
   if (user.student) return user.student.id === studentId;
 
   if (user.guardian) {
+    // guardian-contact: an authorisation check, not a contact list. It asks
+    // whether this signed-in person may pay for this child. A deactivated
+    // guardian has no login to get here with.
     const link = await db.studentGuardian.findFirst({
       where: { guardianId: user.guardian.id, studentId },
       select: { id: true },
@@ -130,7 +134,7 @@ export default async function MockCheckoutPage({
     await allocatePaymentToOldestInvoices(record.id);
 
     const guardians = await db.studentGuardian.findMany({
-      where: { studentId: record.studentId, isBillPayer: true },
+      where: { studentId: record.studentId, ...guardianLinks.billPayers },
       select: { guardian: { select: { user: { select: { id: true } } } } },
     });
     const userIds = guardians

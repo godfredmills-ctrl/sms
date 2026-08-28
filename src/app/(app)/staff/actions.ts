@@ -8,6 +8,9 @@ import { db } from "@/lib/db";
 import { parseAttachedDocuments } from "@/lib/person-documents";
 import { normalisePhone } from "@/lib/utils";
 
+import type { StaffValues } from "./staff-form";
+import { staffFormValues } from "./values";
+
 export type StaffState = {
   ok?: boolean;
   error?: string;
@@ -172,6 +175,52 @@ export async function createStaffAction(
   }
 
   return { error: "Could not allocate a staff number. Try again." };
+}
+
+/**
+ * The values behind the edit panel that opens over the staff list, and the
+ * subject list its specialisations picker needs.
+ *
+ * Fetched on open rather than carried on every row, and it re-checks the
+ * permission rather than trusting the caller: a Server Action is a POST
+ * endpoint of its own, and whatever the table decided about which buttons to
+ * draw proves nothing about who is calling it.
+ */
+export async function loadStaffForEditAction(id: string): Promise<
+  | {
+      ok: true;
+      values: StaffValues;
+      subjects: Array<{ value: string; label: string; description: string }>;
+    }
+  | { ok: false; error: string }
+> {
+  try {
+    await authorize("staff.update");
+  } catch (error) {
+    return { ok: false, error: (error as Error).message };
+  }
+
+  if (!id) return { ok: false, error: "No staff member given." };
+
+  const [staff, subjects] = await Promise.all([
+    db.staff.findUnique({ where: { id } }),
+    db.subject.findMany({
+      orderBy: { name: "asc" },
+      select: { id: true, name: true, code: true },
+    }),
+  ]);
+
+  if (!staff) return { ok: false, error: "Staff record not found." };
+
+  return {
+    ok: true,
+    values: staffFormValues(staff),
+    subjects: subjects.map((subject) => ({
+      value: subject.name,
+      label: subject.name,
+      description: subject.code,
+    })),
+  };
 }
 
 export async function updateStaffAction(

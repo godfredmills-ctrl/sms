@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { authorize, userCan } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { guardianLinks } from "@/lib/guardian-contact";
 import { notifyUsers } from "@/lib/messaging";
 import { sendSms } from "@/lib/messaging/providers";
 import { ownSectionIdsFor } from "@/lib/scope";
@@ -114,9 +115,9 @@ export async function recordIncidentAction(
   // Who can actually be reached, established BEFORE the record is written:
   // guardianNotified is a claim on a child's file, and it must never say
   // "told" about a family with no portal account and no phone on file.
-  const guardianLinks = notifyGuardian
+  const links = notifyGuardian
     ? await db.studentGuardian.findMany({
-        where: { studentId },
+        where: { studentId, ...guardianLinks.any },
         orderBy: { isPrimary: "desc" },
         select: {
           guardian: {
@@ -127,7 +128,7 @@ export async function recordIncidentAction(
     : [];
   const userIds = [
     ...new Set(
-      guardianLinks
+      links
         .map((link) => link.guardian.user?.id)
         .filter((id): id is string => Boolean(id)),
     ),
@@ -136,7 +137,7 @@ export async function recordIncidentAction(
   // framing, a parent's account is as likely to be a phone number as an app.
   const phones = [
     ...new Set(
-      guardianLinks
+      links
         .filter((link) => !link.guardian.user)
         .map((link) => link.guardian.phone)
         .filter((value): value is string => Boolean(value)),

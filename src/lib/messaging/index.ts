@@ -2,6 +2,7 @@ import type { MessageChannel, PortalType, Prisma } from "@prisma/client";
 
 import { reminderAudienceFilter } from "@/lib/audiences";
 import { db } from "@/lib/db";
+import { guardianLinks } from "@/lib/guardian-contact";
 import { integrationConfig } from "@/lib/integrations/config";
 import { formatMoney } from "@/lib/money";
 import { formatDate } from "@/lib/utils";
@@ -205,7 +206,7 @@ export async function resolveAudience(filter: AudienceFilter): Promise<Recipient
           },
         },
         guardians: {
-          where: filter.billPayersOnly ? { isBillPayer: true } : {},
+          where: filter.billPayersOnly ? guardianLinks.billPayers : guardianLinks.any,
           select: {
             guardian: {
               select: {

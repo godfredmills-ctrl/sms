@@ -55,6 +55,8 @@ export default async function GuardianPortalPage({
     );
   }
 
+  // guardian-contact: this parent's own children, not a list of people to
+  // contact. A deactivated guardian has no login and never sees this page.
   const links = await db.studentGuardian.findMany({
     where: { guardianId: user.guardianId },
     orderBy: { sortKey: "asc" },

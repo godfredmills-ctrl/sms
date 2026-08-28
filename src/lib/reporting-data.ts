@@ -1,6 +1,7 @@
 import "server-only";
 
 import { db } from "@/lib/db";
+import { guardianLinks } from "@/lib/guardian-contact";
 import { percentOf } from "@/lib/money";
 import { fullName, humanise, toNumber } from "@/lib/utils";
 
@@ -43,7 +44,7 @@ export async function loadDataset(key: DatasetKey): Promise<ReportRow[]> {
             },
           },
           guardians: {
-            where: { isPrimary: true },
+            where: guardianLinks.primary,
             take: 1,
             select: { guardian: { select: { firstName: true, lastName: true, phone: true } } },
           },

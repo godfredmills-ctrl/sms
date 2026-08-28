@@ -17,6 +17,7 @@ import {
 } from "@/components/ui";
 import { requirePermission, userCan } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { guardianLinks } from "@/lib/guardian-contact";
 import { formatMoney, percentOf } from "@/lib/money";
 import { formatDate, formatDateTime, humanise } from "@/lib/utils";
 
@@ -85,7 +86,7 @@ export default async function InvoicePage({
               },
             },
             guardians: {
-              where: { isBillPayer: true },
+              where: guardianLinks.billPayers,
               select: {
                 guardian: { select: { firstName: true, lastName: true, phone: true } },
               },

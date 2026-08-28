@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { authorize } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { guardianLinks } from "@/lib/guardian-contact";
 import { renderManifestPdf, type ManifestChild } from "@/lib/manifest-pdf";
 import { fitnessOf, travelsOn } from "@/lib/transport";
 import { listName } from "@/lib/utils";
@@ -99,6 +100,7 @@ export async function GET(request: Request) {
                   },
                 },
                 guardians: {
+                  where: guardianLinks.any,
                   orderBy: [{ isPrimary: "desc" }, { sortKey: "asc" }],
                   take: 1,
                   select: {

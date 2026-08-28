@@ -4,6 +4,7 @@ import { authorize } from "@/lib/auth";
 import { assessmentAverage } from "@/lib/admission-rules";
 import { db } from "@/lib/db";
 import { renderDocumentPdf } from "@/lib/document-pdf";
+import { guardianLinks } from "@/lib/guardian-contact";
 import { loadLetterhead } from "@/lib/letterhead";
 import { formatMoney } from "@/lib/money";
 import { formatDate, fullName } from "@/lib/utils";
@@ -66,6 +67,7 @@ export async function GET(request: Request) {
             otherNames: true,
             admissionNo: true,
             guardians: {
+              where: guardianLinks.any,
               orderBy: [{ isPrimary: "desc" }, { sortKey: "asc" }],
               take: 1,
               select: {

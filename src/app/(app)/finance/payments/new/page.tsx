@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { PageHeader } from "@/components/ui";
 import { requirePermission } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { guardianLinks } from "@/lib/guardian-contact";
 
 import { RecordPaymentForm, type PayableStudent } from "./payment-form";
 
@@ -44,7 +45,7 @@ export default async function RecordPaymentPage({
         select: { id: true, invoiceNo: true, balanceMinor: true, dueDate: true },
       },
       guardians: {
-        where: { isBillPayer: true },
+        where: guardianLinks.billPayers,
         take: 1,
         select: { guardian: { select: { phone: true } } },
       },

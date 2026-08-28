@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { generateReportCardRemark } from "@/lib/ai/insights";
 import { authorize } from "@/lib/auth";
+import { guardianLinks } from "@/lib/guardian-contact";
 import { reportCardOutOfScope, sectionOutOfScope } from "@/lib/scope";
 import { db } from "@/lib/db";
 import { generateClassReportCards } from "@/lib/grading";
@@ -222,7 +223,7 @@ export async function emailReportCardsAction(
           lastName: true,
           admissionNo: true,
           guardians: {
-            where: { receivesReports: true },
+            where: guardianLinks.reportRecipients,
             select: { guardian: { select: { firstName: true, email: true } } },
           },
         },
@@ -332,7 +333,7 @@ export async function publishReportCardsAction(formData: FormData) {
           lastName: true,
           user: { select: { id: true } },
           guardians: {
-            where: { receivesReports: true },
+            where: guardianLinks.reportRecipients,
             select: { guardian: { select: { user: { select: { id: true } } } } },
           },
         },

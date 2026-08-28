@@ -37,7 +37,10 @@ import { requirePermission, userCan } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { formatMoney } from "@/lib/money";
 import { DOCUMENT_CATEGORIES, documentsFor } from "@/lib/person-documents";
+import { describeDeactivation } from "@/lib/guardian-contact";
 import { formatDate, formatPhone, fullName, humanise } from "@/lib/utils";
+
+import { GuardianStatusButton } from "./status-button";
 
 type TabKey = "overview" | "children" | "documents";
 
@@ -187,6 +190,14 @@ export default async function GuardianProfilePage({
                 Edit record
               </LinkButton>
             ) : null}
+            {canManage ? (
+              <GuardianStatusButton
+                guardianId={guardian.id}
+                name={name}
+                isActive={guardian.isActive}
+                reason={guardian.deactivatedReason}
+              />
+            ) : null}
             {guardian.isPtaMember ? <Badge tone="teal">PTA</Badge> : null}
             {guardian.isAlumni ? <Badge tone="violet">Alumni</Badge> : null}
             {guardian.user ? (
@@ -197,6 +208,22 @@ export default async function GuardianProfilePage({
           </>
         }
       />
+
+      {/* The first thing anybody opening this record needs to know, and the
+          answer to "why did this parent stop getting messages". */}
+      {!guardian.isActive ? (
+        <Alert tone="warning" className="mb-4">
+          <span className="block font-medium">
+            {name} is not contacted by the school.
+          </span>
+          <span className="block">
+            Recorded reason: {describeDeactivation(guardian.deactivatedReason)}. They
+            receive no absence texts, fee reminders or report cards, they are not
+            printed as an emergency contact on a child&rsquo;s ID card, and their portal
+            login is closed. Their record and their payment history are untouched.
+          </span>
+        </Alert>
+      ) : null}
 
       <div className="mb-5 flex flex-wrap items-center gap-4">
         <Avatar name={name} src={guardian.photoUrl} size={56} />

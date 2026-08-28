@@ -166,7 +166,7 @@ export default async function StaffPage() {
         </Alert>
       ) : null}
 
-      <StaffTable rows={rows} can={{ status: userCan(user, "staff.update") }} />
+      <StaffTable rows={rows} can={{ status: userCan(user, "staff.update"), edit: userCan(user, "staff.update") }} />
     </>
   );
 }

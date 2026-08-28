@@ -6,6 +6,10 @@ import { db } from "@/lib/db";
  * Guardian pages must scope on this rather than on a student id from the URL:
  * a parent may have several children, and an unscoped lookup would let anyone
  * with a portal login read any student's record by changing the id.
+ *
+ * guardian-contact: scoping, not contact. Both functions here answer which
+ * children a signed-in parent may see, and a deactivated guardian has no
+ * session to ask the question with.
  */
 export async function wardIdsFor(guardianId: string): Promise<string[]> {
   const links = await db.studentGuardian.findMany({
@@ -16,6 +20,7 @@ export async function wardIdsFor(guardianId: string): Promise<string[]> {
   return links.map((link) => link.studentId);
 }
 
+/** guardian-contact: as above, the signed-in parent's own children. */
 export async function wardsFor(guardianId: string) {
   return db.studentGuardian.findMany({
     where: { guardianId },

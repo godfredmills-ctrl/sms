@@ -49,6 +49,9 @@ export async function canAccessCredential(
   }
 
   if (user.guardianId) {
+    // guardian-contact: an authorisation check, not a contact list. It asks
+    // whether this signed-in guardian may read this child's credential. A
+    // deactivated guardian has no session to ask with.
     const link = await db.studentGuardian.findUnique({
       where: {
         studentId_guardianId: { studentId, guardianId: user.guardianId },

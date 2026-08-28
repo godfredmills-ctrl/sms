@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { authorize } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { guardianLinks } from "@/lib/guardian-contact";
 import { loadLetterhead } from "@/lib/letterhead";
 import { renderLettersPdf, type LetterDocument } from "@/lib/letter-pdf";
 import { formatMoney } from "@/lib/money";
@@ -164,6 +165,7 @@ export async function GET(request: Request) {
           },
         },
         guardians: {
+          where: guardianLinks.any,
           orderBy: [{ isPrimary: "desc" }],
           take: 1,
           select: {

@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { authorize, userCan } from "@/lib/auth";
 import { generateCode, hashPassword } from "@/lib/crypto";
 import { db } from "@/lib/db";
+import { DEACTIVATION_REASONS, describeDeactivation } from "@/lib/guardian-contact";
 import { parseAttachedDocuments } from "@/lib/person-documents";
 import { normalisePhone } from "@/lib/utils";
 
@@ -355,6 +356,123 @@ export async function createGuardianLoginAction(
 
   revalidatePath(`/guardians/${id}`);
   return { ok: true, message: "Account created.", temporaryPassword };
+}
+
+/**
+ * Switches a guardian off, or back on.
+ *
+ * This is what a school actually wants when a parent separates from the
+ * family, moves abroad, or dies, and it is the answer to almost every request
+ * that arrives as "delete this parent". Deleting is refused for anyone with a
+ * ward or a payment against them, which is nearly everyone, and rightly: their
+ * name is on the ledger and on their child's family record.
+ *
+ * Deactivating keeps all of that and stops the one thing that causes harm,
+ * which is contact. An inactive guardian is not texted about an absence, not
+ * sent a fee reminder, not emailed a report card, and is not the emergency
+ * number printed on their child's ID card. The filters that make that true
+ * live in @/lib/guardian-contact, and a build guard refuses any query that has
+ * not decided.
+ *
+ * The portal login goes with it. A parent removed from a family should not be
+ * able to sign in and read the child's marks the next morning, so the account
+ * is disabled and every open session dropped. Reactivating restores the login,
+ * because the usual reason to reactivate is that somebody did this by mistake.
+ */
+export async function setGuardianStatusAction(
+  _previous: GuardianState,
+  formData: FormData,
+): Promise<GuardianState> {
+  let user;
+  try {
+    user = await authorize("student.guardian.manage");
+  } catch (error) {
+    return { error: (error as Error).message };
+  }
+
+  const id = text(formData, "id");
+  if (!id) return { error: "No guardian given." };
+
+  const activating = text(formData, "active") === "1";
+
+  // The reason is required going out and meaningless coming back: "why is this
+  // parent inactive" is the first question the next member of staff asks, and
+  // nothing else in the record answers it.
+  let reason: string | null = null;
+  if (!activating) {
+    const chosen = text(formData, "reason");
+    if (!chosen) return { error: "Choose why this guardian is being deactivated." };
+    if (!DEACTIVATION_REASONS.some((entry) => entry.value === chosen)) {
+      return { error: "That reason is not one of the options." };
+    }
+    if (chosen === "OTHER") {
+      const note = text(formData, "note");
+      if (!note) return { error: "Say what the reason is." };
+      reason = note.slice(0, 200);
+    } else {
+      reason = chosen;
+    }
+  }
+
+  const guardian = await db.guardian.findUnique({
+    where: { id },
+    select: { firstName: true, lastName: true, userId: true, isActive: true },
+  });
+  if (!guardian) return { error: "Guardian not found." };
+
+  if (guardian.isActive === activating) {
+    return {
+      error: activating
+        ? "That guardian is already active."
+        : "That guardian is already deactivated.",
+    };
+  }
+
+  await db.guardian.update({
+    where: { id },
+    data: {
+      isActive: activating,
+      // The database refuses a flag and a date that disagree, so these two
+      // always move together.
+      deactivatedAt: activating ? null : new Date(),
+      deactivatedReason: reason,
+    },
+  });
+
+  if (guardian.userId) {
+    await db.user.update({
+      where: { id: guardian.userId },
+      data: { status: activating ? "ACTIVE" : "DISABLED" },
+    });
+    if (!activating) {
+      await db.session.deleteMany({ where: { userId: guardian.userId } });
+    }
+  }
+
+  await db.auditLog.create({
+    data: {
+      userId: user.id,
+      actorLabel: user.fullName,
+      action: activating ? "guardian.activate" : "guardian.deactivate",
+      entity: "Guardian",
+      entityId: id,
+      summary: activating
+        ? `${guardian.firstName} ${guardian.lastName} reactivated`
+        : `${guardian.firstName} ${guardian.lastName} deactivated: ${describeDeactivation(reason).toLowerCase()}`,
+    },
+  });
+
+  revalidatePath("/guardians");
+  revalidatePath(`/guardians/${id}`);
+  // The contact shown beside a pupil, and the family tab, both change.
+  revalidatePath("/students");
+
+  return {
+    ok: true,
+    message: activating
+      ? "Guardian reactivated. Their login works again."
+      : "Guardian deactivated. They will not be contacted, and their login is closed.",
+  };
 }
 
 /**

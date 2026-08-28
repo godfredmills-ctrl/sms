@@ -50,6 +50,9 @@ export async function canAccessReportCard(
   }
 
   if (user.guardianId) {
+    // guardian-contact: an authorisation check, not a contact list. It asks
+    // whether this signed-in guardian may open this report card. A deactivated
+    // guardian has no session to open it with.
     const link = await db.studentGuardian.findUnique({
       where: {
         studentId_guardianId: {

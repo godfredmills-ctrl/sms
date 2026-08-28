@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
 import { useFormStatus } from "react-dom";
 import { Save } from "lucide-react";
 
@@ -114,15 +114,22 @@ export type StudentFormValues = {
 export function StudentForm({
   values,
   canSeeBackground,
+  onSuccess,
 }: {
   values: StudentFormValues;
   /** The family's circumstances: hidden, and unwritable, without the permission. */
   canSeeBackground: boolean;
+  /** Set when the form is in a panel: closes it and refreshes the list. */
+  onSuccess?: () => void;
 }) {
   const [state, action] = useActionState<StudentState, FormData>(
     updateStudentAction,
     {},
   );
+
+  useEffect(() => {
+    if (state.ok) onSuccess?.();
+  }, [state.ok, onSuccess]);
 
   return (
     <form action={action} className="space-y-4">

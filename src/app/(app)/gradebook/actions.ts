@@ -5,6 +5,7 @@ import type { AssessmentCategory } from "@prisma/client";
 
 import { generateTeachingInsight } from "@/lib/ai/insights";
 import { authorize } from "@/lib/auth";
+import { guardianLinks } from "@/lib/guardian-contact";
 import { assessmentOutOfScope, offeringOutOfScope } from "@/lib/scope";
 import { db } from "@/lib/db";
 import { notifyUsers } from "@/lib/messaging";
@@ -295,7 +296,7 @@ export async function publishAssessment(assessmentId: string) {
                     select: {
                       user: { select: { id: true } },
                       guardians: {
-                        where: { receivesReports: true },
+                        where: guardianLinks.reportRecipients,
                         select: {
                           guardian: { select: { user: { select: { id: true } } } },
                         },

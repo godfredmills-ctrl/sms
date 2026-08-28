@@ -1176,6 +1176,17 @@ model Guardian {
   isPtaMember      Boolean        @default(false)
   notes            String?
 
+  /// Whether the school still treats this person as a contact.
+  ///
+  /// Deactivating is not deleting. A parent who has moved abroad, separated
+  /// from the family, or died stays on every child's record and on every
+  /// invoice they ever paid; what stops is contact. An inactive guardian is
+  /// not messaged, is not sent reports or fee reminders, and cannot sign in.
+  /// Deleting them instead would quietly detach a term of payments.
+  isActive          Boolean   @default(true)
+  deactivatedAt     DateTime?
+  deactivatedReason String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

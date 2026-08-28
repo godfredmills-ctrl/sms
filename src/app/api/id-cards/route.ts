@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { authorize, userCan } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { loadDocumentImage, type EmbeddedImage } from "@/lib/document-images";
+import { guardianLinks } from "@/lib/guardian-contact";
 import { renderIdCardsPdf, type IdCardPerson } from "@/lib/id-card-pdf";
 import { listName } from "@/lib/utils";
 
@@ -182,6 +183,7 @@ export async function GET(request: Request) {
         photoUrl: true,
         medical: includeMedical ? { select: { bloodGroup: true } } : undefined,
         guardians: {
+          where: guardianLinks.any,
           orderBy: [{ isEmergency: "desc" }, { isPrimary: "desc" }],
           take: 1,
           select: {
