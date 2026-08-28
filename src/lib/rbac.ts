@@ -179,6 +179,17 @@ export const PERMISSIONS: PermissionDef[] = [
     ["bill", "approve", "Raise the termly meal charges onto invoices"],
   ]),
 
+  // Contacting alumni is separated from reading the register because they are
+  // different risks. Reading it is a records question; writing to nine hundred
+  // former pupils is a data protection one, and the person who can do the
+  // second should be somebody the school chose deliberately.
+  ...define("alumni", [
+    ["read", "read", "View the alumni register"],
+    ["manage", "update", "Add and edit alumni records"],
+    ["contact", "create", "Contact alumni and record consent"],
+    ["engagement.record", "create", "Record donations, mentoring and events"],
+  ]),
+
   ...define("communication", [
     ["announcement.read", "read", "View announcements"],
     ["announcement.manage", "update", "Create and publish announcements"],
@@ -354,6 +365,7 @@ export const ROLE_PRESETS: RolePreset[] = [
       ...expand("asset"),
       ...expand("stock"),
       ...expand("cafeteria"),
+      ...expand("alumni"),
       ...expand("boarding"),
       ...expand("admission"),
       "payroll.read",
@@ -458,6 +470,10 @@ export const ROLE_PRESETS: RolePreset[] = [
       // The other half of the job title. The registrar runs the intake: the
       // entrance papers, the interviews, the offers and the waiting list.
       ...expand("admission"),
+      // The office that records somebody leaving is the office that should put
+      // them on the alumni register. Split those two and the register goes a
+      // year out of date without anybody being responsible for it.
+      ...expand("alumni"),
       ...expand("document"),
       // Admissions runs the enquiry inbox: an enquiry is a prospective
       // student, which is the registrar's work before it is anyone else's.

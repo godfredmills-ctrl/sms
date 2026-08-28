@@ -39,6 +39,7 @@
     "stock:check": "tsx scripts/check-stock.ts",
     "ledger:check": "tsx scripts/check-ledger.ts",
     "cafeteria:check": "tsx scripts/check-cafeteria.ts",
+    "alumni:check": "tsx scripts/check-alumni.ts",
     "docs:pdf": "tsx --conditions=react-server scripts/make-documents.ts",
     "setup:integrations": "node scripts/setup-integrations.mjs"
   },

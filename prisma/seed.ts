@@ -181,6 +181,8 @@ async function main() {
   // students so their medical records already carry the allergies the counter
   // warns about.
   await seedCafeteria(students, terms, year.id);
+  // Last, because it reads the leavers every other seed has finished creating.
+  await seedAlumni();
   await seedAdmissions(levels, staff, year.id, roles);
 
   console.log("\nDone.\n");
@@ -274,6 +276,9 @@ async function reset() {
     // subscriptions before the plans and pupils they point at.
     "mealServiceRecord", "mealService", "mealMenuItem", "mealMenu",
     "mealSubscription", "mealPlan",
+    // Alumni: what they did with the school before the people themselves, and
+    // both before the pupil records they point back at.
+    "alumniEngagementRecord", "alumnus",
     // The ledger before the years and terms its entries are filed against.
     // Lines before entries, and both before the accounts they point at.
     "journalLine", "journalEntry", "ledgerAccount",
@@ -6289,5 +6294,276 @@ async function seedCafeteria(students: StudentRow[], terms: TermRow[], academicY
 
   console.log(
     `    ${dishes.length} dishes, ${subscribed.length} on a plan, ${servicesMade} sittings, ${mealsServed} meals served`,
+  );
+}
+
+/**
+ * The alumni register.
+ *
+ * Deliberately uneven. A seeded register where every row has a consent tick, a
+ * live phone number and a confirmation date demonstrates nothing: the whole
+ * argument of this module is that a real register is mostly people the school
+ * cannot write to, and that the gap between the headline count and the
+ * reachable count is the number worth looking at. So most of these have no
+ * consent, a good share have details nobody has checked since they left, and a
+ * few are fully current.
+ */
+async function seedAlumni() {
+  console.log("  Alumni…");
+
+  const thisYear = new Date().getFullYear();
+
+  const daysBack = (days: number) => {
+    const date = new Date();
+    date.setDate(date.getDate() - days);
+    return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  };
+
+  const UNIVERSITIES = [
+    "University of Ghana, Legon",
+    "KNUST",
+    "University of Cape Coast",
+    "Ashesi University",
+    "GIMPA",
+    "University of Professional Studies",
+    "Central University",
+    "University of Leeds",
+    "University of Toronto",
+    "Kingston University",
+  ];
+
+  const COURSES = [
+    "Medicine",
+    "Civil Engineering",
+    "Business Administration",
+    "Computer Science",
+    "Law",
+    "Nursing",
+    "Architecture",
+    "Economics",
+    "Pharmacy",
+    "Accounting",
+  ];
+
+  const EMPLOYERS = [
+    "Ghana Health Service",
+    "MTN Ghana",
+    "Ecobank",
+    "Ghana Revenue Authority",
+    "Tullow Oil",
+    "Deloitte Ghana",
+    "Korle Bu Teaching Hospital",
+    "Vodafone Ghana",
+    "Ghana Water Company",
+    "self-employed",
+  ];
+
+  const OCCUPATIONS = [
+    "Doctor",
+    "Civil engineer",
+    "Banker",
+    "Software engineer",
+    "Lawyer",
+    "Nurse",
+    "Architect",
+    "Teacher",
+    "Pharmacist",
+    "Accountant",
+  ];
+
+  const CITIES = ["Accra", "Kumasi", "Takoradi", "Tema", "Cape Coast", "London", "Toronto"];
+
+  // --- The people who left before the school had a system --------------------
+
+  type Row = {
+    firstName: string;
+    lastName: string;
+    otherNames: string | null;
+    nameAtSchool: string | null;
+    gender: string;
+    graduationYear: number;
+    finalClass: string;
+    email: string | null;
+    phone: string | null;
+    city: string;
+    country: string;
+    university: string | null;
+    course: string | null;
+    occupation: string | null;
+    employer: string | null;
+    jobTitle: string | null;
+    consentToContact: boolean;
+    consentSource: string | null;
+    consentAt: Date | null;
+    verifiedAt: Date | null;
+    verifiedBy: string | null;
+    deceasedOn: Date | null;
+    achievements: string | null;
+  };
+
+  const rows: Row[] = [];
+
+  // Fifteen cohorts, thinning out the further back they go: a school knows
+  // more about last year's leavers than about the class of 2011.
+  for (let year = thisYear - 1; year >= thisYear - 15; year -= 1) {
+    const age = thisYear - year;
+    const cohortSize = Math.max(3, 14 - age);
+
+    for (let index = 0; index < cohortSize; index += 1) {
+      const isFemale = chance(0.5);
+      const firstName = isFemale ? pick(FEMALE_NAMES) : pick(MALE_NAMES);
+      const lastName = pick(SURNAMES);
+
+      // Consent thins out with age: the leavers form only started being signed
+      // a few years ago, which is exactly what a real register looks like.
+      const consented = chance(Math.max(0.08, 0.55 - age * 0.04));
+      // Only a fraction have been checked, and only recently.
+      const checked = consented && chance(0.45);
+
+      const employed = age >= 4;
+
+      rows.push({
+        firstName,
+        lastName,
+        otherNames: chance(0.6) ? pick(OTHER_NAMES) : null,
+        // A woman who married is the common case a register cannot follow.
+        nameAtSchool: isFemale && age >= 6 && chance(0.3) ? pick(SURNAMES) : null,
+        gender: isFemale ? "FEMALE" : "MALE",
+        graduationYear: year,
+        finalClass: `JHS 3 ${pick(["A", "B", "C"])}`,
+        email: chance(0.75) ? `${firstName.toLowerCase()}.${lastName.toLowerCase()}@example.com` : null,
+        phone: chance(0.7) ? phone() : null,
+        city: pick(CITIES),
+        country: chance(0.85) ? "Ghana" : pick(["United Kingdom", "Canada", "United States"]),
+        university: age >= 2 ? pick(UNIVERSITIES) : null,
+        course: age >= 2 ? pick(COURSES) : null,
+        occupation: employed ? pick(OCCUPATIONS) : null,
+        employer: employed ? pick(EMPLOYERS) : null,
+        jobTitle: employed && chance(0.4) ? pick(["Analyst", "Officer", "Associate", "Manager"]) : null,
+        consentToContact: consented,
+        consentSource: consented
+          ? pick([
+              "Signed the leavers form",
+              "Agreed at the alumni dinner",
+              "Replied to the annual email and asked to stay on the list",
+            ])
+          : null,
+        consentAt: consented ? daysBack(between(30, 900)) : null,
+        verifiedAt: checked ? daysBack(between(10, 700)) : null,
+        verifiedBy: checked ? "Registrar" : null,
+        // One in every eighty or so, which over fifteen cohorts is two or
+        // three people. It is a real thing a register has to hold.
+        deceasedOn: chance(0.012) ? daysBack(between(200, 2000)) : null,
+        achievements:
+          age >= 8 && chance(0.15)
+            ? pick([
+                "Represented Ghana at the West African Debate Championship in 2019.",
+                "Published research on water treatment in the Volta region.",
+                "Founded a software company employing eleven people in Accra.",
+                "Plays for a first division side.",
+              ])
+            : null,
+      });
+    }
+  }
+
+  const created = await db.alumnus.createManyAndReturn({
+    data: rows.map((row) => ({
+      firstName: row.firstName,
+      lastName: row.lastName,
+      otherNames: row.otherNames,
+      nameAtSchool: row.nameAtSchool,
+      gender: row.gender as never,
+      graduationYear: row.graduationYear,
+      finalClass: row.finalClass,
+      email: row.email,
+      phone: row.phone,
+      city: row.city,
+      country: row.country,
+      university: row.university,
+      course: row.course,
+      occupation: row.occupation,
+      employer: row.employer,
+      jobTitle: row.jobTitle,
+      consentToContact: row.consentToContact,
+      consentSource: row.consentSource,
+      consentAt: row.consentAt,
+      verifiedAt: row.verifiedAt,
+      verifiedBy: row.verifiedBy,
+      deceasedOn: row.deceasedOn,
+      achievements: row.achievements,
+    })),
+    select: { id: true, consentToContact: true, graduationYear: true },
+  });
+
+  // --- What some of them have done with the school ---------------------------
+
+  const engageable = created.filter((row) => row.consentToContact);
+  const engagements: Array<{
+    alumnusId: string;
+    kind: string;
+    happenedOn: Date;
+    summary: string;
+    amountMinor: number;
+  }> = [];
+
+  for (const alumnus of engageable) {
+    if (!chance(0.45)) continue;
+
+    const howMany = between(1, 3);
+    for (let index = 0; index < howMany; index += 1) {
+      const kind = pick(["DONATION", "MENTORING", "EVENT", "SPEAKING", "PLACEMENT", "UPDATE"]);
+      engagements.push({
+        alumnusId: alumnus.id,
+        kind,
+        happenedOn: daysBack(between(20, 1600)),
+        summary:
+          kind === "DONATION"
+            ? pick([
+                "Towards the science laboratory",
+                "Library books appeal",
+                "Bursary fund",
+                "Towards the new bus",
+              ])
+            : kind === "MENTORING"
+              ? "Mentored a JHS 3 pupil through their placement choices"
+              : kind === "SPEAKING"
+                ? pick([
+                    "Spoke to the leavers about engineering",
+                    "Careers day talk on medicine",
+                    "Spoke at the speech and prize giving",
+                  ])
+                : kind === "EVENT"
+                  ? pick(["Came to the homecoming", "Came to the carol service", "Attended the alumni dinner"])
+                  : kind === "PLACEMENT"
+                    ? "Offered a holiday attachment to two leavers"
+                    : "Sent an update on where they are now",
+        // Only a donation carries money. The database refuses anything else,
+        // which is the point of seeding it this way rather than trusting the
+        // loop above to be careful.
+        amountMinor: kind === "DONATION" ? between(5, 500) * 10_000 : 0,
+      });
+    }
+  }
+
+  if (engagements.length) {
+    await db.alumniEngagementRecord.createMany({
+      data: engagements.map((entry) => ({
+        alumnusId: entry.alumnusId,
+        kind: entry.kind as never,
+        happenedOn: entry.happenedOn,
+        summary: entry.summary,
+        amountMinor: entry.amountMinor,
+        recordedBy: "Registrar",
+      })),
+    });
+  }
+
+  const consented = created.filter((row) => row.consentToContact).length;
+  const donated = engagements.filter((entry) => entry.kind === "DONATION");
+  const givenMinor = donated.reduce((sum, entry) => sum + entry.amountMinor, 0);
+
+  console.log(
+    `    ${created.length} alumni across 15 cohorts, ${consented} contactable, ${donated.length} gifts worth ${(givenMinor / 100).toLocaleString()} cedis`,
   );
 }

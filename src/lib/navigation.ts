@@ -434,6 +434,12 @@ export const STAFF_NAVIGATION: NavGroup[] = [
         permissions: ["transport.read"],
       },
       {
+        label: "Alumni",
+        href: "/alumni",
+        icon: "GraduationCap",
+        permissions: ["alumni.read"],
+      },
+      {
         label: "Cafeteria",
         href: "/cafeteria",
         icon: "UtensilsCrossed",

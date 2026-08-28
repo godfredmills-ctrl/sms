@@ -1065,6 +1065,7 @@ model Student {
 
   mealSubscriptions MealSubscription[]
   mealsTaken        MealServiceRecord[]
+  alumnus           Alumnus?
 
   boardingAllocations BoardingAllocation[]
   exeats              BoardingExeat[]
@@ -5307,4 +5308,144 @@ model MealServiceRecord {
   @@index([serviceId])
   @@index([studentId])
   @@index([staffId])
+}
+
+// ---------------------------------------------------------------------------
+// Alumni
+//
+// The register of people who have left, which is the asset a school spends
+// thirteen years building and then loses in the eighteen months after
+// somebody's last day.
+//
+// Two things make an alumni register different from a copy of the student
+// table. The first is that every contact detail on it decays: a school email
+// is switched off at graduation and a parent's phone stops being the way to
+// reach a thirty-year-old. So the personal contact details are their own
+// columns, dated, with a record of when somebody last confirmed they still
+// work. Undated contact details are the whole problem: a register of nine
+// hundred names that has not been checked since 2019 reads as nine hundred
+// contactable alumni and is closer to two hundred.
+//
+// The second is consent. Ghana's Data Protection Act 2012 does not stop
+// existing when a pupil leaves, and a school newsletter to a former pupil who
+// has not agreed to receive one is a processing decision somebody has to have
+// made. It is a column here rather than an assumption.
+// ---------------------------------------------------------------------------
+
+enum AlumniEngagement {
+  /// Gave money.
+  DONATION
+  /// Mentored a current pupil.
+  MENTORING
+  /// Came to something.
+  EVENT
+  /// Spoke at something.
+  SPEAKING
+  /// Offered a placement or a job to a leaver.
+  PLACEMENT
+  /// Told the school where they are now.
+  UPDATE
+  OTHER
+}
+
+model Alumnus {
+  id String @id @default(cuid())
+
+  /// The pupil they were, when the school has that record.
+  ///
+  /// Nullable, and deliberately: most schools adopting this have decades of
+  /// alumni who were never in any system, and a register that can only hold
+  /// people it already had rows for is a register that starts at the year the
+  /// software was installed.
+  studentId String?  @unique
+  student   Student? @relation(fields: [studentId], references: [id], onDelete: SetNull)
+
+  title        String?
+  firstName    String
+  lastName     String
+  otherNames   String?
+  /// The name they were known by at school, when it differs. Women who have
+  /// married are the common case, and a register that cannot connect the two
+  /// cannot find anybody in its own photographs.
+  nameAtSchool String?
+  gender       Gender  @default(UNDISCLOSED)
+  photoUrl     String?
+
+  /// The year they left. The cohort, and the thing every alumni event is
+  /// organised around.
+  graduationYear Int
+  /// The class they left from, kept as text: the section may be renamed or
+  /// abolished, and "JHS 3 B, 2014" should still read correctly in 2040.
+  finalClass     String?
+  /// Left with a certificate, or left.
+  completed      Boolean @default(true)
+
+  /// Contact details that belong to them rather than to the school.
+  email    String?
+  phone    String?
+  whatsapp String?
+  address  String?
+  city     String?
+  country  String? @default("Ghana")
+
+  /// Where they went and what they are doing.
+  university   String?
+  course       String?
+  occupation   String?
+  employer     String?
+  jobTitle     String?
+  linkedinUrl  String?
+  achievements String?
+
+  /// Whether the school may contact them, and how they said so.
+  ///
+  /// Default false, which is the only defensible default: a pupil leaving
+  /// school has not agreed to a lifetime of newsletters by leaving.
+  consentToContact Boolean   @default(false)
+  consentSource    String?
+  consentAt        DateTime?
+
+  /// When somebody last confirmed the contact details still work, and who.
+  /// Without this the register cannot tell a live number from a dead one.
+  verifiedAt DateTime?
+  verifiedBy String?
+
+  /// Set when they have died, so the school stops writing to them. A separate
+  /// field rather than deleting the row: they are still part of the year
+  /// group, still in the photographs, and still somebody the school remembers.
+  deceasedOn DateTime?
+
+  notes String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  engagements AlumniEngagementRecord[]
+
+  @@index([graduationYear])
+  @@index([lastName, firstName])
+  @@index([consentToContact])
+}
+
+/// Something an alumnus did with the school after leaving.
+model AlumniEngagementRecord {
+  id        String  @id @default(cuid())
+  alumnusId String
+  alumnus   Alumnus @relation(fields: [alumnusId], references: [id], onDelete: Cascade)
+
+  kind       AlumniEngagement
+  happenedOn DateTime
+  summary    String
+  detail     String?
+
+  /// Pesewas, for a donation. Zero on everything else, and a CHECK in the
+  /// migration keeps it that way: an amount on a mentoring record would be
+  /// added into the donations total by the first report that forgot to filter.
+  amountMinor Int @default(0)
+
+  recordedBy String?
+  createdAt  DateTime @default(now())
+
+  @@index([alumnusId])
+  @@index([kind, happenedOn])
 }
