@@ -434,6 +434,28 @@ export const STAFF_NAVIGATION: NavGroup[] = [
         permissions: ["transport.read"],
       },
       {
+        label: "Cafeteria",
+        href: "/cafeteria",
+        icon: "UtensilsCrossed",
+        permissions: ["cafeteria.read"],
+        children: [
+          { label: "Serving", href: "/cafeteria", icon: "UtensilsCrossed" },
+          { label: "Menu", href: "/cafeteria/menu", icon: "CalendarDays" },
+          {
+            label: "Meal plans",
+            href: "/cafeteria/plans",
+            icon: "Ticket",
+            permissions: ["cafeteria.plan.manage"],
+          },
+          {
+            label: "Subscriptions",
+            href: "/cafeteria/subscriptions",
+            icon: "Users",
+            permissions: ["cafeteria.subscribe"],
+          },
+        ],
+      },
+      {
         label: "Store",
         href: "/stores",
         icon: "Package",

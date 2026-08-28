@@ -164,6 +164,21 @@ export const PERMISSIONS: PermissionDef[] = [
     ["adjust", "update", "Record a count and write off shortages"],
   ]),
 
+  // Serving is separated from everything else on purpose. The person at the
+  // counter needs to see a child's allergies and tick them off a list, three
+  // times a day, and they should not thereby be able to price a meal plan or
+  // change what the school is charging families. Nor should the bursar who
+  // sets the prices be quietly added to the list of people who can mark a
+  // boarder as having come to supper.
+  ...define("cafeteria", [
+    ["read", "read", "View meal plans, menus and service records"],
+    ["serve", "create", "Record who was served at a sitting"],
+    ["menu.manage", "update", "Build and publish the menu"],
+    ["plan.manage", "update", "Create meal plans and set their prices"],
+    ["subscribe", "update", "Put a pupil on a meal plan, or take them off"],
+    ["bill", "approve", "Raise the termly meal charges onto invoices"],
+  ]),
+
   ...define("communication", [
     ["announcement.read", "read", "View announcements"],
     ["announcement.manage", "update", "Create and publish announcements"],
@@ -338,6 +353,7 @@ export const ROLE_PRESETS: RolePreset[] = [
       "finance.budget.manage",
       ...expand("asset"),
       ...expand("stock"),
+      ...expand("cafeteria"),
       ...expand("boarding"),
       ...expand("admission"),
       "payroll.read",
@@ -390,6 +406,13 @@ export const ROLE_PRESETS: RolePreset[] = [
       ...expand("stock"),
       "payroll.read",
       "payroll.manage",
+      // The kitchen is a cost centre and the meal plans are a fee line, so
+      // pricing and billing them belongs here. Serving does not: the bursar
+      // has no business ticking a boarder off the supper list.
+      "cafeteria.read",
+      "cafeteria.plan.manage",
+      "cafeteria.subscribe",
+      "cafeteria.bill",
       "student.read",
       "student.export",
       "communication.announcement.read",
@@ -566,6 +589,38 @@ export const ROLE_PRESETS: RolePreset[] = [
       // parent is the person who notices they did not come back on one.
       "transport.read",
       "visitor.read",
+      // Supper in a boarding house is a roll call with food. A boarder who
+      // did not come to it is the first thing a house parent needs to know,
+      // which is why this is a serving permission and not just a read.
+      "cafeteria.read",
+      "cafeteria.serve",
+    ],
+  },
+  {
+    key: "caterer",
+    name: "Catering Manager",
+    description: "Meal plans, the menu, and the serving register.",
+    portal: "STAFF",
+    rank: 62,
+    permissions: [
+      "dashboard.view",
+      ...expand("cafeteria"),
+      // The counter has to find any child by name to serve them, so this is
+      // the whole school by design, the same way the library issue desk is.
+      "student.read",
+      // The reason the module exists. Every school already holds its pupils
+      // allergies; what this permission does is get that fact to the person
+      // holding the ladle at the moment the child reaches the counter. Without
+      // it the serving screen can only show a name, and the allergy stays
+      // where it has always been, which is in a file nobody opens at lunchtime.
+      "student.medical.read",
+      // Provisions come out of the school store, and a kitchen that cannot see
+      // what is left in it orders twice or not at all.
+      "stock.read",
+      "stock.issue",
+      "communication.announcement.read",
+      "communication.message",
+      "report.read",
     ],
   },
   {
@@ -579,6 +634,9 @@ export const ROLE_PRESETS: RolePreset[] = [
       "student.read",
       "student.medical.read",
       "student.medical.update",
+      // A nurse asked "can he eat this" needs to be able to look at the menu
+      // and the allergens on it rather than walk to the kitchen.
+      "cafeteria.read",
       "communication.announcement.read",
       "communication.sms.send",
       "communication.message",

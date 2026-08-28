@@ -417,6 +417,7 @@ model AcademicYear {
   expenses       Expense[]
   budgetLines    BudgetLine[]
   examSessions   ExamSession[]
+  mealMenus      MealMenu[]
   boardingBeds   BoardingAllocation[]
   admissions     AdmissionApplication[]
   journalEntries JournalEntry[]
@@ -446,6 +447,8 @@ model Term {
   expenses          Expense[]
   examSessions      ExamSession[]
   journalEntries    JournalEntry[]
+  mealSubscriptions MealSubscription[]
+  mealMenus         MealMenu[]
 
   @@unique([academicYearId, sequence])
 }
@@ -858,10 +861,11 @@ model Staff {
   admissionsAssessed    AdmissionAssessment[] @relation("AdmissionAssessor")
   admissionsInterviewed AdmissionInterview[]  @relation("AdmissionInterviewer")
 
-  assetsHeld       Asset[]         @relation("AssetCustodian")
-  assetsHandedOver AssetEvent[]    @relation("AssetFromStaff")
-  assetsReceived   AssetEvent[]    @relation("AssetToStaff")
-  stockIssuedTo    StockMovement[] @relation("StockIssuedTo")
+  assetsHeld       Asset[]             @relation("AssetCustodian")
+  assetsHandedOver AssetEvent[]        @relation("AssetFromStaff")
+  assetsReceived   AssetEvent[]        @relation("AssetToStaff")
+  stockIssuedTo    StockMovement[]     @relation("StockIssuedTo")
+  mealsTaken       MealServiceRecord[]
 
   @@index([status])
   @@index([department])
@@ -1058,6 +1062,9 @@ model Student {
   lessonProgress   LessonProgress[]
   candidacies      Candidate[]
   examCandidates   ExamCandidate[]
+
+  mealSubscriptions MealSubscription[]
+  mealsTaken        MealServiceRecord[]
 
   boardingAllocations BoardingAllocation[]
   exeats              BoardingExeat[]
@@ -5066,4 +5073,238 @@ model JournalLine {
 
   @@index([entryId])
   @@index([accountId])
+}
+
+// ---------------------------------------------------------------------------
+// Cafeteria
+//
+// A school kitchen has three jobs and this models all three: who is entitled
+// to eat, what is being cooked, and who actually ate. The third is the one
+// that pays for the module — a boarding school that cannot say whether a child
+// came to supper cannot say whether a child is missing, and a day school
+// billing termly for lunches it did not serve is billing for air.
+//
+// The safety case sits between the second and third. Every dish carries its
+// allergens and every pupil's allergies are already on their medical record.
+// Matching them at the serving point is the difference between a nut allergy
+// written in a file and a nut allergy somebody sees.
+// ---------------------------------------------------------------------------
+
+enum MealSitting {
+  BREAKFAST
+  /// Mid-morning break, which in a Ghanaian day school is a real meal.
+  BREAK
+  LUNCH
+  SUPPER
+}
+
+enum MealSubscriptionStatus {
+  ACTIVE
+  /// Kept on the books but not served: unpaid fees, or a term abroad.
+  SUSPENDED
+  ENDED
+}
+
+/// How a particular serving was paid for.
+enum MealBasis {
+  /// Covered by the diner's meal plan.
+  PLAN
+  /// Paid at the counter.
+  CASH
+  /// Staff meal, whether free or deducted.
+  STAFF
+  /// A visitor, an inspector, a parent on open day.
+  GUEST
+}
+
+/// What a family can buy: a named set of sittings at a termly price.
+model MealPlan {
+  id          String  @id @default(cuid())
+  code        String  @unique
+  name        String
+  description String?
+
+  /// The sittings this plan pays for. A pupil on "Lunch only" who turns up to
+  /// supper is served and charged, not turned away.
+  sittings MealSitting[]
+
+  /// Termly price in pesewas, raised onto the term's invoice.
+  priceMinor Int @default(0)
+
+  /// What one meal costs somebody without a plan, in pesewas. Held on the plan
+  /// rather than globally because a school with a subsidised staff rate and a
+  /// full guest rate needs two numbers, and one of them has to be the default.
+  perMealMinor Int @default(0)
+
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  subscriptions MealSubscription[]
+
+  @@index([isActive])
+}
+
+/// One pupil on one plan for one term.
+model MealSubscription {
+  id        String   @id @default(cuid())
+  studentId String
+  student   Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  planId    String
+  plan      MealPlan @relation(fields: [planId], references: [id])
+  termId    String
+  term      Term     @relation(fields: [termId], references: [id], onDelete: Cascade)
+
+  status   MealSubscriptionStatus @default(ACTIVE)
+  startsOn DateTime
+  endsOn   DateTime?
+
+  /// Set once the termly charge has reached an invoice. Two columns rather
+  /// than a boolean, because "has this been billed" and "how much for" are
+  /// asked at the same moment and a boolean can only answer the first. The
+  /// migration adds a CHECK so they cannot disagree.
+  chargedAt    DateTime?
+  chargedMinor Int?
+
+  /// Why the plan was suspended or ended, which is the first question asked
+  /// when a boarder turns up to supper and is not on the list.
+  reason String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // A pupil may hold several rows for one term as they move between plans, so
+  // this is not unique. The migration adds a partial unique index over ACTIVE
+  // rows: one live plan at a time, several in the history.
+  @@index([studentId, termId])
+  @@index([termId, status])
+}
+
+/// A cycle menu: what the kitchen cooks, on a repeating rota.
+model MealMenu {
+  id             String       @id @default(cuid())
+  name           String
+  academicYearId String
+  academicYear   AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
+  termId         String?
+  term           Term?        @relation(fields: [termId], references: [id], onDelete: SetNull)
+
+  /// How many weeks before the rota repeats. Two is the common answer; a
+  /// school that cooks the same thing every Monday sets one.
+  cycleWeeks Int @default(2)
+
+  /// The Monday the cycle counts from, so "which week are we in" has an answer
+  /// that does not change when somebody edits the menu.
+  startsOn DateTime
+
+  isActive Boolean @default(false)
+  notes    String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  items MealMenuItem[]
+
+  @@index([academicYearId, termId])
+}
+
+/// One dish, on one day of the rota, at one sitting.
+model MealMenuItem {
+  id     String   @id @default(cuid())
+  menuId String
+  menu   MealMenu @relation(fields: [menuId], references: [id], onDelete: Cascade)
+
+  /// 1..cycleWeeks
+  weekNumber Int
+  /// 1 = Monday through 7 = Sunday, matching ISO. Boarding schools cook at
+  /// the weekend and a Monday-to-Friday model would have nothing to say about
+  /// Saturday supper.
+  dayOfWeek  Int
+  sitting    MealSitting
+
+  dish          String
+  accompaniment String?
+
+  /// From the controlled list in src/lib/cafeteria-rules.ts. Free text here
+  /// would be matched against a pupil's allergies and quietly fail to match:
+  /// "groundnut" against "peanut" is the same allergy and a different string.
+  allergens String[]
+
+  isVegetarian Boolean @default(false)
+  notes        String?
+
+  services MealService[]
+
+  @@unique([menuId, weekNumber, dayOfWeek, sitting])
+  @@index([menuId])
+}
+
+/// A sitting that actually happened, on a date.
+model MealService {
+  id       String      @id @default(cuid())
+  servedOn DateTime    @db.Date
+  sitting  MealSitting
+
+  /// What the rota said. Null when the kitchen cooked off-menu, which is
+  /// normal and worth recording rather than hiding.
+  menuItemId String?
+  menuItem   MealMenuItem? @relation(fields: [menuItemId], references: [id], onDelete: SetNull)
+
+  /// What was actually served, when it differed from the rota.
+  dishServed String?
+  allergens  String[]
+
+  openedAt   DateTime  @default(now())
+  openedById String?
+  closedAt   DateTime?
+
+  /// How many were entitled when the sitting opened, kept so the number on a
+  /// past service is what it was on the day rather than what a later change to
+  /// the subscriptions would make it.
+  expectedCount Int @default(0)
+
+  notes String?
+
+  records MealServiceRecord[]
+
+  @@unique([servedOn, sitting])
+  @@index([servedOn])
+}
+
+/// One diner, served once.
+model MealServiceRecord {
+  id        String      @id @default(cuid())
+  serviceId String
+  service   MealService @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+
+  /// Exactly one of these is set, enforced by a CHECK in the migration.
+  /// Students and staff eat from the same pot and a single nullable pair keeps
+  /// one queue and one count; two tables would need every report written
+  /// twice.
+  studentId String?
+  student   Student? @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  staffId   String?
+  staff     Staff?   @relation(fields: [staffId], references: [id], onDelete: Cascade)
+
+  /// A visitor's name, for a GUEST serving with neither of the above.
+  guestName String?
+
+  basis MealBasis @default(PLAN)
+
+  /// Charged in pesewas. Zero for a plan that has already been billed.
+  chargedMinor Int @default(0)
+
+  servedAt DateTime @default(now())
+  servedBy String?
+
+  /// The allergy warning that was on the screen when this was served, and
+  /// whether the person serving overrode it. A warning nobody records is a
+  /// warning nobody can be asked about afterwards.
+  warned     Boolean @default(false)
+  warnedNote String?
+
+  @@index([serviceId])
+  @@index([studentId])
+  @@index([staffId])
 }

@@ -107,5 +107,23 @@ for (const check of [
   run(`Checking ${check[0]}`, check[1], []);
 }
 
+/**
+ * The rules tests, which used to be npm scripts nobody remembered to run.
+ *
+ * Each of these covers a module of pure arithmetic: depreciation, stock
+ * valuation, double-entry, the cafeteria's rota and allergy matching. They
+ * take about a second between them and they are the only thing standing
+ * between a refactor and a silently wrong balance sheet, so they belong in
+ * the build rather than in a habit.
+ */
+for (const check of [
+  ["asset rules", "scripts/check-assets.ts"],
+  ["stock rules", "scripts/check-stock.ts"],
+  ["ledger rules", "scripts/check-ledger.ts"],
+  ["cafeteria rules", "scripts/check-cafeteria.ts"],
+]) {
+  run(`Checking ${check[0]}`, await binOf("tsx/cli"), [check[1]]);
+}
+
 run("Generating Prisma client", await binOf("prisma/build/index.js"), ["generate"]);
 run("Building Next.js application", await binOf("next/dist/bin/next"), ["build"]);

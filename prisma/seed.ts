@@ -177,6 +177,10 @@ async function main() {
   // what those two did in their own books.
   await seedLedger(terms, year.id);
   await seedBoarding(students, staff, year.id);
+  // After boarding, because full board is what boarders go on, and after the
+  // students so their medical records already carry the allergies the counter
+  // warns about.
+  await seedCafeteria(students, terms, year.id);
   await seedAdmissions(levels, staff, year.id, roles);
 
   console.log("\nDone.\n");
@@ -265,6 +269,11 @@ async function reset() {
     // so they clear first; a room points at its house.
     "boardingExeat", "boardingAllocation", "boardingRoom", "boardingHouse",
     "payslip", "payrollRun",
+    // The cafeteria. Servings before the sittings they belong to, sittings
+    // before the dishes they were cooked from, dishes before their menu, and
+    // subscriptions before the plans and pupils they point at.
+    "mealServiceRecord", "mealService", "mealMenuItem", "mealMenu",
+    "mealSubscription", "mealPlan",
     // The ledger before the years and terms its entries are filed against.
     // Lines before entries, and both before the accounts they point at.
     "journalLine", "journalEntry", "ledgerAccount",
@@ -5995,4 +6004,290 @@ async function seedLedger(terms: TermRow[], academicYearId: string) {
       },
     });
   }
+}
+
+/**
+ * The cafeteria.
+ *
+ * A two-week Ghanaian cycle menu with the allergens actually filled in, three
+ * plans at three prices, most boarders on full board and a share of the day
+ * pupils on lunch, and a few days of sittings already served so the counts and
+ * the missing list have something in them.
+ *
+ * The allergens matter more than they look. A seeded menu with empty allergen
+ * lists demonstrates a cafeteria module; a seeded menu with groundnut on the
+ * soup demonstrates the thing this module is for, because some of the seeded
+ * pupils carry a groundnut allergy on their medical record and the counter
+ * will say so before anybody is handed a bowl.
+ */
+async function seedCafeteria(students: StudentRow[], terms: TermRow[], academicYearId: string) {
+  console.log("  Cafeteria…");
+
+  const term = terms.find((entry) => entry.sequence === 2) ?? terms[0];
+  if (!term) return;
+
+  const daysAgo = (days: number) => {
+    const date = new Date();
+    date.setDate(date.getDate() - days);
+    return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  };
+
+  // --- Plans -----------------------------------------------------------------
+
+  const [lunchOnly, fullBoard, breakfastLunch] = await Promise.all([
+    db.mealPlan.create({
+      data: {
+        code: "LUNCH",
+        name: "Lunch only",
+        description: "One hot meal at midday, Monday to Friday.",
+        sittings: ["LUNCH"],
+        priceMinor: 45_000,
+        perMealMinor: 1_500,
+      },
+    }),
+    db.mealPlan.create({
+      data: {
+        code: "FULLBOARD",
+        name: "Full board",
+        description: "Breakfast, lunch and supper, seven days. For boarders.",
+        sittings: ["BREAKFAST", "LUNCH", "SUPPER"],
+        priceMinor: 168_000,
+        perMealMinor: 1_500,
+      },
+    }),
+    db.mealPlan.create({
+      data: {
+        code: "BREAKLUNCH",
+        name: "Breakfast and lunch",
+        description: "For day pupils who arrive before seven.",
+        sittings: ["BREAKFAST", "LUNCH"],
+        priceMinor: 78_000,
+        perMealMinor: 1_500,
+      },
+    }),
+  ]);
+
+  // --- The menu --------------------------------------------------------------
+
+  // Counting from the Monday eight weeks back, so today lands somewhere in the
+  // middle of the cycle rather than always on week 1.
+  const cycleStart = (() => {
+    const date = daysAgo(56);
+    const back = (date.getDay() === 0 ? 7 : date.getDay()) - 1;
+    date.setDate(date.getDate() - back);
+    return date;
+  })();
+
+  const menu = await db.mealMenu.create({
+    data: {
+      name: `${term.name} cycle menu`,
+      academicYearId,
+      termId: term.id,
+      cycleWeeks: 2,
+      startsOn: cycleStart,
+      isActive: true,
+      notes: "Reviewed by the kitchen and the nurse at the start of term.",
+    },
+  });
+
+  type Dish = [number, number, string, string, string | null, string[], boolean];
+
+  // week, day, sitting, dish, with, allergens, vegetarian
+  const dishes: Dish[] = [
+    // Week 1
+    [1, 1, "BREAKFAST", "Tom brown porridge", "Bread and butter", ["MILK", "GLUTEN", "PEANUT"], true],
+    [1, 1, "LUNCH", "Jollof rice and chicken", "Shito and salad", ["FISH"], false],
+    [1, 1, "SUPPER", "Banku and okro stew", "Smoked fish", ["FISH", "SHELLFISH"], false],
+    [1, 2, "BREAKFAST", "Rice water", "Sugar bread", ["MILK", "GLUTEN"], true],
+    [1, 2, "LUNCH", "Waakye", "Fried plantain, egg and shito", ["EGG", "FISH"], false],
+    [1, 2, "SUPPER", "Fufu and light soup", "Goat meat", [], false],
+    [1, 3, "BREAKFAST", "Oats", "Boiled egg", ["MILK", "GLUTEN", "EGG"], true],
+    [1, 3, "LUNCH", "Groundnut soup with rice balls", "Chicken", ["PEANUT"], false],
+    [1, 3, "SUPPER", "Yam and garden egg stew", null, [], true],
+    [1, 4, "BREAKFAST", "Koko and koose", null, ["PEANUT"], true],
+    [1, 4, "LUNCH", "Plain rice and kontomire stew", "Boiled egg", ["EGG", "FISH", "PEANUT"], false],
+    [1, 4, "SUPPER", "Kenkey and fried fish", "Pepper and onion", ["FISH", "GLUTEN"], false],
+    [1, 5, "BREAKFAST", "Bread and beans", "Fried plantain", ["GLUTEN"], true],
+    [1, 5, "LUNCH", "Fried rice and chicken", "Coleslaw", ["EGG", "SOYA"], false],
+    [1, 5, "SUPPER", "Rice and beans", "Fried plantain", [], true],
+    [1, 6, "BREAKFAST", "Porridge", "Bread", ["MILK", "GLUTEN"], true],
+    [1, 6, "LUNCH", "Banku and tilapia", "Pepper", ["FISH"], false],
+    [1, 6, "SUPPER", "Indomie and egg", null, ["GLUTEN", "EGG", "SOYA"], false],
+    [1, 7, "BREAKFAST", "Bread and egg", "Tea", ["GLUTEN", "EGG", "MILK"], true],
+    [1, 7, "LUNCH", "Sunday jollof and chicken", "Salad", ["EGG"], false],
+    [1, 7, "SUPPER", "Rice and stew", null, [], false],
+    // Week 2
+    [2, 1, "BREAKFAST", "Hausa koko", "Bofrot", ["GLUTEN"], true],
+    [2, 1, "LUNCH", "Ampesi and kontomire", "Boiled egg", ["EGG", "PEANUT"], true],
+    [2, 1, "SUPPER", "Jollof rice", "Chicken", ["FISH"], false],
+    [2, 2, "BREAKFAST", "Tom brown porridge", "Bread", ["MILK", "GLUTEN", "PEANUT"], true],
+    [2, 2, "LUNCH", "Beans stew and gari", "Fried plantain", [], true],
+    [2, 2, "SUPPER", "Fufu and groundnut soup", "Chicken", ["PEANUT"], false],
+    [2, 3, "BREAKFAST", "Oats", "Bread and butter", ["MILK", "GLUTEN"], true],
+    [2, 3, "LUNCH", "Waakye", "Fish and shito", ["FISH"], false],
+    [2, 3, "SUPPER", "Yam and palava sauce", "Smoked fish", ["FISH", "PEANUT"], false],
+    [2, 4, "BREAKFAST", "Rice water", "Sugar bread", ["MILK", "GLUTEN"], true],
+    [2, 4, "LUNCH", "Plain rice and okro stew", "Beef", ["BEEF", "SHELLFISH"], false],
+    [2, 4, "SUPPER", "Kenkey and fish", "Pepper", ["FISH", "GLUTEN"], false],
+    [2, 5, "BREAKFAST", "Bread and beans", "Tea", ["GLUTEN", "MILK"], true],
+    [2, 5, "LUNCH", "Fried rice and chicken", "Salad", ["EGG", "SOYA"], false],
+    [2, 5, "SUPPER", "Banku and okro", "Tilapia", ["FISH"], false],
+    [2, 6, "BREAKFAST", "Porridge", "Bofrot", ["MILK", "GLUTEN"], true],
+    [2, 6, "LUNCH", "Rice and groundnut soup", "Goat meat", ["PEANUT"], false],
+    [2, 6, "SUPPER", "Spaghetti and sardine", null, ["GLUTEN", "FISH"], false],
+    [2, 7, "BREAKFAST", "Bread and egg", "Tea", ["GLUTEN", "EGG", "MILK"], true],
+    [2, 7, "LUNCH", "Sunday special: assorted jollof", "Salad and chicken", ["EGG", "FISH"], false],
+    [2, 7, "SUPPER", "Rice and light soup", null, [], false],
+  ];
+
+  await db.mealMenuItem.createMany({
+    data: dishes.map(
+      ([weekNumber, dayOfWeek, sitting, dish, accompaniment, allergens, isVegetarian]) => ({
+        menuId: menu.id,
+        weekNumber,
+        dayOfWeek,
+        sitting: sitting as never,
+        dish,
+        accompaniment,
+        allergens,
+        isVegetarian,
+      }),
+    ),
+  });
+
+  // --- Who is on what --------------------------------------------------------
+
+  const boarders = students.filter((student) => student.isBoarder);
+  const dayPupils = students.filter((student) => !student.isBoarder);
+
+  const subscribed: Array<{ studentId: string; planId: string; priceMinor: number }> = [];
+
+  for (const boarder of boarders) {
+    subscribed.push({ studentId: boarder.id, planId: fullBoard.id, priceMinor: 168_000 });
+  }
+  for (const pupil of dayPupils) {
+    // Roughly two in five day pupils take a school lunch, which is about what
+    // a fee-paying Accra school sees.
+    if (!chance(0.4)) continue;
+    const takesBreakfast = chance(0.25);
+    subscribed.push({
+      studentId: pupil.id,
+      planId: takesBreakfast ? breakfastLunch.id : lunchOnly.id,
+      priceMinor: takesBreakfast ? 78_000 : 45_000,
+    });
+  }
+
+  await db.mealSubscription.createMany({
+    data: subscribed.map((entry, index) => ({
+      studentId: entry.studentId,
+      planId: entry.planId,
+      termId: term.id,
+      startsOn: term.startDate,
+      status: "ACTIVE" as never,
+      // Most have been charged; every ninth has not, so the billing screen has
+      // something to do rather than reading "nothing outstanding" on a fresh
+      // install and looking broken.
+      ...(index % 9 === 0
+        ? {}
+        : { chargedAt: term.startDate, chargedMinor: entry.priceMinor }),
+    })),
+  });
+
+  // Two suspended over arrears, which is the case the interface has an opinion
+  // about: suspended still eats, and is charged at the counter.
+  const suspendable = await db.mealSubscription.findMany({
+    where: { termId: term.id },
+    take: 2,
+    orderBy: { id: "asc" },
+    select: { id: true },
+  });
+  for (const row of suspendable) {
+    await db.mealSubscription.update({
+      where: { id: row.id },
+      data: { status: "SUSPENDED", reason: "Fees in arrears, reviewed at half term" },
+    });
+  }
+
+  // --- Sittings already served -----------------------------------------------
+
+  const liveSubscriptions = await db.mealSubscription.findMany({
+    where: { termId: term.id, status: "ACTIVE" },
+    select: { studentId: true, plan: { select: { sittings: true } } },
+  });
+
+  const isoDayOf = (date: Date) => (date.getDay() === 0 ? 7 : date.getDay());
+  const weekOf = (date: Date) => {
+    const from = Date.UTC(cycleStart.getFullYear(), cycleStart.getMonth(), cycleStart.getDate());
+    const to = Date.UTC(date.getFullYear(), date.getMonth(), date.getDate());
+    const weeks = Math.round((to - from) / (7 * 86_400_000));
+    return (((weeks % 2) + 2) % 2) + 1;
+  };
+
+  const items = await db.mealMenuItem.findMany({
+    where: { menuId: menu.id },
+    select: {
+      id: true,
+      weekNumber: true,
+      dayOfWeek: true,
+      sitting: true,
+      dish: true,
+      allergens: true,
+    },
+  });
+
+  let servicesMade = 0;
+  let mealsServed = 0;
+
+  for (let back = 4; back >= 1; back -= 1) {
+    const servedOn = daysAgo(back);
+    if (isoDayOf(servedOn) === 7) continue;
+
+    for (const sitting of ["BREAKFAST", "LUNCH", "SUPPER"]) {
+      const item = items.find(
+        (candidate) =>
+          candidate.weekNumber === weekOf(servedOn) &&
+          candidate.dayOfWeek === isoDayOf(servedOn) &&
+          candidate.sitting === sitting,
+      );
+
+      const entitled = liveSubscriptions.filter((entry) =>
+        entry.plan.sittings.includes(sitting as never),
+      );
+      if (!entitled.length) continue;
+
+      const service = await db.mealService.create({
+        data: {
+          servedOn,
+          sitting: sitting as never,
+          menuItemId: item?.id ?? null,
+          dishServed: item?.dish ?? null,
+          allergens: item?.allergens ?? [],
+          openedAt: servedOn,
+          closedAt: new Date(servedOn.getTime() + 90 * 60 * 1000),
+          expectedCount: entitled.length,
+        },
+        select: { id: true },
+      });
+      servicesMade += 1;
+
+      // Most of the entitled came. The ones who did not are the whole point of
+      // the missing count, so they are left out rather than filled in.
+      const came = entitled.filter(() => chance(0.92));
+      await db.mealServiceRecord.createMany({
+        data: came.map((entry) => ({
+          serviceId: service.id,
+          studentId: entry.studentId,
+          basis: "PLAN" as never,
+          chargedMinor: 0,
+          servedAt: new Date(servedOn.getTime() + 60 * 60 * 1000),
+          servedBy: "Kitchen",
+        })),
+      });
+      mealsServed += came.length;
+    }
+  }
+
+  console.log(
+    `    ${dishes.length} dishes, ${subscribed.length} on a plan, ${servicesMade} sittings, ${mealsServed} meals served`,
+  );
 }
