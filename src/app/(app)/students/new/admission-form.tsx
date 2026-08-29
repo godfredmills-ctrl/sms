@@ -87,7 +87,7 @@ export function AdmissionForm({
           <div className="mt-5 flex flex-wrap justify-center gap-2">
             <Link
               href={`/students/${state.studentId}`}
-              className="inline-flex h-9 items-center rounded-lg bg-[var(--primary)] px-4 text-sm font-medium text-white hover:opacity-90"
+              className="inline-flex h-9 items-center rounded-lg bg-[var(--button)] px-4 text-sm font-medium text-[var(--button-text)] hover:bg-[var(--button-hover)]"
             >
               Open the profile
             </Link>

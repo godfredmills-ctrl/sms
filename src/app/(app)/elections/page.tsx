@@ -190,7 +190,7 @@ export default async function ElectionsPage() {
                       ) : null}
                       <Link
                         href={`/elections/${election.slug}`}
-                        className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-[var(--primary)] px-3 text-xs font-medium text-white hover:opacity-90"
+                        className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-[var(--button)] px-3 text-xs font-medium text-[var(--button-text)] hover:bg-[var(--button-hover)]"
                       >
                         {isOpen && hasVoted === false ? "Vote" : "View"}
                       </Link>

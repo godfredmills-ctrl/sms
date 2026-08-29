@@ -236,7 +236,7 @@ export default async function LessonPage({
             {next ? (
               <Link
                 href={`/portal/student/courses/${courseId}/lessons/${next.id}`}
-                className="inline-flex h-9 flex-1 items-center justify-center gap-1 rounded-lg bg-[var(--primary)] px-3 text-xs font-medium text-white hover:opacity-90"
+                className="inline-flex h-9 flex-1 items-center justify-center gap-1 rounded-lg bg-[var(--button)] px-3 text-xs font-medium text-[var(--button-text)] hover:bg-[var(--button-hover)]"
               >
                 Next
                 <ChevronRight className="size-3.5" />

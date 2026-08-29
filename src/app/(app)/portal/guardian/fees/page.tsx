@@ -216,7 +216,7 @@ export default async function GuardianFeesPage({
           balance > 0 ? (
             <Link
               href="/portal/guardian"
-              className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-[var(--primary)] px-3 text-sm font-medium text-white hover:opacity-90"
+              className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-[var(--button)] px-3 text-sm font-medium text-[var(--button-text)] hover:bg-[var(--button-hover)]"
             >
               <Wallet className="size-4" />
               Pay now

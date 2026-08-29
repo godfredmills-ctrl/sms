@@ -61,7 +61,7 @@ export function LedgerSearch({
         </div>
         <button
           type="submit"
-          className="h-9 shrink-0 rounded-[var(--radius)] bg-[var(--primary)] px-4 text-sm font-medium text-white"
+          className="h-9 shrink-0 rounded-[var(--radius)] bg-[var(--button)] px-4 text-sm font-medium text-[var(--button-text)]"
         >
           Search
         </button>

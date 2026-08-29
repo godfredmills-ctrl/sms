@@ -25,7 +25,7 @@ type ButtonSize = "sm" | "md" | "lg" | "icon";
 
 const BUTTON_VARIANTS: Record<ButtonVariant, string> = {
   primary:
-    "bg-[var(--primary)] text-[var(--primary-text)] hover:bg-[var(--primary-hover)] shadow-sm",
+    "bg-[var(--button)] text-[var(--button-text)] hover:bg-[var(--button-hover)] shadow-sm",
   secondary:
     "bg-[var(--bg-subtle)] text-[var(--text)] hover:bg-[var(--border)] border border-[var(--border)]",
   outline:

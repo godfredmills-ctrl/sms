@@ -292,7 +292,7 @@ export default async function EnquiriesPage({
                 <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-[var(--border)] pt-3">
                   <Link
                     href={`/students/new?from=${submission.id}`}
-                    className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-[var(--primary)] px-3 text-xs font-medium text-[var(--primary-text)] hover:bg-[var(--primary-hover)]"
+                    className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-[var(--button)] px-3 text-xs font-medium text-[var(--button-text)] hover:bg-[var(--button-hover)]"
                   >
                     Start admission
                   </Link>

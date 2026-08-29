@@ -26,7 +26,7 @@ export default function NotFound() {
         <div className="mt-6 flex justify-center gap-2">
           <Link
             href="/"
-            className="inline-flex h-9.5 items-center rounded-lg bg-[var(--primary)] px-4 text-sm font-medium text-[var(--primary-text)]"
+            className="inline-flex h-9.5 items-center rounded-lg bg-[var(--button)] px-4 text-sm font-medium text-[var(--button-text)]"
           >
             Back to my dashboard
           </Link>

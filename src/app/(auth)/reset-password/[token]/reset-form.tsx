@@ -20,7 +20,7 @@ export function ResetPasswordForm({ token }: { token: string }) {
         <Alert tone="success">Password changed. Sign in with the new one.</Alert>
         <Link
           href="/login"
-          className="inline-flex h-10 w-full items-center justify-center rounded-lg bg-[var(--primary)] px-4 text-sm font-medium text-[var(--primary-text)] hover:opacity-90"
+          className="inline-flex h-10 w-full items-center justify-center rounded-lg bg-[var(--button)] px-4 text-sm font-medium text-[var(--button-text)] hover:bg-[var(--button-hover)]"
         >
           Go to sign in
         </Link>

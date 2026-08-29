@@ -227,12 +227,14 @@ export function AppShell({
             <Link
               href="/help"
               aria-label="Help centre"
-              className="mx-auto hidden size-10 items-center justify-center rounded-xl bg-[var(--sidebar-accent)] text-[var(--sidebar-on-accent)] transition-opacity hover:opacity-90 lg:flex"
+              // The ring is the card colour, so the gold square has a dark
+              // edge where the panel behind it has run to gold as well.
+              className="mx-auto hidden size-10 items-center justify-center rounded-xl bg-[var(--sidebar-accent)] text-[var(--sidebar-on-accent)] ring-4 ring-[var(--sidebar-card)] transition-opacity hover:opacity-90 lg:flex"
             >
               <LifeBuoy className="size-5" />
             </Link>
           ) : (
-            <div className="rounded-2xl bg-[var(--sidebar-hover)] p-4 text-center">
+            <div className="rounded-2xl bg-[var(--sidebar-card)] p-4 text-center">
               <p className="text-sm font-semibold">Stuck on something?</p>
               <p className="mt-1 text-xs leading-relaxed text-[var(--sidebar-faint)]">
                 The help centre covers every screen, step by step.

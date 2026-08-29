@@ -51,6 +51,23 @@
   --primary-text: #ffffff;
   --ring: var(--color-brand-500);
 
+  /*
+   * Buttons.
+   *
+   * Separate from --primary on purpose. Primary is the school colour, set in
+   * Settings, and it marks selection: the tab you are on, the day you picked,
+   * the row that is chosen. A button is a different thing. It is the one
+   * element on a screen that is meant to be pressed, and it is the same gold
+   * on every page of every deployment so that people stop having to work out
+   * what to press.
+   *
+   * Dark label rather than white. White on this gold measures 1.7:1, which is
+   * not a readable label at any size; the brown measures 10:1.
+   */
+  --button: #f0c061;
+  --button-hover: #e2ad46;
+  --button-text: #2a1a0a;
+
   --success: #12805c;
   --success-soft: #e4f6ee;
   --warning: #a86404;
@@ -74,51 +91,63 @@
      block of colour the eye keeps returning to, and beside dark pages it is
      the brightest thing on the screen.
 
-     It is a warm neutral now rather than a tinted one, and it does not follow
-     the colour in Settings at all. Pale here, near-black in the dark theme,
-     one amber button in both.
+     It does not follow the colour in Settings at all. Flat blue here, a warm
+     gradient in the dark theme, and the same gold button on both.
      -------------------------------------------------------------------- */
-  --sidebar-top: #fdfbf9;
-  --sidebar-bg: #f6f2ee;
-  --sidebar-bottom: #ece5df;
-  --sidebar-text: #21160f;
-  --sidebar-muted: #5c4e45;
-  --sidebar-faint: #8d7f75;
-  --sidebar-hover: rgb(33 22 15 / 0.055);
-  --sidebar-active-bg: rgb(33 22 15 / 0.08);
-  --sidebar-active-text: #21160f;
-  --sidebar-line: rgb(33 22 15 / 0.09);
-  --sidebar-tree: rgb(33 22 15 / 0.16);
-  --sidebar-flyout: #fffdfb;
+
+  /*
+   * Flat, and deliberately so: one colour, top to bottom, no gradient.
+   *
+   * The three tokens the panel rule blends between are all the same value,
+   * which is how "no gradient" is said here without needing a second rule for
+   * the light theme. Change one and the panel is banded; change all three and
+   * it moves as a piece.
+   */
+  --sidebar-top: #1538bd;
+  --sidebar-bg: #1538bd;
+  --sidebar-bottom: #1538bd;
+
+  /* Light type on a saturated blue. White at full strength for what is being
+     read, and thinned for what is only being glanced at. */
+  --sidebar-text: #ffffff;
+  --sidebar-muted: rgb(255 255 255 / 0.76);
+  --sidebar-faint: rgb(255 255 255 / 0.52);
+  --sidebar-hover: rgb(255 255 255 / 0.1);
+  --sidebar-active-bg: rgb(255 255 255 / 0.17);
+  --sidebar-active-text: #ffffff;
+  --sidebar-line: rgb(255 255 255 / 0.15);
+  --sidebar-tree: rgb(255 255 255 / 0.3);
+  /* A flyout is the same blue a shade deeper, so it reads as sitting above
+     the panel rather than being a hole cut in it. */
+  --sidebar-flyout: #12309f;
   /* A tooltip stays dark in both themes: it is a label floating over the page,
      and it has to separate from whatever is behind it. */
-  --sidebar-tooltip: #21160f;
+  --sidebar-tooltip: #0b1f6b;
   --sidebar-tooltip-text: #ffffff;
 
   /* The glass: light blooming inside the pane, and the shadow it casts on the
      page. Named rather than written into the rule so the dark panel is lit
      from the same place without needing a second rule. */
-  --sidebar-glow-a: rgb(255 255 255 / 0.85);
-  --sidebar-glow-b: rgb(232 150 60 / 0.07);
-  --sidebar-cast: rgb(33 22 15 / 0.1);
+  --sidebar-glow-a: rgb(255 255 255 / 0.14);
+  --sidebar-glow-b: rgb(240 192 97 / 0.12);
+  --sidebar-cast: rgb(21 56 189 / 0.3);
 
   /*
-   * The amber, from the reference. Fixed rather than brand-derived, and the
-   * same value in both themes.
+   * The card at the foot of the panel, which the help block and the gold
+   * button sit on.
    *
-   * The panel is the largest permanent area on the screen and the button on it
-   * is the one thing meant to be pressed, so both are set here rather than
-   * following Settings. A school that picks a strong primary colour gets it on
-   * buttons, links and the selected row, and does not get a sidebar that
-   * fights every page beside it.
-   *
-   * The label is the dark brown of the panel rather than white. White on this
-   * amber measures 2.4:1, which is not a readable label at 12px however good
-   * it looks in a screenshot; brown on it measures 7.3:1 and keeps the button
-   * the colour it is meant to be.
+   * Its own token because in the dark theme the panel ends on the same gold
+   * as the button, and a gold button on a gold ground is not a button. A dark
+   * card underneath it is what keeps it visible, and having a name for that
+   * means the light theme can use the ordinary translucent white without the
+   * two cases needing separate markup.
    */
-  --sidebar-accent: #e8963c;
-  --sidebar-on-accent: #2a1710;
+  --sidebar-card: rgb(255 255 255 / 0.13);
+
+  /* The button in the panel is the same button as everywhere else, so it
+     takes the same value rather than a second copy of it that can drift. */
+  --sidebar-accent: var(--button);
+  --sidebar-on-accent: var(--button-text);
 
   color-scheme: light;
 }
@@ -161,33 +190,44 @@
   --teal: #4fbecb;
   --teal-soft: #0d2a2e;
 
-  /* Its own palette here rather than the light one inherited. A pale panel is
-     right beside pale pages and wrong beside dark ones: it stops being part of
-     the frame and becomes a lamp.
+  /*
+   * The dark panel: a warm near-black at the head running to gold at the foot.
+   *
+   * Two colours a long way apart, which is the point. The gradient before this
+   * one ran between two browns four percent apart in lightness and was, for
+   * practical purposes, invisible.
+   *
+   * The dark is held for the first half of the panel and the blend happens
+   * over the second, which is not a hard stop and is not decoration either.
+   * Light type stops being readable on this gradient at about two thirds of
+   * the way down: white on the mid-tone measures 3.4:1 and on the gold itself
+   * 1.7:1. Holding the dark through the top half keeps the whole navigation
+   * list in the range where it can be read, and puts the gold where the panel
+   * has nothing on it but the help card, which carries its own dark ground.
+   */
+  --sidebar-top: #251514;
+  --sidebar-bg: #251514;
+  --sidebar-bottom: #f0c061;
 
-     A warm near-black: brown rather than navy or neutral charcoal, and lighter
-     at the head than at the foot. */
-  --sidebar-top: #33201a;
-  --sidebar-bg: #291812;
-  --sidebar-bottom: #1b0f0b;
-  --sidebar-text: #f6ece6;
-  --sidebar-muted: rgb(246 236 230 / 0.72);
-  --sidebar-faint: rgb(246 236 230 / 0.45);
-  --sidebar-hover: rgb(255 255 255 / 0.06);
-  --sidebar-active-bg: rgb(255 255 255 / 0.1);
+  --sidebar-text: #f7ece2;
+  --sidebar-muted: rgb(247 236 226 / 0.74);
+  --sidebar-faint: rgb(247 236 226 / 0.48);
+  --sidebar-hover: rgb(255 255 255 / 0.08);
+  --sidebar-active-bg: rgb(255 255 255 / 0.13);
   --sidebar-active-text: #ffffff;
-  --sidebar-line: rgb(255 255 255 / 0.08);
-  --sidebar-tree: rgb(255 255 255 / 0.2);
-  --sidebar-flyout: #2c1a14;
-  --sidebar-tooltip: #1a0f0b;
+  --sidebar-line: rgb(255 255 255 / 0.1);
+  --sidebar-tree: rgb(255 255 255 / 0.22);
+  --sidebar-flyout: #33201d;
+  --sidebar-tooltip: #1a0e0d;
   --sidebar-tooltip-text: #ffffff;
 
-  --sidebar-glow-a: rgb(255 255 255 / 0.1);
-  /* The amber catching in the glass, the same colour as the button. The button
-     itself is not restated here: it is the one colour that holds across both
-     themes. */
-  --sidebar-glow-b: rgb(232 150 60 / 0.16);
+  --sidebar-glow-a: rgb(255 255 255 / 0.08);
+  /* The gold catching in the glass, the same colour the panel ends on. */
+  --sidebar-glow-b: rgb(240 192 97 / 0.14);
   --sidebar-cast: rgb(0 0 0 / 0.5);
+  /* Nearly opaque, because it sits on the gold end of the gradient and its
+     whole job is to give the gold button something to be seen against. */
+  --sidebar-card: rgb(37 21 20 / 0.92);
 
   color-scheme: dark;
 }

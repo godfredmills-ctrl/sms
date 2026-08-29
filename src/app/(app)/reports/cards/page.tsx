@@ -241,7 +241,7 @@ export default async function ReportCardsPage({
                 />
                 <button
                   type="submit"
-                  className="flex h-9.5 w-full items-center justify-center gap-2 rounded-lg bg-[var(--primary)] text-sm font-medium text-[var(--primary-text)]"
+                  className="flex h-9.5 w-full items-center justify-center gap-2 rounded-lg bg-[var(--button)] text-sm font-medium text-[var(--button-text)]"
                 >
                   <Send className="size-4" />
                   Publish and notify families
