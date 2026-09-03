@@ -86,6 +86,7 @@ const SHOTS = [
   ],
   ["students", "/students", {}],
   ["student-profile", "@student", {}],
+  ["cover", "/cover", {}],
   ["attendance", "/attendance", {}],
   ["gradebook", "/gradebook", {}],
   ["report-cards", "/reports/cards", {}],

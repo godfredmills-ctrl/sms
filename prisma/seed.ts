@@ -19,6 +19,19 @@ import { computePayslip, parseAllowances } from "../src/lib/payroll";
 import { PERMISSIONS, ROLE_PRESETS } from "../src/lib/rbac";
 import { storeFile } from "../src/lib/storage";
 import { weekEndingFor, weekOfTerm } from "../src/lib/lesson-notes";
+// Aliased because the seed already has a pick, a between and a startOfDay of
+// its own, and the point of importing these is that the demonstration data
+// obeys the same rules the screens do rather than a second copy of them.
+import {
+  absentOn as coverAbsentOn,
+  addDays as coverAddDays,
+  isWeekend as coverIsWeekend,
+  isoDayOfWeek as coverIsoDayOfWeek,
+  periodsToCover as coverPeriodsToCover,
+  rankCandidates as coverRankCandidates,
+  today as coverToday,
+  type Arrangement as CoverArrangement,
+} from "../src/lib/cover-rules";
 import {
   allClashes,
   generateTimetable,
@@ -192,6 +205,9 @@ async function main() {
   // Last of the academic seeds: it needs the offerings and the term, and it
   // reads the clock to work out which weeks have already happened.
   await seedLessonNotes(terms);
+  // After the timetable and the staff, because it is the two of them meeting:
+  // leave, and the periods it leaves without anybody in the room.
+  await seedCover(staff);
   await seedAdmissions(levels, staff, year.id, roles);
 
   console.log("\nDone.\n");
@@ -308,6 +324,9 @@ async function reset() {
     // points at a category too, so both go before it.
     "expense", "budgetLine", "expenseCategory", "vendor",
     "visitor",
+    // Cover points at a timetable slot and at three different members of
+    // staff, so it clears before the leave that made it necessary.
+    "coverAssignment",
     "staffLeave", "student", "guardian", "staff",
     "classSection", "classLevel", "subject",
     "auditLog", "session", "verificationToken",
@@ -7051,5 +7070,299 @@ async function seedLessonNotes(terms: TermRow[]) {
 
   console.log(
     `    ${rows.length} notes across ${weeksSoFar} weeks: ${approved} approved, ${submitted} waiting, ${returned} sent back, ${missing} never written`,
+  );
+}
+
+// -----------------------------------------------------------------------------
+// Leave, and the cover it makes necessary
+//
+// Both in one function because they are one fact. Leave with no cover leaves a
+// board saying every class has its teacher while four of them do not, and
+// cover with no leave is a set of rows about nobody being away.
+// -----------------------------------------------------------------------------
+
+async function seedCover(staff: StaffRow[]) {
+  console.log("  Leave and cover…");
+
+  const teachers = staff.filter((member) => member.isTeaching);
+  const arranger = staff.find((member) => member.roleKey === "assistant_head") ?? null;
+  if (teachers.length < 12) return;
+
+  const today = coverToday();
+
+  /** The nth school day from a date, skipping weekends in both directions. */
+  const schoolDay = (from: Date, steps: number): Date => {
+    let cursor = coverAddDays(from, 0);
+    const step = steps >= 0 ? 1 : -1;
+    let left = Math.abs(steps);
+
+    while (left > 0 || coverIsWeekend(cursor)) {
+      cursor = coverAddDays(cursor, step);
+      if (!coverIsWeekend(cursor) && left > 0) left -= 1;
+    }
+
+    return cursor;
+  };
+
+  const start = coverIsWeekend(today) ? schoolDay(today, 1) : today;
+
+  /*
+   * StaffLeave holds a timestamp, and the leave module writes local midnight
+   * into it. Seeding calendar days straight in would put the demonstration
+   * data an hour off the data the application creates, which is the sort of
+   * difference that hides for months and then explains a bug badly.
+   */
+  const asWritten = (day: Date) =>
+    new Date(day.getUTCFullYear(), day.getUTCMonth(), day.getUTCDate());
+  const yesterday = schoolDay(start, -1);
+
+  /*
+   * A staff room in an ordinary week.
+   *
+   * Sick leave that started yesterday, annual leave booked months ago, a study
+   * day, a funeral. Two requests still waiting on the head, so the leave queue
+   * has something in it and so the cover board can be seen ignoring them: a
+   * request is not an absence, and arranging cover against one would be a
+   * screen granting leave nobody granted.
+   */
+  const plans: Array<{
+    staff: StaffRow;
+    from: Date;
+    to: Date;
+    type: string;
+    status: string;
+    reason: string;
+  }> = [
+    {
+      staff: teachers[1]!,
+      from: yesterday,
+      to: start,
+      type: "SICK",
+      status: "APPROVED",
+      reason: "Malaria. A note from the clinic to follow.",
+    },
+    {
+      staff: teachers[3]!,
+      from: start,
+      to: schoolDay(start, 3),
+      type: "ANNUAL",
+      status: "APPROVED",
+      reason: "Booked at the start of the year.",
+    },
+    {
+      staff: teachers[5]!,
+      from: start,
+      to: start,
+      type: "COMPASSIONATE",
+      status: "APPROVED",
+      reason: "Funeral in Kumasi.",
+    },
+    {
+      staff: teachers[7]!,
+      from: schoolDay(start, 1),
+      to: schoolDay(start, 2),
+      type: "STUDY",
+      status: "APPROVED",
+      reason: "Contact sessions at UEW.",
+    },
+    {
+      staff: teachers[9]!,
+      from: yesterday,
+      to: yesterday,
+      type: "SICK",
+      status: "APPROVED",
+      reason: "",
+    },
+    {
+      staff: teachers[11]!,
+      from: schoolDay(start, 6),
+      to: schoolDay(start, 10),
+      type: "ANNUAL",
+      status: "PENDING",
+      reason: "A wedding, and the week after it.",
+    },
+    {
+      staff: teachers[2]!,
+      from: schoolDay(start, 4),
+      to: schoolDay(start, 4),
+      type: "UNPAID",
+      status: "PENDING",
+      reason: "Passport appointment.",
+    },
+  ];
+
+  for (const plan of plans) {
+    let days = 0;
+    for (let cursor = plan.from; cursor <= plan.to; cursor = coverAddDays(cursor, 1)) {
+      if (!coverIsWeekend(cursor)) days += 1;
+    }
+
+    await db.staffLeave.create({
+      data: {
+        staffId: plan.staff.id,
+        leaveType: plan.type,
+        startDate: asWritten(plan.from),
+        endDate: asWritten(plan.to),
+        days,
+        reason: plan.reason || null,
+        status: plan.status,
+        approvedBy: plan.status === "APPROVED" ? (arranger?.userId ?? null) : null,
+        approvedAt: plan.status === "APPROVED" ? coverAddDays(plan.from, -3) : null,
+      },
+    });
+  }
+
+  /*
+   * The board, for yesterday and today.
+   *
+   * Yesterday is finished, because a screen that has never had a completed day
+   * on it teaches nobody what a finished day looks like. Today is two thirds
+   * done and has one period written off, which is what half past seven in the
+   * morning actually looks like. Tomorrow is untouched on purpose: the first
+   * thing anybody opening this should find is work.
+   */
+  const all = await db.staff.findMany({
+    where: { status: "ACTIVE" },
+    select: {
+      id: true,
+      title: true,
+      firstName: true,
+      lastName: true,
+      department: true,
+      specialisations: true,
+      isTeaching: true,
+    },
+  });
+
+  const pool = all.map((person) => ({
+    staffId: person.id,
+    name: [person.title, person.firstName, person.lastName].filter(Boolean).join(" "),
+    department: person.department,
+    specialisations: person.specialisations,
+    isTeaching: person.isTeaching,
+  }));
+
+  const approved = plans
+    .filter((plan) => plan.status === "APPROVED")
+    .map((plan) => ({
+      staffId: plan.staff.id,
+      from: plan.from,
+      to: plan.to,
+      reason: `${plan.type.charAt(0)}${plan.type.slice(1).toLowerCase()} leave`,
+    }));
+
+  let created = 0;
+  let lost = 0;
+  let open = 0;
+
+  for (const [index, date] of [yesterday, start].entries()) {
+    const finished = index === 0;
+
+    const slots = await db.timetableSlot.findMany({
+      where: {
+        dayOfWeek: coverIsoDayOfWeek(date),
+        isBreak: false,
+        offeringId: { not: null },
+      },
+      select: {
+        id: true,
+        dayOfWeek: true,
+        periodIndex: true,
+        startTime: true,
+        endTime: true,
+        room: true,
+        classSection: {
+          select: { name: true, classLevel: { select: { name: true } } },
+        },
+        offering: {
+          select: {
+            teacherId: true,
+            room: true,
+            subject: { select: { id: true, name: true } },
+          },
+        },
+      },
+    });
+
+    const lessons = slots.map((slot) => ({
+      slotId: slot.id,
+      dayOfWeek: slot.dayOfWeek,
+      periodIndex: slot.periodIndex,
+      startTime: slot.startTime,
+      endTime: slot.endTime,
+      staffId: slot.offering?.teacherId ?? null,
+      subjectId: slot.offering?.subject.id ?? null,
+      subject: slot.offering?.subject.name ?? "",
+      className: `${slot.classSection.classLevel.name} ${slot.classSection.name}`,
+      room: slot.room ?? slot.offering?.room ?? null,
+    }));
+
+    const absent = coverAbsentOn(approved, date);
+    const holes = coverPeriodsToCover(lessons, absent, date);
+    const running: CoverArrangement[] = [];
+
+    for (const [position, lesson] of holes.entries()) {
+      if (!lesson.staffId) continue;
+
+      // Today stops two thirds of the way down the list, which is roughly
+      // where a deputy head is when the bell goes.
+      if (!finished && position >= Math.ceil(holes.length * 0.66)) {
+        open += 1;
+        continue;
+      }
+
+      // One period a day written off, so the number meaning "somebody decided
+      // this class loses the lesson" is not permanently zero.
+      if (position === 2) {
+        await db.coverAssignment.create({
+          data: {
+            date,
+            dayOfWeek: lesson.dayOfWeek,
+            slotId: lesson.slotId,
+            absentStaffId: lesson.staffId,
+            kind: "CANCELLED",
+            note: "Nobody free in the whole school. The class sits with their form teacher.",
+            arrangedById: arranger?.id ?? null,
+          },
+        });
+        running.push({ slotId: lesson.slotId, kind: "CANCELLED", coverStaffId: null });
+        lost += 1;
+        continue;
+      }
+
+      const best = coverRankCandidates(lesson, pool, lessons, running, absent)[0];
+      if (!best) {
+        open += 1;
+        continue;
+      }
+
+      // Mostly a teacher takes it. Every so often it is honestly recorded as
+      // supervision, because pretending otherwise is how a school convinces
+      // itself that its cover is teaching.
+      const kind = random() < 0.18 ? "SUPERVISED" : "TEACHER";
+
+      await db.coverAssignment.create({
+        data: {
+          date,
+          dayOfWeek: lesson.dayOfWeek,
+          slotId: lesson.slotId,
+          absentStaffId: lesson.staffId,
+          kind,
+          coverStaffId: best.staffId,
+          note:
+            kind === "SUPERVISED"
+              ? "Exercises left on the desk. Collect the books at the end."
+              : null,
+          arrangedById: arranger?.id ?? null,
+        },
+      });
+
+      running.push({ slotId: lesson.slotId, kind, coverStaffId: best.staffId });
+      created += 1;
+    }
+  }
+
+  console.log(
+    `    ${plans.length} leave requests, ${created} periods covered, ${lost} written off, ${open} still open`,
   );
 }

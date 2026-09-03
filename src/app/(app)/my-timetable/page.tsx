@@ -14,6 +14,8 @@ import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { taughtBy } from "@/lib/scope";
 
+import { CoverCard } from "./cover-card";
+
 export const metadata: Metadata = { title: "My timetable" };
 export const dynamic = "force-dynamic";
 
@@ -143,6 +145,11 @@ export default async function MyTimetablePage() {
           ) : undefined
         }
       />
+
+      {/* Before the empty state on purpose. A teacher with no lessons of
+          their own can still have been given cover, and that is exactly the
+          person who would never think to look for it. */}
+      <CoverCard staffId={user.staffId} />
 
       {slots.length === 0 ? (
         <Card>

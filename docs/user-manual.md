@@ -222,7 +222,31 @@ A draft does not count as handed in. It is a form somebody opened, not a note an
 
 ![The vetting queue, and the teachers who have handed nothing in.](screenshots/lesson-notes-vetting.png)
 
-### 4.3 Attendance
+### 4.3 Cover
+
+Cover. Every teacher can read it; arranging it needs the cover permission, which is normally the assistant head's.
+
+Who stands in front of a class when the teacher is not there. Approving leave and covering the lessons that leave creates used to be two jobs in two places, and the second one was done on a piece of paper.
+
+**Where the absences come from.** Nowhere on this screen. They are read out of approved leave every time the page loads. Nobody is typed in as absent, and nobody can be: if a name is missing from "Who is out", that person has leave nobody approved, and approving it on the Leave screen puts them here. Leave cut short on a Tuesday afternoon empties Wednesday's board by itself.
+
+A request that is still pending is not an absence. Cover cannot be arranged against one, because a screen that did so would have granted leave nobody granted.
+
+**The day.** Every period whose teacher is away, in the order the day happens. Each one offers the best free person with one click and the whole list behind "Somebody else".
+
+**How the order is decided.** Somebody who teaches the subject first, so the lesson happens rather than the class being minded. Then somebody in the same department. Then whoever has been asked least today, and then whoever has the lightest day. Anybody who is teaching at that minute, already covering at that minute, or out themselves is not on the list at all.
+
+A free period is not free time. It is when marking and preparation and seeing a parent happen. The list still offers somebody a third cover in one day; it just says out loud that it is the third.
+
+**The four things that can happen.** Another teacher takes it. Somebody supervises set work, which is minding rather than teaching and is named as such. The class merges with another. Or the period is lost, which has to carry a reason, because a term of quietly lost periods is a staffing problem nobody can point at.
+
+**Fill the remaining.** Places every outstanding period at once, best candidate first, re-reading its own work as it goes so nobody is given two rooms at the same minute. It is for ten to seven in the morning. Read the names before the bell.
+
+**On the teacher's side.** Cover appears on My timetable, in both directions: what you have been given, and who is taking your classes while you are away. Whoever is given a period is notified when the decision is made, which is also while they can still say they cannot.
+
+![The cover board: the day, who is out, and the slips.](screenshots/cover.png)
+
+### 4.4 Attendance
 
 Attendance is taken per class per day, or per lesson if the school works that way.
 
@@ -234,7 +258,7 @@ Attendance reports show patterns rather than single days. A pupil missing every 
 
 ![Taking a register.](screenshots/attendance.png)
 
-### 4.4 The gradebook
+### 4.5 The gradebook
 
 The gradebook is where marks are entered.
 
@@ -244,7 +268,7 @@ A blank is not a zero. If a pupil has not been assessed, leave the cell empty. T
 
 Mark a pupil absent for an assessment rather than giving them zero. An absence is left out of both sides of the calculation. A zero drags the average down and drags the whole class position with it.
 
-### 4.5 Assessments and how they are weighted
+### 4.6 Assessments and how they are weighted
 
 A subject's mark is made of components. Typically continuous assessment counts for thirty per cent and the end of term examination for seventy, but the split is set by the school under Settings, then Grading.
 
@@ -254,7 +278,7 @@ Grading scales are also set under Settings. A scale turns a percentage into a gr
 
 ![The gradebook. A blank is not a zero.](screenshots/gradebook.png)
 
-### 4.6 Report cards
+### 4.7 Report cards
 
 Reports, then Report cards.
 
@@ -264,7 +288,7 @@ Review before publishing. A report card that has been published is visible in th
 
 Report cards print on the school's letterhead. Absences show as "Abs" rather than as a zero, so a parent can see the difference between a child who did badly and a child who was not there.
 
-### 4.7 Examinations
+### 4.8 Examinations
 
 Examinations are handled separately from ordinary class assessments because they involve the whole school at once.
 
@@ -284,7 +308,7 @@ Examinations are handled separately from ordinary class assessments because they
 
 **Marks** are entered per paper, across every class at once, which is how an examinations officer actually works. The marks flow into the gradebook and onto the report card, so nothing is entered twice.
 
-### 4.8 Transcripts and certificates
+### 4.9 Transcripts and certificates
 
 Credentials, then Issue. Choose the pupil and the kind of document.
 
@@ -680,7 +704,7 @@ Train by job, not by module. Five sessions, roughly half a day each.
 
 **Session two: the office.** Registrar and front desk. Admissions, admitting a pupil, guardians and family links, ID cards, visitors, and the website enquiry list.
 
-**Session three: teaching staff.** Lesson notes, attendance, the gradebook, assessments, report cards. This is the largest group and the one where the "a blank is not a zero" point needs making twice.
+**Session three: teaching staff.** Lesson notes, cover, attendance, the gradebook, assessments, report cards. This is the largest group and the one where the "a blank is not a zero" point needs making twice.
 
 Do lesson notes first in that session, and do them by writing a real one for next week rather than by describing the screen. It is the part of the system a teacher touches most often, and the part where the difference between a form and a habit is decided in the first fortnight.
 

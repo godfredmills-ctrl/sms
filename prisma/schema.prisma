@@ -869,6 +869,10 @@ model Staff {
   unavailability    StaffUnavailability[]
   lessonNotesVetted LessonNote[]          @relation("LessonNoteVetter")
 
+  coverWhileAway CoverAssignment[] @relation("CoverAbsent")
+  coveringFor    CoverAssignment[] @relation("CoverStaff")
+  coverArranged  CoverAssignment[] @relation("CoverArrangedBy")
+
   @@index([status])
   @@index([department])
   @@index([lastName, firstName])
@@ -1556,7 +1560,13 @@ model TimetableSlot {
   label          String? // "Assembly", "Break", "Prep"
   isBreak        Boolean          @default(false)
 
+  cover CoverAssignment[]
+
   @@unique([classSectionId, dayOfWeek, periodIndex])
+  /// Not a uniqueness rule anybody needed: id is already unique. It exists so
+  /// CoverAssignment can hold a foreign key to (id, dayOfWeek) and the
+  /// database can refuse cover arranged for the wrong weekday.
+  @@unique([id, dayOfWeek])
   @@index([offeringId])
 }
 
@@ -5632,4 +5642,83 @@ model LessonNote {
   @@unique([offeringId, weekNumber])
   @@index([status])
   @@index([weekEnding])
+}
+
+// ---------------------------------------------------------------------------
+// Cover
+//
+// Who stands in front of a class when the teacher is not there.
+//
+// Leave has existed since the first migration and the timetable since the
+// second, and until now neither knew the other was there. Leave approves a
+// teacher for Monday to Wednesday; the timetable goes on saying that teacher
+// takes JHS 2 Amber at 09:30 on Tuesday. Neither row is wrong. Nothing errors.
+// The class sits by itself.
+//
+// Absence is not stored here. There is no "who is out" table, because the
+// leave table already is one, and a second copy is a copy that stops agreeing
+// the first time somebody cuts their leave short. What a row in this table
+// records is only the decision: this period, this date, this person taking it.
+// ---------------------------------------------------------------------------
+
+enum CoverKind {
+  /// Another teacher takes the lesson.
+  TEACHER
+  /// Somebody sits with the class doing set work. Minding, not teaching, and
+  /// named as such so a term of them is visible.
+  SUPERVISED
+  /// The class joins another class, and one teacher ends up with both.
+  MERGED
+  /// Nobody. The period is lost, recorded rather than quietly dropped.
+  CANCELLED
+}
+
+model CoverAssignment {
+  id String @id @default(cuid())
+
+  /// The calendar day. A timetable slot repeats every week; a cover
+  /// arrangement happens once.
+  date DateTime @db.Date
+
+  /// Denormalised from the slot, and not an accident. The pair below is a
+  /// foreign key to (TimetableSlot.id, TimetableSlot.dayOfWeek), and the
+  /// migration adds a CHECK that this column equals the ISO weekday of the
+  /// date. Between them the database itself refuses cover arranged on a
+  /// Tuesday for a Wednesday period, which is what happens when somebody
+  /// changes the date at the top of the screen and then clicks a row that was
+  /// listed for the day before.
+  dayOfWeek Int
+
+  slotId String
+  slot   TimetableSlot @relation(fields: [slotId, dayOfWeek], references: [id, dayOfWeek], onDelete: Cascade)
+
+  /// The teacher who is away. Kept even though it can be read back through the
+  /// slot, because an offering can be reassigned to somebody else later and
+  /// this row is a record of a particular morning.
+  absentStaffId String
+  absentStaff   Staff  @relation("CoverAbsent", fields: [absentStaffId], references: [id], onDelete: Cascade)
+
+  kind CoverKind @default(TEACHER)
+
+  /// Null only when the period is lost. A CHECK enforces the pairing, and
+  /// another refuses a teacher covering for themselves.
+  coverStaffId String?
+  coverStaff   Staff?  @relation("CoverStaff", fields: [coverStaffId], references: [id], onDelete: SetNull)
+
+  /// What the class is to do, or why the period was lost. Required for a lost
+  /// period: a blank one is the row nobody can answer for at the end of term.
+  note String?
+
+  arrangedById String?
+  arrangedBy   Staff?  @relation("CoverArrangedBy", fields: [arrangedById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  /// One decision per period per day. Two rows would be two teachers each told
+  /// the class was theirs, which is the one failure worse than nobody.
+  @@unique([slotId, date])
+  @@index([date])
+  @@index([coverStaffId, date])
+  @@index([absentStaffId, date])
 }

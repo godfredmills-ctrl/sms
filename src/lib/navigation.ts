@@ -211,6 +211,15 @@ export const STAFF_NAVIGATION: NavGroup[] = [
         permissions: ["attendance.read", "attendance.take"],
       },
       {
+        // Outside /academics deliberately, like My timetable: this is a
+        // noticeboard every teacher reads, and the academics layout demands a
+        // permission most of them do not have.
+        label: "Cover",
+        href: "/cover",
+        icon: "UserRoundCheck",
+        permissions: ["academic.cover.read", "academic.cover.manage"],
+      },
+      {
         label: "Lesson notes",
         href: "/lesson-notes",
         icon: "NotebookPen",

@@ -75,6 +75,11 @@ export const PERMISSIONS: PermissionDef[] = [
     ["lessonnote.write", "create", "Write lesson notes for own classes"],
     ["lessonnote.read", "read", "Read other teachers lesson notes"],
     ["lessonnote.vet", "approve", "Vet, approve and return lesson notes"],
+    // Cover. Reading it is the staff room noticeboard and every teacher needs
+    // it; arranging it is the deputy heads morning, and the two are separate
+    // because a teacher who can arrange cover can arrange their own away.
+    ["cover.read", "read", "See the cover board"],
+    ["cover.manage", "update", "Arrange cover for absent teachers"],
   ]),
 
   ...define("attendance", [
@@ -344,6 +349,9 @@ const TEACHER_PERMISSIONS: string[] = [
   // Their own weekly notes. Vetting is deliberately not here: a teacher who
   // can approve their own note has a signed document nobody read.
   "academic.lessonnote.write",
+  // The cover board is a noticeboard. A teacher reads it to find out whether
+  // they are wanted at 09:30, which is the whole point of it existing.
+  "academic.cover.read",
   "attendance.read",
   "attendance.take",
   "attendance.update",
