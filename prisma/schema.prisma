@@ -861,11 +861,12 @@ model Staff {
   admissionsAssessed    AdmissionAssessment[] @relation("AdmissionAssessor")
   admissionsInterviewed AdmissionInterview[]  @relation("AdmissionInterviewer")
 
-  assetsHeld       Asset[]             @relation("AssetCustodian")
-  assetsHandedOver AssetEvent[]        @relation("AssetFromStaff")
-  assetsReceived   AssetEvent[]        @relation("AssetToStaff")
-  stockIssuedTo    StockMovement[]     @relation("StockIssuedTo")
+  assetsHeld       Asset[]               @relation("AssetCustodian")
+  assetsHandedOver AssetEvent[]          @relation("AssetFromStaff")
+  assetsReceived   AssetEvent[]          @relation("AssetToStaff")
+  stockIssuedTo    StockMovement[]       @relation("StockIssuedTo")
   mealsTaken       MealServiceRecord[]
+  unavailability   StaffUnavailability[]
 
   @@index([status])
   @@index([department])
@@ -1512,6 +1513,20 @@ model SubjectOffering {
   coTeacherIds String[] @default([])
   room         String?
   isActive     Boolean  @default(true)
+
+  /// Periods a week this subject gets in this class.
+  ///
+  /// Zero means the generator leaves it alone, which is the right default: a
+  /// school that has not said how much time a subject needs has not decided,
+  /// and guessing on its behalf produces a timetable nobody trusts.
+  periodsPerWeek Int @default(0)
+
+  /// How many of those periods should be back to back.
+  ///
+  /// A science practical or a double art lesson is not two single periods that
+  /// happen to be adjacent: it is one lesson that cannot be split, and a
+  /// generator that does not know the difference will split it.
+  doublePeriods Int @default(0)
 
   createdAt DateTime @default(now())
 
@@ -5448,4 +5463,67 @@ model AlumniEngagementRecord {
 
   @@index([alumnusId])
   @@index([kind, happenedOn])
+}
+
+// ---------------------------------------------------------------------------
+// Timetabling
+//
+// Three things the builder needed before it could be more than a grid somebody
+// fills in by hand.
+//
+// The period grid, which was a constant in a React component. A school whose
+// first bell is at 07:00 rather than 07:30, or that runs seven periods rather
+// than ten, could not change it without a deploy, and every screen that drew a
+// timetable had its own copy of the times.
+//
+// How many periods a subject gets in a week, which nothing recorded. Without
+// it there is no way to say whether a timetable is finished, let alone build
+// one: "Mathematics, JHS 2 A" is a fact about who teaches what, and "five
+// periods a week" is the fact a timetable is actually made of.
+//
+// When a teacher cannot teach. Part-time staff are the norm in a Ghanaian
+// international school, and a generator that does not know Mr Osei is only in
+// on Tuesdays and Thursdays produces a timetable that has to be thrown away.
+// ---------------------------------------------------------------------------
+
+/// One row of the school's daily bell schedule.
+model TimetablePeriod {
+  id String @id @default(cuid())
+
+  /// Position in the day, from 1. Not the same as a time: two schools with the
+  /// same period 3 need not ring at the same minute, which is why every clash
+  /// check in this system compares the clock and never the index.
+  periodIndex Int @unique
+
+  startTime String // "07:30"
+  endTime   String // "08:10"
+
+  /// Break, assembly, worship, prep. Nothing is taught in one and the
+  /// generator does not place into it.
+  isBreak Boolean @default(false)
+  label   String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+/// A member of staff who cannot teach at a particular time.
+model StaffUnavailability {
+  id      String @id @default(cuid())
+  staffId String
+  staff   Staff  @relation(fields: [staffId], references: [id], onDelete: Cascade)
+
+  /// 1 = Monday through 7 = Sunday.
+  dayOfWeek Int
+
+  /// Null means the whole day. A part-time teacher who is not in on Monday is
+  /// one row, not ten.
+  periodIndex Int?
+
+  reason String?
+
+  createdAt DateTime @default(now())
+
+  @@index([staffId])
+  @@index([dayOfWeek])
 }

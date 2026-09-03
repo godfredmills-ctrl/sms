@@ -1,13 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useActionState, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Pencil, X } from "lucide-react";
 
 import { SearchableSelect, type SelectOption } from "@/components/select-search";
-import { Badge, Button, Field, Input } from "@/components/ui";
+import { Alert, Badge, Button, Field, Input } from "@/components/ui";
+import { DAYS as WEEK, type Period } from "@/lib/timetable-rules";
 import { cn } from "@/lib/utils";
 
-import { saveTimetableSlotAction } from "../actions";
+import { saveTimetableSlotAction, type AcademicState } from "../actions";
 
 export type Slot = {
   id: string;
@@ -24,27 +26,14 @@ export type Slot = {
   teacher: string | null;
 };
 
-const DAYS = [
-  { value: 1, label: "Monday" },
-  { value: 2, label: "Tuesday" },
-  { value: 3, label: "Wednesday" },
-  { value: 4, label: "Thursday" },
-  { value: 5, label: "Friday" },
-];
-
-/** Default period times, used when a slot is created from an empty cell. */
-const PERIODS = [
-  { index: 1, start: "07:30", end: "08:10" },
-  { index: 2, start: "08:10", end: "08:50" },
-  { index: 3, start: "08:50", end: "09:30" },
-  { index: 4, start: "09:30", end: "10:10" },
-  { index: 5, start: "10:10", end: "10:40" },
-  { index: 6, start: "10:40", end: "11:20" },
-  { index: 7, start: "11:20", end: "12:00" },
-  { index: 8, start: "12:00", end: "12:40" },
-  { index: 9, start: "13:20", end: "14:00" },
-  { index: 10, start: "14:00", end: "14:40" },
-];
+/*
+ * The school week and the school day both arrive as data.
+ *
+ * The period times used to be a constant in this file, which meant a school
+ * whose first bell is at 07:00 could not change it without a deploy, and every
+ * other screen that drew a timetable carried its own copy of the same list.
+ */
+const DAYS = WEEK.filter((day) => day.value <= 5);
 
 export function TimetableGrid({
   sectionId,
@@ -52,6 +41,7 @@ export function TimetableGrid({
   offerings,
   canEdit,
   clashes,
+  periods,
 }: {
   sectionId: string;
   slots: Slot[];
@@ -59,12 +49,30 @@ export function TimetableGrid({
   canEdit: boolean;
   /** Slot ids where the teacher is double-booked elsewhere at the same time. */
   clashes: Record<string, string>;
+  /** The school's bell schedule, from Settings. */
+  periods: Period[];
 }) {
   const [editing, setEditing] = useState<{
     day: number;
     period: number;
     slot: Slot | null;
   } | null>(null);
+
+  const router = useRouter();
+  const [state, action] = useActionState<AcademicState, FormData>(
+    saveTimetableSlotAction,
+    {},
+  );
+
+  // The panel closes on a save and stays open on a refusal, with the reason in
+  // it. Closing on both would throw away the only explanation of why nothing
+  // happened.
+  useEffect(() => {
+    if (state.ok) {
+      router.refresh();
+      setEditing(null);
+    }
+  }, [state.ok, router]);
 
   const byKey = new Map(slots.map((slot) => [`${slot.dayOfWeek}:${slot.periodIndex}`, slot]));
 
@@ -88,19 +96,24 @@ export function TimetableGrid({
             </tr>
           </thead>
           <tbody>
-            {PERIODS.map((period) => (
-              <tr key={period.index}>
+            {periods.map((period) => (
+              <tr key={period.periodIndex}>
                 <td className="p-1 align-top">
                   <div className="numeric rounded-lg bg-[var(--bg-subtle)] px-2 py-2 text-xs">
-                    <div className="font-medium">{period.index}</div>
+                    <div className="font-medium">{period.periodIndex}</div>
                     <div className="text-[10px] text-[var(--text-subtle)]">
-                      {period.start}
+                      {period.startTime}
                     </div>
+                    {period.label ? (
+                      <div className="text-[10px] text-[var(--text-subtle)]">
+                        {period.label}
+                      </div>
+                    ) : null}
                   </div>
                 </td>
 
                 {DAYS.map((day) => {
-                  const slot = byKey.get(`${day.value}:${period.index}`);
+                  const slot = byKey.get(`${day.value}:${period.periodIndex}`);
                   const clash = slot ? clashes[slot.id] : undefined;
 
                   return (
@@ -111,7 +124,7 @@ export function TimetableGrid({
                         onClick={() =>
                           setEditing({
                             day: day.value,
-                            period: period.index,
+                            period: period.periodIndex,
                             slot: slot ?? null,
                           })
                         }
@@ -193,7 +206,8 @@ export function TimetableGrid({
               </Button>
             </div>
 
-            <form action={saveTimetableSlotAction} className="space-y-3 p-5">
+            <form action={action} className="space-y-3 p-5">
+              {state.error ? <Alert tone="danger">{state.error}</Alert> : null}
               <input type="hidden" name="classSectionId" value={sectionId} />
               <input type="hidden" name="dayOfWeek" value={editing.day} />
               <input type="hidden" name="periodIndex" value={editing.period} />
@@ -228,7 +242,8 @@ export function TimetableGrid({
                     type="time"
                     defaultValue={
                       editing.slot?.startTime ??
-                      PERIODS.find((period) => period.index === editing.period)?.start
+                      periods.find((period) => period.periodIndex === editing.period)
+                        ?.startTime
                     }
                   />
                 </Field>
@@ -239,7 +254,8 @@ export function TimetableGrid({
                     type="time"
                     defaultValue={
                       editing.slot?.endTime ??
-                      PERIODS.find((period) => period.index === editing.period)?.end
+                      periods.find((period) => period.periodIndex === editing.period)
+                        ?.endTime
                     }
                   />
                 </Field>

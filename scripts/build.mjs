@@ -122,6 +122,7 @@ for (const check of [
   ["ledger rules", "scripts/check-ledger.ts"],
   ["cafeteria rules", "scripts/check-cafeteria.ts"],
   ["alumni rules", "scripts/check-alumni.ts"],
+  ["timetable rules", "scripts/check-timetable.ts"],
 ]) {
   run(`Checking ${check[0]}`, await binOf("tsx/cli"), [check[1]]);
 }

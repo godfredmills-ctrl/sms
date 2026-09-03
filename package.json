@@ -40,6 +40,7 @@
     "ledger:check": "tsx scripts/check-ledger.ts",
     "cafeteria:check": "tsx scripts/check-cafeteria.ts",
     "alumni:check": "tsx scripts/check-alumni.ts",
+    "timetable:check": "tsx scripts/check-timetable.ts",
     "docs:pdf": "tsx --conditions=react-server scripts/make-documents.ts",
     "setup:integrations": "node scripts/setup-integrations.mjs",
     "dev:db": "node scripts/dev-db.mjs",

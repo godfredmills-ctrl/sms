@@ -16,6 +16,7 @@
  *   node scripts/dev-db.mjs --fresh    deletes the data first
  */
 
+import { randomBytes, createHash } from "node:crypto";
 import { rmSync } from "node:fs";
 
 import { PGlite } from "@electric-sql/pglite";
@@ -31,6 +32,54 @@ if (process.argv.includes("--fresh")) {
 
 const db = await PGlite.create({ dataDir: DATA });
 await db.waitReady;
+
+/*
+ * A signed-in session, minted here rather than by a separate script.
+ *
+ * PGlite takes one connection at a time and its wire server does not survive a
+ * client disconnecting: a second process that connects, mints a token and
+ * leaves it leaves the server answering every subsequent query with "server
+ * has closed the connection", which reads exactly like the database being
+ * broken. Doing it against the instance directly, before anything has dialled
+ * the port, means there is only ever one client.
+ *
+ *   node scripts/dev-db.mjs --session
+ */
+if (process.argv.includes("--session")) {
+  const at = process.argv.indexOf("--session");
+  const email =
+    process.argv[at + 1] && !process.argv[at + 1].startsWith("--")
+      ? process.argv[at + 1]
+      : (process.env.SEED_ADMIN_EMAIL ?? "admin@school.edu.gh");
+
+  const found = await db.query('SELECT id FROM "User" WHERE email = $1 LIMIT 1', [email]);
+  const user = found.rows[0];
+
+  if (!user) {
+    console.log(`\n  No user with the address ${email}. Has the seed been run?\n`);
+  } else {
+    const token = randomBytes(32).toString("hex");
+    // Prisma generates the id; at this level it has to be supplied, and the
+    // shape only has to be unique rather than a real cuid.
+    const id = "dev" + randomBytes(12).toString("hex");
+
+    await db.query(
+      `INSERT INTO "Session" ("id", "userId", "tokenHash", "expiresAt", "userAgent", "lastActiveAt", "createdAt")
+       VALUES ($1, $2, $3, $4, $5, NOW(), NOW())`,
+      [
+        id,
+        user.id,
+        // The raw token is never stored: the column holds its hash.
+        createHash("sha256").update(token).digest("hex"),
+        new Date(Date.now() + 7 * 86_400_000),
+        "development harness",
+      ],
+    );
+
+    console.log(`\n  Signed in as ${email} for seven days.`);
+    console.log(`  ${token}`);
+  }
+}
 
 // Prisma connects as `postgres` and expects the database to exist. PGlite
 // serves a single database, so the name in the URL is ignored; this exists so

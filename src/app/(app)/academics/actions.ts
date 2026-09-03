@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { authorize } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { findClash, type Placement } from "@/lib/timetable-rules";
 import { slugify } from "@/lib/utils";
 
 export type AcademicState = { ok?: boolean; error?: string; message?: string };
@@ -451,14 +452,30 @@ export async function createOfferingAction(
   return { ok: true, message: "Subject assigned." };
 }
 
-export async function saveTimetableSlotAction(formData: FormData) {
-  await authorize("academic.timetable.manage");
+/**
+ * Writes one cell of a timetable, and refuses to double book anybody.
+ *
+ * The refusal is the point. The timetable page has always coloured a clashing
+ * cell red, but the action that wrote the cell knew nothing about it, so the
+ * clash was reported after it had been created. The proposal and the manual
+ * both said the builder "refuses to double book a teacher" and it did not; it
+ * complained. Both now use the same module, so the sentence is true.
+ */
+export async function saveTimetableSlotAction(
+  _previous: AcademicState,
+  formData: FormData,
+): Promise<AcademicState> {
+  try {
+    await authorize("academic.timetable.manage");
+  } catch (error) {
+    return { error: (error as Error).message };
+  }
 
   const classSectionId = text(formData, "classSectionId");
   const dayOfWeek = Number(text(formData, "dayOfWeek"));
   const periodIndex = Number(text(formData, "periodIndex"));
   if (!classSectionId || !Number.isFinite(dayOfWeek) || !Number.isFinite(periodIndex)) {
-    return;
+    return { error: "That is not a place on the timetable." };
   }
 
   const offeringId = text(formData, "offeringId") || null;
@@ -472,7 +489,114 @@ export async function saveTimetableSlotAction(formData: FormData) {
       where: { classSectionId, dayOfWeek, periodIndex },
     });
     revalidatePath("/academics/timetable");
-    return;
+    return { ok: true, message: "Cleared." };
+  }
+
+  const room = text(formData, "room") || null;
+  const isBreak = formData.get("isBreak") === "on";
+
+  // The row this is replacing, so putting a subject where a subject already is
+  // does not read as that class clashing with itself.
+  const replacing = await db.timetableSlot.findUnique({
+    where: {
+      classSectionId_dayOfWeek_periodIndex: { classSectionId, dayOfWeek, periodIndex },
+    },
+    select: { id: true },
+  });
+
+  // A break period books nobody and nothing, so it cannot clash with anything.
+  if (offeringId && !isBreak) {
+    const offering = await db.subjectOffering.findUnique({
+      where: { id: offeringId },
+      select: {
+        teacherId: true,
+        coTeacherIds: true,
+        subject: { select: { name: true } },
+      },
+    });
+    if (!offering) return { error: "That subject is not taught in this class." };
+
+    const staffIds = [offering.teacherId, ...offering.coTeacherIds].filter(
+      (id): id is string => Boolean(id),
+    );
+
+    // Everything on that day, across every class, because a teacher belongs to
+    // the school rather than to the section whose grid is being edited.
+    const sameDay = await db.timetableSlot.findMany({
+      where: { dayOfWeek, isBreak: false },
+      select: {
+        id: true,
+        classSectionId: true,
+        dayOfWeek: true,
+        periodIndex: true,
+        startTime: true,
+        endTime: true,
+        room: true,
+        offeringId: true,
+        offering: { select: { teacherId: true, coTeacherIds: true } },
+        classSection: {
+          select: { name: true, classLevel: { select: { name: true } } },
+        },
+      },
+    });
+
+    const existing: Placement[] = sameDay.map((slot) => ({
+      id: slot.id,
+      classSectionId: slot.classSectionId,
+      dayOfWeek: slot.dayOfWeek,
+      periodIndex: slot.periodIndex,
+      startTime: slot.startTime,
+      endTime: slot.endTime,
+      offeringId: slot.offeringId,
+      room: slot.room,
+      staffIds: slot.offering
+        ? [slot.offering.teacherId, ...slot.offering.coTeacherIds].filter(
+            (id): id is string => Boolean(id),
+          )
+        : [],
+    }));
+
+    const clash = findClash(existing, {
+      id: replacing?.id,
+      classSectionId,
+      dayOfWeek,
+      periodIndex,
+      startTime: startTime || "08:00",
+      endTime: endTime || "08:40",
+      offeringId,
+      staffIds,
+      room,
+    });
+
+    if (clash) {
+      const where = sameDay.find((slot) => slot.id === clash.with.id);
+      const other = where
+        ? `${where.classSection.classLevel.name} ${where.classSection.name}`
+        : "another class";
+
+      // Named rather than numbered. "Clashes with slot 47" is true and
+      // useless; the person editing needs to know who or what is already
+      // booked so they can decide what to move.
+      if (clash.kind === "teacher") {
+        const who = await db.staff.findUnique({
+          where: { id: clash.subject ?? "" },
+          select: { firstName: true, lastName: true },
+        });
+        return {
+          error: `${who ? `${who.firstName} ${who.lastName}` : "That teacher"} is already teaching ${other} at ${clash.with.startTime}.`,
+        };
+      }
+
+      if (clash.kind === "room") {
+        return {
+          error: `${clash.subject} is already in use by ${other} at ${clash.with.startTime}.`,
+        };
+      }
+
+      return {
+        error: `This class already has a lesson at ${clash.with.startTime}.`,
+      };
+    }
   }
 
   await db.timetableSlot.upsert({
@@ -486,21 +610,23 @@ export async function saveTimetableSlotAction(formData: FormData) {
       offeringId,
       startTime: startTime || "08:00",
       endTime: endTime || "08:40",
-      room: text(formData, "room") || null,
+      room,
       label: text(formData, "label") || null,
-      isBreak: formData.get("isBreak") === "on",
+      isBreak,
     },
     update: {
       offeringId,
       startTime: startTime || undefined,
       endTime: endTime || undefined,
-      room: text(formData, "room") || null,
+      room,
       label: text(formData, "label") || null,
-      isBreak: formData.get("isBreak") === "on",
+      isBreak,
     },
   });
 
   revalidatePath("/academics/timetable");
+  revalidatePath("/my-timetable");
+  return { ok: true, message: "Saved." };
 }
 
 // -----------------------------------------------------------------------------

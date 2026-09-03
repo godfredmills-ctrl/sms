@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { AlertTriangle, CalendarClock, Clock, Printer } from "lucide-react";
+import { AlertTriangle, CalendarClock, Clock, Printer, Wand2 } from "lucide-react";
 
 import {
   Alert,
@@ -14,7 +14,9 @@ import {
 } from "@/components/ui";
 import { requirePermission, userCan } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { currentTerm, termFilter } from "@/lib/current-term";
 import { classSectionScopeFilter } from "@/lib/scope";
+import { DEFAULT_PERIODS, allClashes, type Placement } from "@/lib/timetable-rules";
 import { fullName } from "@/lib/utils";
 
 import { TimetableGrid, type Slot } from "./timetable-grid";
@@ -63,7 +65,11 @@ export default async function TimetablePage({
     sections.find((entry) => entry.id === requested)?.id ?? sections[0].id;
   const section = sections.find((entry) => entry.id === sectionId)!;
 
-  const [slots, offerings, otherSlots] = await Promise.all([
+  // An offering exists once per term. Without this the "not yet timetabled"
+  // list showed every subject once for each term of the year.
+  const term = await currentTerm();
+
+  const [slots, offerings, otherSlots, periodRows] = await Promise.all([
     db.timetableSlot.findMany({
       where: { classSectionId: sectionId },
       orderBy: [{ dayOfWeek: "asc" }, { periodIndex: "asc" }],
@@ -71,6 +77,8 @@ export default async function TimetablePage({
         offering: {
           select: {
             id: true,
+            teacherId: true,
+            coTeacherIds: true,
             subject: { select: { name: true, colour: true } },
             teacher: { select: { firstName: true, lastName: true, title: true } },
           },
@@ -78,7 +86,7 @@ export default async function TimetablePage({
       },
     }),
     db.subjectOffering.findMany({
-      where: { classSectionId: sectionId, isActive: true },
+      where: { classSectionId: sectionId, isActive: true, ...termFilter(term) },
       select: {
         id: true,
         subject: { select: { name: true, code: true } },
@@ -95,17 +103,26 @@ export default async function TimetablePage({
         },
       },
       select: {
+        id: true,
+        classSectionId: true,
         dayOfWeek: true,
         periodIndex: true,
         startTime: true,
         endTime: true,
+        room: true,
+        offeringId: true,
         offering: { select: { teacherId: true, coTeacherIds: true } },
         classSection: {
           select: { name: true, classLevel: { select: { name: true } } },
         },
       },
     }),
+    // The school's bell schedule. Falls back to the built-in day only when
+    // nobody has set one up, so a fresh install still draws a grid.
+    db.timetablePeriod.findMany({ orderBy: { periodIndex: "asc" } }),
   ]);
+
+  const periods = periodRows.length ? periodRows : DEFAULT_PERIODS;
 
   const rows: Slot[] = slots.map((slot) => ({
     id: slot.id,
@@ -122,68 +139,64 @@ export default async function TimetablePage({
     teacher: slot.offering?.teacher ? fullName(slot.offering.teacher) : null,
   }));
 
-  const clashes: Record<string, string> = {};
+  /*
+   * Clashes, from the module the write path also uses.
+   *
+   * This was forty lines here: co-teachers gathered, times parsed, overlaps
+   * compared. All of it correct, and all of it invisible to the action that
+   * saves a slot, which is why a clash could be created and then reported
+   * rather than refused. One module now, so the grid and the save agree by
+   * construction.
+   */
+  const placements: Placement[] = [
+    ...slots.map((slot) => ({
+      id: slot.id,
+      classSectionId: sectionId,
+      dayOfWeek: slot.dayOfWeek,
+      periodIndex: slot.periodIndex,
+      startTime: slot.startTime,
+      endTime: slot.endTime,
+      offeringId: slot.offeringId ?? null,
+      room: slot.room,
+      staffIds: slot.offering
+        ? [slot.offering.teacherId, ...slot.offering.coTeacherIds].filter(
+            (id): id is string => Boolean(id),
+          )
+        : [],
+    })),
+    ...otherSlots.map((slot) => ({
+      id: slot.id,
+      classSectionId: slot.classSectionId,
+      dayOfWeek: slot.dayOfWeek,
+      periodIndex: slot.periodIndex,
+      startTime: slot.startTime,
+      endTime: slot.endTime,
+      offeringId: slot.offeringId ?? null,
+      room: slot.room,
+      staffIds: slot.offering
+        ? [slot.offering.teacherId, ...slot.offering.coTeacherIds].filter(
+            (id): id is string => Boolean(id),
+          )
+        : [],
+    })),
+  ];
 
-  // Everyone standing in the room, not just the lead: a co-teacher booked
-  // in two places at once is the same person in the same bind, and checking
-  // only teacherId meant the clash banner stayed clear while they were.
-  const staffByOffering = new Map(
-    (
-      await db.subjectOffering.findMany({
-        where: { id: { in: slots.map((slot) => slot.offeringId).filter(Boolean) as string[] } },
-        select: { id: true, teacherId: true, coTeacherIds: true },
-      })
-    ).map((offering) => [
-      offering.id,
-      [offering.teacherId, ...offering.coTeacherIds].filter(
-        (id): id is string => Boolean(id),
-      ),
-    ]),
-  );
-
-  // Compared on the clock, not by period number. periodIndex counts within
-  // one class's own day, and two classes need not ring the same bells — JHS 1
-  // period 2 can sit across JHS 2 period 3 while never sharing an index. The
-  // my-timetable page had already worked this out and compared times; this
-  // page was still matching numbers, so it announced clashes that were not
-  // and stayed silent on the ones that were.
-  const minutes = (time: string): number | null => {
-    const match = /^(\d{1,2}):(\d{2})$/.exec(time);
-    return match ? Number(match[1]) * 60 + Number(match[2]) : null;
-  };
-
-  const overlaps = (
-    a: { startTime: string; endTime: string },
-    b: { startTime: string; endTime: string },
-  ): boolean => {
-    const aStart = minutes(a.startTime);
-    const aEnd = minutes(a.endTime);
-    const bStart = minutes(b.startTime);
-    const bEnd = minutes(b.endTime);
-    // An unparseable time is not evidence of a clash.
-    if (aStart === null || aEnd === null || bStart === null || bEnd === null) return false;
-    return aStart < bEnd && bStart < aEnd;
-  };
-
-  for (const slot of slots) {
-    if (!slot.offeringId) continue;
-    const staffIds = staffByOffering.get(slot.offeringId);
-    if (!staffIds?.length) continue;
-
-    const conflict = otherSlots.find(
-      (other) =>
-        other.dayOfWeek === slot.dayOfWeek &&
-        overlaps(slot, other) &&
-        other.offering !== null &&
-        [other.offering.teacherId, ...other.offering.coTeacherIds].some(
-          (id) => id !== null && staffIds.includes(id),
-        ),
+  const namedBySlot = new Map<string, string>();
+  for (const slot of otherSlots) {
+    namedBySlot.set(
+      slot.id,
+      slot.classSection.classLevel.name + " " + slot.classSection.name,
     );
+  }
+  for (const slot of slots) {
+    namedBySlot.set(slot.id, section.classLevel.name + " " + section.name);
+  }
 
-    if (conflict) {
-      clashes[slot.id] =
-        `${conflict.classSection.classLevel.name} ${conflict.classSection.name}`;
-    }
+  const clashes: Record<string, string> = {};
+  for (const [slotId, clash] of allClashes(placements)) {
+    // Only this section is drawn, so only its cells need colouring.
+    if (!slots.some((slot) => slot.id === slotId)) continue;
+    clashes[slotId] = namedBySlot.get(clash.with.id ?? "") ?? "another class";
   }
 
   const taught = rows.filter((row) => row.offeringId && !row.isBreak).length;
@@ -197,6 +210,17 @@ export default async function TimetablePage({
         title="Timetable"
         description={`${section.classLevel.name} ${section.name}`}
         action={
+          <>
+          {canEdit ? (
+            <LinkButton
+              href="/academics/timetable/generate"
+              variant="outline"
+              size="sm"
+            >
+              <Wand2 className="size-3.5" />
+              Build it for me
+            </LinkButton>
+          ) : null}
           <LinkButton
             href={`/api/timetable-pdf?kind=class&sectionId=${sectionId}`}
             target="_blank"
@@ -206,6 +230,7 @@ export default async function TimetablePage({
             <Printer className="size-4" />
             Print
           </LinkButton>
+          </>
         }
       />
 
@@ -276,6 +301,7 @@ export default async function TimetablePage({
             slots={rows}
             canEdit={canEdit}
             clashes={clashes}
+            periods={periods}
             offerings={offerings.map((offering) => ({
               value: offering.id,
               label: offering.subject.name,

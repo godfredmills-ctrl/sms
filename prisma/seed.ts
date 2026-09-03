@@ -18,6 +18,11 @@ import { writtenBody } from "../src/lib/markdown";
 import { computePayslip, parseAllowances } from "../src/lib/payroll";
 import { PERMISSIONS, ROLE_PRESETS } from "../src/lib/rbac";
 import { storeFile } from "../src/lib/storage";
+import {
+  allClashes,
+  generateTimetable,
+  type Demand,
+} from "../src/lib/timetable-rules";
 import { starterLayout } from "../src/lib/templates";
 
 const db = new PrismaClient();
@@ -279,6 +284,9 @@ async function reset() {
     // Alumni: what they did with the school before the people themselves, and
     // both before the pupil records they point back at.
     "alumniEngagementRecord", "alumnus",
+    // Timetabling: unavailability points at staff, and the bell schedule is
+    // pointed at by nothing, so both can go with the rest.
+    "staffUnavailability", "timetablePeriod",
     // The ledger before the years and terms its entries are filed against.
     // Lines before entries, and both before the accounts they point at.
     "journalLine", "journalEntry", "ledgerAccount",
@@ -920,6 +928,49 @@ async function seedStaff(roles: Record<string, string>, schoolId: string) {
     { first: "Linda", last: "Nyarko", title: "Ms", role: "front_desk", job: "School Secretary", dept: "Administration", teaching: false, email: "frontdesk@goldencrest.edu.gh" },
   ];
 
+  /*
+   * The rest of the common room.
+   *
+   * The named list above is the demonstration cast: one of each role, with a
+   * printed login. It also left the school with six teaching staff for
+   * twenty-one classes, which is not a school. The timetable generator made
+   * that visible the first time it ran: the busiest teacher was wanted for a
+   * hundred and fifteen periods in a week that holds forty-five, and no
+   * arrangement of anything places them.
+   *
+   * These have no printed credentials and no special role. They exist so the
+   * seeded school has a staff room that could actually teach its own timetable.
+   */
+  const DEPARTMENTS = [
+    "Mathematics",
+    "Languages",
+    "Science",
+    "Humanities",
+    "ICT",
+    "Creative Arts",
+    "Physical Education",
+  ];
+
+  for (let index = 0; index < 22; index += 1) {
+    const isFemale = chance(0.5);
+    const first = isFemale ? pick(FEMALE_NAMES) : pick(MALE_NAMES);
+    const last = pick(SURNAMES);
+    const dept = DEPARTMENTS[index % DEPARTMENTS.length];
+
+    definitions.push({
+      first,
+      last,
+      title: isFemale ? pick(["Ms", "Mrs"]) : "Mr",
+      role: "teacher",
+      job: `Teacher of ${dept}`,
+      dept,
+      teaching: true,
+      // Numbered, because two Kwame Mensahs on one staff list is realistic and
+      // a duplicate email address is a unique-constraint failure at seed time.
+      email: `${first.toLowerCase()}.${last.toLowerCase()}${index + 1}@goldencrest.edu.gh`,
+    });
+  }
+
   const staff = [];
 
   for (const [index, definition] of definitions.entries()) {
@@ -1007,6 +1058,38 @@ async function seedOfferings(
     });
   }
 
+  /*
+   * How much of the week each subject gets.
+   *
+   * Declared here rather than beside the timetable further down, because the
+   * teacher assignment below needs it: spreading the work evenly means knowing
+   * how much work each subject is before handing it to anybody.
+   */
+  const weekly = (name: string): { periods: number; doubles: number } => {
+    const subject = name.toLowerCase();
+    if (subject.includes("math")) return { periods: 5, doubles: 0 };
+    if (subject.includes("english")) return { periods: 5, doubles: 0 };
+    if (subject.includes("science")) return { periods: 4, doubles: 2 };
+    if (subject.includes("social")) return { periods: 3, doubles: 0 };
+    if (subject.includes("ict") || subject.includes("computing")) {
+      return { periods: 2, doubles: 2 };
+    }
+    if (subject.includes("french") || subject.includes("ghanaian")) {
+      return { periods: 2, doubles: 0 };
+    }
+    if (subject.includes("art") || subject.includes("creative")) {
+      return { periods: 2, doubles: 2 };
+    }
+    if (subject.includes("physical") || subject.includes("pe")) {
+      return { periods: 2, doubles: 2 };
+    }
+    return { periods: 2, doubles: 0 };
+  };
+
+  /** Who has been given what, and how much each of them is now carrying. */
+  const assigned = new Map<string, StaffRow>();
+  const load = new Map<string, number>();
+
   const offerings = [];
 
   for (const section of sections) {
@@ -1020,9 +1103,41 @@ async function seedOfferings(
         const subject = subjects.find((entry) => entry.id === link.subjectId);
         if (!subject) continue;
 
-        // Keep the same teacher on a subject across terms — realistic, and it
-        // makes the teaching-effectiveness analytics meaningful.
-        const teacher = teachers[(section.name.charCodeAt(0) + index) % teachers.length];
+        /*
+         * The least-loaded teacher who could take it, preferring their own
+         * department.
+         *
+         * This used to be `teachers[(section.name.charCodeAt(0) + index) %
+         * teachers.length]`, which looks like it spreads the work and does not:
+         * section names are A, B and C, so the offset barely moves, and
+         * twenty-eight staff ended up with twelve of them carrying everything
+         * and four wanted for more periods than a week holds. The timetable
+         * generator is what made it visible, by placing exactly the number of
+         * periods that were placeable and no more.
+         *
+         * The same teacher keeps a subject across terms because the assignment
+         * is made once, on the first term, and looked up afterwards. That is
+         * realistic and it keeps the teaching-effectiveness analytics
+         * meaningful.
+         */
+        const key = `${section.id}:${subject.id}`;
+        let teacher = assigned.get(key);
+
+        if (!teacher) {
+          const sameDepartment = teachers.filter(
+            (member) =>
+              (member.department ?? "").toLowerCase() ===
+              (subject.department ?? "").toLowerCase(),
+          );
+          const pool = sameDepartment.length ? sameDepartment : teachers;
+
+          teacher = pool.reduce((lightest, member) =>
+            (load.get(member.id) ?? 0) < (load.get(lightest.id) ?? 0) ? member : lightest,
+          );
+
+          assigned.set(key, teacher);
+          load.set(teacher.id, (load.get(teacher.id) ?? 0) + weekly(subject.name).periods);
+        }
 
         const offering = await db.subjectOffering.create({
           data: {
@@ -1040,57 +1155,150 @@ async function seedOfferings(
     }
   }
 
-  // A timetable for every class, not for the first sixty offerings.
+  // --- The bell schedule ------------------------------------------------------
   //
-  // The slice was a rough cap on how much to generate, and it cut across
-  // classes rather than within them: offerings come out grouped by section, so
-  // sixty covered the first ten or so and left every class after that — all of
-  // JHS — with an empty timetable. A blank timetable does not look like a
-  // seeding limit to anyone; it looks like the module is broken.
-  const periods = [
-    { index: 1, start: "08:00", end: "08:40" },
-    { index: 2, start: "08:40", end: "09:20" },
-    { index: 3, start: "09:20", end: "10:00" },
-    { index: 4, start: "10:20", end: "11:00" },
-    { index: 5, start: "11:00", end: "11:40" },
+  // Recreated here as well as in the migration, because reset() clears it and a
+  // seeded school with no periods has a timetable screen with no rows in it.
+
+  const bellSchedule = [
+    { periodIndex: 1, startTime: "07:30", endTime: "08:10", isBreak: false, label: null },
+    { periodIndex: 2, startTime: "08:10", endTime: "08:50", isBreak: false, label: null },
+    { periodIndex: 3, startTime: "08:50", endTime: "09:30", isBreak: false, label: null },
+    { periodIndex: 4, startTime: "09:30", endTime: "10:10", isBreak: false, label: null },
+    { periodIndex: 5, startTime: "10:10", endTime: "10:40", isBreak: true, label: "Break" },
+    { periodIndex: 6, startTime: "10:40", endTime: "11:20", isBreak: false, label: null },
+    { periodIndex: 7, startTime: "11:20", endTime: "12:00", isBreak: false, label: null },
+    { periodIndex: 8, startTime: "12:00", endTime: "12:40", isBreak: false, label: null },
+    { periodIndex: 9, startTime: "12:40", endTime: "13:20", isBreak: true, label: "Lunch" },
+    { periodIndex: 10, startTime: "13:20", endTime: "14:00", isBreak: false, label: null },
+    { periodIndex: 11, startTime: "14:00", endTime: "14:40", isBreak: false, label: null },
   ];
 
-  // Laid out per class so each one gets a spread of subjects across the week
-  // rather than a random scattering that leaves gaps in some and clashes in
-  // others. Walking the grid in order and taking the next subject each time
-  // gives every class a full, conflict-free timetable.
-  const bySection = new Map<string, typeof offerings>();
+  await db.timetablePeriod.createMany({ data: bellSchedule });
+
+  // --- Recording how much of the week each subject gets -------------------------
+  //
+  // Roughly what a Ghanaian school gives them: the core subjects most of the
+  // week, the rest a period or two, and a double for the practical ones. The
+  // figures come from `weekly` above, which the teacher assignment also used.
+
   for (const offering of offerings) {
-    const list = bySection.get(offering.classSectionId) ?? [];
-    list.push(offering);
-    bySection.set(offering.classSectionId, list);
+    const subject = subjects.find((entry) => entry.id === offering.subjectId);
+    if (!subject) continue;
+    const { periods, doubles } = weekly(subject.name);
+    await db.subjectOffering.update({
+      where: { id: offering.id },
+      data: { periodsPerWeek: periods, doublePeriods: doubles },
+    });
   }
 
-  for (const [classSectionId, sectionOfferings] of bySection) {
-    if (!sectionOfferings.length) continue;
-    let cursor = 0;
+  // --- Part-time staff ---------------------------------------------------------
+  //
+  // Two teachers who are not in every day, because a generator that has never
+  // been given a constraint has never been shown to respect one.
 
-    for (let day = 1; day <= 5; day += 1) {
-      for (const period of periods) {
-        const offering = sectionOfferings[cursor % sectionOfferings.length];
-        cursor += 1;
-
-        await db.timetableSlot
-          .create({
-            data: {
-              classSectionId,
-              offeringId: offering.id,
-              dayOfWeek: day,
-              periodIndex: period.index,
-              startTime: period.start,
-              endTime: period.end,
-              room: offering.room,
-            },
-          })
-          .catch(() => undefined); // Slot already taken — fine for demo data.
-      }
-    }
+  const partTime = teachers.slice(0, 2);
+  if (partTime[0]) {
+    await db.staffUnavailability.createMany({
+      data: [
+        { staffId: partTime[0].id, dayOfWeek: 1, reason: "Not in on Mondays" },
+        { staffId: partTime[0].id, dayOfWeek: 5, reason: "Not in on Fridays" },
+      ],
+    });
   }
+  if (partTime[1]) {
+    await db.staffUnavailability.createMany({
+      data: [
+        { staffId: partTime[1].id, dayOfWeek: 3, periodIndex: 1, reason: "Departmental meeting" },
+        { staffId: partTime[1].id, dayOfWeek: 3, periodIndex: 2, reason: "Departmental meeting" },
+      ],
+    });
+  }
+
+  // --- The timetable itself ----------------------------------------------------
+  //
+  // Built by the generator the application ships, not by a loop in here.
+  //
+  // What was here walked each class on its own and took the next subject in
+  // turn, which gives every class a full week and puts the same teacher in
+  // three rooms at once. It seeded a demonstration of the clash banner rather
+  // than of a timetable. Using the real generator means the seeded school has a
+  // timetable that holds together, and means the generator is exercised against
+  // four hundred pupils' worth of real shape every time anybody seeds.
+
+  const demands: Demand[] = [];
+  for (const offering of offerings) {
+    const subject = subjects.find((entry) => entry.id === offering.subjectId);
+    if (!subject) continue;
+    const { periods, doubles } = weekly(subject.name);
+    const section = sections.find((entry) => entry.id === offering.classSectionId);
+
+    demands.push({
+      offeringId: offering.id,
+      classSectionId: offering.classSectionId,
+      staffIds: offering.teacherId ? [offering.teacherId] : [],
+      periodsPerWeek: periods,
+      doublePeriods: doubles,
+      room: offering.room,
+      label: `${subject.name}, ${section?.name ?? offering.classSectionId}`,
+    });
+  }
+
+  const unavailableRows = await db.staffUnavailability.findMany({
+    select: { staffId: true, dayOfWeek: true, periodIndex: true },
+  });
+
+  const built = generateTimetable({
+    demands,
+    periods: bellSchedule,
+    days: [1, 2, 3, 4, 5],
+    unavailable: unavailableRows,
+  });
+
+  await db.timetableSlot.createMany({
+    data: built.placements.map((placement) => ({
+      classSectionId: placement.classSectionId,
+      dayOfWeek: placement.dayOfWeek,
+      periodIndex: placement.periodIndex,
+      startTime: placement.startTime,
+      endTime: placement.endTime,
+      offeringId: placement.offeringId,
+      room: placement.room,
+      isBreak: false,
+    })),
+    skipDuplicates: true,
+  });
+
+  // The breaks, on every class's grid, so a printed timetable reads like a
+  // school day rather than a block of lessons.
+  const breakRows = bellSchedule.filter((period) => period.isBreak);
+  await db.timetableSlot.createMany({
+    data: sections.flatMap((section) =>
+      [1, 2, 3, 4, 5].flatMap((day) =>
+        breakRows.map((period) => ({
+          classSectionId: section.id,
+          dayOfWeek: day,
+          periodIndex: period.periodIndex,
+          startTime: period.startTime,
+          endTime: period.endTime,
+          offeringId: null,
+          label: period.label,
+          isBreak: true,
+        })),
+      ),
+    ),
+    skipDuplicates: true,
+  });
+
+  // Reported rather than assumed. A seed that quietly places two thirds of the
+  // timetable looks identical to one that places all of it.
+  const clashes = allClashes(
+    built.placements.map((placement, index) => ({ ...placement, id: String(index) })),
+  );
+  console.log(
+    `    ${built.placed} of ${built.wanted} periods placed, ${clashes.size} clashes, ` +
+      `${built.shortfalls.length} subjects short`,
+  );
 
   return offerings;
 }
