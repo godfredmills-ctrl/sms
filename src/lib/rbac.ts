@@ -68,6 +68,13 @@ export const PERMISSIONS: PermissionDef[] = [
     ["timetable.read", "read", "View timetables"],
     ["timetable.manage", "update", "Build and edit timetables"],
     ["enrollment.manage", "update", "Enrol and transfer students between classes"],
+    // Lesson notes. Writing your own and vetting somebody else are separate
+    // permissions, and deliberately so: the entire value of a vetted note is
+    // that two people looked at it. A teacher who can approve their own has a
+    // signed document nobody read.
+    ["lessonnote.write", "create", "Write lesson notes for own classes"],
+    ["lessonnote.read", "read", "Read other teachers lesson notes"],
+    ["lessonnote.vet", "approve", "Vet, approve and return lesson notes"],
   ]),
 
   ...define("attendance", [
@@ -318,6 +325,53 @@ export type RolePreset = {
   permissions: string[] | "*";
 };
 
+/**
+ * What a classroom teacher can do.
+ *
+ * Its own constant because a form teacher is a teacher with a register on top,
+ * and the two presets were kept as separate lists. They drifted twice: once
+ * over library.read, which the file already carries a comment about, and again
+ * over lesson notes, where the form teacher, who teaches like everybody else,
+ * could not write one. Naming the shared part is the only fix that stops it
+ * happening a third time.
+ */
+const TEACHER_PERMISSIONS: string[] = [
+  "dashboard.view",
+  "student.read.own",
+  "student.medical.read",
+  "academic.structure.read",
+  "academic.timetable.read",
+  // Their own weekly notes. Vetting is deliberately not here: a teacher who
+  // can approve their own note has a signed document nobody read.
+  "academic.lessonnote.write",
+  "attendance.read",
+  "attendance.take",
+  "attendance.update",
+  "attendance.report",
+  "assessment.read",
+  "assessment.create",
+  "assessment.grade",
+  "assessment.report.generate",
+  // A teacher reads the examination timetable and marks the register in the
+  // hall they are invigilating. Setting the examinations up is the registrars
+  // job, and assessment.exam.manage is deliberately not here.
+  "assessment.exam.read",
+  "assessment.exam.attendance",
+  ...expand("lms"),
+  "library.read",
+  "communication.announcement.read",
+  "communication.memo.read",
+  "communication.message",
+  "document.read",
+  "document.upload",
+  "election.read",
+  "election.vote",
+  "ai.insight.view",
+  "ai.insight.generate",
+  // Deliberately NOT report.read: it gates whole-school analytics and the
+  // custom report builder, whose datasets are school-wide.
+];
+
 export const ROLE_PRESETS: RolePreset[] = [
   {
     key: "super_admin",
@@ -501,39 +555,7 @@ export const ROLE_PRESETS: RolePreset[] = [
     description: "Own classes: attendance, marks, courses and student progress.",
     portal: "STAFF",
     rank: 50,
-    permissions: [
-      "dashboard.view",
-      "student.read.own",
-      "student.medical.read",
-      "academic.structure.read",
-      "academic.timetable.read",
-      "attendance.read",
-      "attendance.take",
-      "attendance.update",
-      "attendance.report",
-      "assessment.read",
-      "assessment.create",
-      "assessment.grade",
-      "assessment.report.generate",
-      // A teacher reads the examination timetable and marks the register in
-      // the hall they are invigilating. Setting the examinations up is the
-      // registrar's job, and assessment.exam.manage is deliberately not here.
-      "assessment.exam.read",
-      "assessment.exam.attendance",
-      ...expand("lms"),
-      "library.read",
-      "communication.announcement.read",
-      "communication.memo.read",
-      "communication.message",
-      "document.read",
-      "document.upload",
-      "election.read",
-      "election.vote",
-      "ai.insight.view",
-      "ai.insight.generate",
-      // Deliberately NOT report.read: it gates whole-school analytics and
-      // the custom report builder, whose datasets are school-wide.
-    ],
+    permissions: TEACHER_PERMISSIONS,
   },
   {
     key: "form_teacher",
@@ -542,40 +564,33 @@ export const ROLE_PRESETS: RolePreset[] = [
     portal: "STAFF",
     rank: 45,
     permissions: [
-      "dashboard.view",
-      "student.read.own",
+      /*
+       * Everything a teacher can do, and then the register.
+       *
+       * Spread rather than restated. The two lists were maintained separately
+       * and drifted twice: once over library.read, so the one member of staff
+       * a child asks about a missing book could not look it up, and again over
+       * lesson notes, so a form teacher could not write the note every teacher
+       * writes. Both were fixed by adding a line, which is the fix that lets
+       * it happen again.
+       */
+      ...TEACHER_PERMISSIONS,
+
+      // The register, and the pastoral work that comes with owning a class.
       "student.update",
-      "student.medical.read",
       "student.guardian.manage",
       "student.discipline.manage",
-      "academic.structure.read",
-      "academic.timetable.read",
-      ...expand("attendance"),
-      "transport.read",
-      // The teacher preset has this; the form teacher, who is a teacher with
-      // a register on top, did not — so the one member of staff a child asks
-      // about a missing library book could not look it up.
-      "library.read",
-      "assessment.read",
-      "assessment.create",
-      "assessment.grade",
-      "assessment.report.generate",
-      ...expand("lms"),
-      "communication.announcement.read",
-      "communication.memo.read",
-      "communication.message",
+      // Attendance is not repeated here: the teacher list already carries all
+      // four of its permissions, and expanding the module again asked for each
+      // of them twice, which is a duplicate row against a unique index.
+      // A form teacher rings home. A subject teacher goes through the office.
       "communication.sms.send",
-      "document.read",
-      "document.upload",
-      "election.read",
-      "election.vote",
-      "ai.insight.view",
-      "ai.insight.generate",
-      // Deliberately NOT finance.read: that opens the whole finance module —
-      // every invoice and payment in the school — and a form teacher who
-      // needs to know a family is in arrears asks the bursar.
-      // Deliberately NOT report.read: it is the gate on school-wide
-      // analytics and the custom report builder.
+      "transport.read",
+      // Deliberately NOT finance.read: that opens the whole finance module,
+      // every invoice and payment in the school, and a form teacher who needs
+      // to know a family is in arrears asks the bursar.
+      // Deliberately NOT report.read: it is the gate on school-wide analytics
+      // and the custom report builder.
     ],
   },
   {

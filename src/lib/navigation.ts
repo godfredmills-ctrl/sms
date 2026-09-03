@@ -211,6 +211,25 @@ export const STAFF_NAVIGATION: NavGroup[] = [
         permissions: ["attendance.read", "attendance.take"],
       },
       {
+        label: "Lesson notes",
+        href: "/lesson-notes",
+        icon: "NotebookPen",
+        permissions: [
+          "academic.lessonnote.write",
+          "academic.lessonnote.read",
+          "academic.lessonnote.vet",
+        ],
+        children: [
+          { label: "My notes", href: "/lesson-notes", icon: "NotebookPen" },
+          {
+            label: "Vetting",
+            href: "/lesson-notes/vetting",
+            icon: "BookOpenCheck",
+            permissions: ["academic.lessonnote.vet"],
+          },
+        ],
+      },
+      {
         label: "Gradebook",
         href: "/gradebook",
         icon: "ClipboardList",

@@ -861,12 +861,13 @@ model Staff {
   admissionsAssessed    AdmissionAssessment[] @relation("AdmissionAssessor")
   admissionsInterviewed AdmissionInterview[]  @relation("AdmissionInterviewer")
 
-  assetsHeld       Asset[]               @relation("AssetCustodian")
-  assetsHandedOver AssetEvent[]          @relation("AssetFromStaff")
-  assetsReceived   AssetEvent[]          @relation("AssetToStaff")
-  stockIssuedTo    StockMovement[]       @relation("StockIssuedTo")
-  mealsTaken       MealServiceRecord[]
-  unavailability   StaffUnavailability[]
+  assetsHeld        Asset[]               @relation("AssetCustodian")
+  assetsHandedOver  AssetEvent[]          @relation("AssetFromStaff")
+  assetsReceived    AssetEvent[]          @relation("AssetToStaff")
+  stockIssuedTo     StockMovement[]       @relation("StockIssuedTo")
+  mealsTaken        MealServiceRecord[]
+  unavailability    StaffUnavailability[]
+  lessonNotesVetted LessonNote[]          @relation("LessonNoteVetter")
 
   @@index([status])
   @@index([department])
@@ -1534,6 +1535,7 @@ model SubjectOffering {
   course             Course?
   timetableSlots     TimetableSlot[]
   attendanceSessions AttendanceSession[]
+  lessonNotes        LessonNote[]
 
   @@unique([academicYearId, termId, subjectId, classSectionId])
   @@index([teacherId])
@@ -5526,4 +5528,108 @@ model StaffUnavailability {
 
   @@index([staffId])
   @@index([dayOfWeek])
+}
+
+// ---------------------------------------------------------------------------
+// Lesson notes
+//
+// The weekly preparation every teacher in Ghana writes and the head or head of
+// department vets before the week is taught. It is not optional and it is not
+// a nicety: the Ghana Education Service expects it, an inspection asks to see
+// the book, and in most schools it is still an exercise book carried to the
+// head's office on a Friday afternoon and carried back on Monday.
+//
+// Deliberately not part of the LMS. That module is student-facing: courses,
+// modules, lessons a pupil works through. A lesson note is the teacher's own
+// document about what they intend to do, written before the teaching and
+// approved by somebody senior. The two share a subject and nothing else.
+//
+// One note covers one subject, in one class, for one week, which is how the
+// GES format works and how teachers already think about it.
+// ---------------------------------------------------------------------------
+
+enum LessonNoteStatus {
+  DRAFT
+  /// Handed in, waiting to be looked at.
+  SUBMITTED
+  /// Vetted and approved. The week may be taught.
+  APPROVED
+  /// Sent back with remarks. The teacher edits and submits again.
+  RETURNED
+}
+
+model LessonNote {
+  id String @id @default(cuid())
+
+  /// The subject, the class, the teacher and the term, all at once.
+  offeringId String
+  offering   SubjectOffering @relation(fields: [offeringId], references: [id], onDelete: Cascade)
+
+  /// Week of the term, from 1. Stored rather than derived from the date so a
+  /// note keeps the week it was written for even if term dates are corrected
+  /// afterwards, which they are.
+  weekNumber Int
+  /// The Friday the week ends on, which is what the printed note is headed by.
+  weekEnding DateTime
+
+  // --- The format -----------------------------------------------------------
+  //
+  // These field names are the ones on the form teachers already fill in. A
+  // system that renames them makes every teacher translate, and translation is
+  // where a required section quietly stops being filled in.
+
+  topic    String
+  subTopic String?
+
+  /// "By the end of the lesson the pupil will be able to..."
+  objectives String[] @default([])
+
+  /// Relevant previous knowledge: what the class is assumed to know already.
+  rpk String?
+
+  /// Teaching and learning materials.
+  materials String[] @default([])
+
+  /// The core competencies the lesson develops, from the standards-based
+  /// curriculum.
+  coreCompetencies String[] @default([])
+
+  // The three phases of the lesson, as the form lays them out.
+  introduction String?
+  development  String?
+  closure      String?
+
+  /// The exercise that shows whether the objectives were met.
+  evaluation String?
+  homework   String?
+
+  /// Written after the week, not before. The one part of the form that is
+  /// honest about how the teaching actually went.
+  reflection String?
+
+  /// How many periods of the timetable this note covers.
+  periodsPlanned Int @default(0)
+
+  // --- Vetting --------------------------------------------------------------
+
+  status      LessonNoteStatus @default(DRAFT)
+  submittedAt DateTime?
+
+  vettedById    String?
+  vettedBy      Staff?    @relation("LessonNoteVetter", fields: [vettedById], references: [id], onDelete: SetNull)
+  vettedAt      DateTime?
+  /// The head's remarks. Required when a note is sent back, because a note
+  /// returned without a reason is a note the teacher has to guess about.
+  vetterRemarks String?
+
+  createdById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  /// One note per subject per class per week. The migration adds this as a
+  /// real constraint: two notes for the same week is two teachers each
+  /// believing theirs is the one that was vetted.
+  @@unique([offeringId, weekNumber])
+  @@index([status])
+  @@index([weekEnding])
 }

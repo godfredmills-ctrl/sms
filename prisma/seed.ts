@@ -18,6 +18,7 @@ import { writtenBody } from "../src/lib/markdown";
 import { computePayslip, parseAllowances } from "../src/lib/payroll";
 import { PERMISSIONS, ROLE_PRESETS } from "../src/lib/rbac";
 import { storeFile } from "../src/lib/storage";
+import { weekEndingFor, weekOfTerm } from "../src/lib/lesson-notes";
 import {
   allClashes,
   generateTimetable,
@@ -188,6 +189,9 @@ async function main() {
   await seedCafeteria(students, terms, year.id);
   // Last, because it reads the leavers every other seed has finished creating.
   await seedAlumni();
+  // Last of the academic seeds: it needs the offerings and the term, and it
+  // reads the clock to work out which weeks have already happened.
+  await seedLessonNotes(terms);
   await seedAdmissions(levels, staff, year.id, roles);
 
   console.log("\nDone.\n");
@@ -287,6 +291,9 @@ async function reset() {
     // Timetabling: unavailability points at staff, and the bell schedule is
     // pointed at by nothing, so both can go with the rest.
     "staffUnavailability", "timetablePeriod",
+    // Lesson notes point at an offering and at the member of staff who vetted
+    // them, so they clear before both.
+    "lessonNote",
     // The ledger before the years and terms its entries are filed against.
     // Lines before entries, and both before the accounts they point at.
     "journalLine", "journalEntry", "ledgerAccount",
@@ -543,10 +550,22 @@ async function seedAccessControl() {
   const roles: Record<string, string> = {};
 
   for (const preset of ROLE_PRESETS) {
-    const keys =
-      preset.permissions === "*"
-        ? allPermissions.map((permission) => permission.key)
-        : preset.permissions;
+    /*
+     * Deduplicated, because a preset can list the same permission twice.
+     *
+     * Presets are built by spreading one role into another and then adding to
+     * it, so a permission can arrive by both routes. The nested create below
+     * turns each key into a row, and two rows for one permission is a unique
+     * constraint violation that stops the seed halfway through with an error
+     * naming the database rather than the preset.
+     */
+    const keys = [
+      ...new Set(
+        preset.permissions === "*"
+          ? allPermissions.map((permission) => permission.key)
+          : preset.permissions,
+      ),
+    ];
 
     const role = await db.role.create({
       data: {
@@ -6773,5 +6792,264 @@ async function seedAlumni() {
 
   console.log(
     `    ${created.length} alumni across 15 cohorts, ${consented} contactable, ${donated.length} gifts worth ${(givenMinor / 100).toLocaleString()} cedis`,
+  );
+}
+
+/**
+ * Lesson notes for the weeks of the current term that have already happened.
+ *
+ * Deliberately uneven, because an even one demonstrates nothing. A head
+ * teacher opening the vetting screen on a seeded school should see a queue
+ * with something in it, a handful of notes that were sent back, and a list of
+ * the teachers who are behind, because that last one is the thing this module
+ * does that a pile of exercise books cannot.
+ */
+async function seedLessonNotes(terms: TermRow[]) {
+  console.log("  Lesson notes…");
+
+  const term = terms.find((entry) => entry.sequence === 2) ?? terms[0];
+  if (!term) return;
+
+  const offerings = await db.subjectOffering.findMany({
+    where: { termId: term.id, isActive: true, teacherId: { not: null } },
+    select: {
+      id: true,
+      teacherId: true,
+      subject: { select: { name: true } },
+    },
+  });
+  if (!offerings.length) return;
+
+  const vetters = await db.staff.findMany({
+    where: { isTeaching: false, status: "ACTIVE" },
+    take: 2,
+    select: { id: true },
+  });
+  const vetter = vetters[0]?.id ?? null;
+
+  const now = new Date();
+  const thisWeek = weekOfTerm(now, term);
+  const weeksSoFar = Math.max(0, Math.min(thisWeek - 1, 8));
+
+  /** Topics that read like a syllabus rather than like filler. */
+  const TOPICS: Record<string, string[]> = {
+    Mathematics: [
+      "Whole numbers and place value",
+      "Addition and subtraction with regrouping",
+      "Multiplication tables",
+      "Fractions of a whole",
+      "Measurement: length",
+      "Shapes and their properties",
+      "Data collection and tally charts",
+      "Money and change",
+    ],
+    English: [
+      "Reading comprehension: main idea",
+      "Nouns and their plurals",
+      "Writing a friendly letter",
+      "Verbs and tenses",
+      "Listening and speaking: giving directions",
+      "Punctuation: the full stop and the comma",
+      "Vocabulary in context",
+      "Writing a simple narrative",
+    ],
+    Science: [
+      "Living and non-living things",
+      "Parts of a plant",
+      "Photosynthesis",
+      "The human digestive system",
+      "Matter and its states",
+      "Simple machines",
+      "The water cycle",
+      "Energy and its forms",
+    ],
+    Social: [
+      "Our environment",
+      "The family and its roles",
+      "Map reading",
+      "The regions of Ghana",
+      "Citizenship and civic responsibility",
+      "Our national symbols",
+      "Trade and occupations",
+      "Culture and festivals",
+    ],
+    Religious: [
+      "Creation and the created order",
+      "The family as a unit of society",
+      "Honesty and truthfulness",
+      "Respect for the elderly",
+      "Religious festivals in Ghana",
+      "Obedience and its rewards",
+      "Worship and its forms",
+      "Forgiveness and reconciliation",
+    ],
+    Creative: [
+      "Line, shape and form",
+      "Colour and its uses",
+      "Weaving with local materials",
+      "Modelling with clay",
+      "Pattern making",
+      "Drawing from observation",
+      "Traditional Ghanaian crafts",
+      "Preparing work for display",
+    ],
+    Physical: [
+      "Warming up and cooling down",
+      "Locomotor movements",
+      "Throwing and catching",
+      "Balance and coordination",
+      "Athletics: the standing start",
+      "Small-sided games",
+      "Personal hygiene and exercise",
+      "Traditional Ghanaian games",
+    ],
+    Ghanaian: [
+      "Greetings and courtesies",
+      "Naming and the days of the week",
+      "Reading a short passage",
+      "Nouns and their plurals",
+      "Proverbs and their meanings",
+      "Writing simple sentences",
+      "Storytelling",
+      "Songs and recitals",
+    ],
+    French: [
+      "Salutations et presentations",
+      "Les nombres de un a vingt",
+      "La famille",
+      "Les couleurs",
+      "En classe: le vocabulaire",
+      "Les jours de la semaine",
+      "Le verbe etre",
+      "Une conversation simple",
+    ],
+    Computing: [
+      "Parts of the computer",
+      "Using the keyboard and the mouse",
+      "Files and folders",
+      "Word processing: formatting text",
+      "Staying safe online",
+      "Presenting information",
+      "Spreadsheets: entering data",
+      "The internet and how it helps us",
+    ],
+    Career: [
+      "Work and why people do it",
+      "Occupations in our community",
+      "Tools and their safe use",
+      "Working with others",
+      "Planning a simple project",
+      "Entrepreneurship: an idea",
+      "Money and saving",
+      "Presenting our work",
+    ],
+  };
+
+  const topicFor = (subject: string, week: number): string => {
+    const key =
+      Object.keys(TOPICS).find((entry) =>
+        subject.toLowerCase().includes(entry.toLowerCase()),
+      ) ?? null;
+
+    const list = key ? TOPICS[key] : null;
+    if (list) return list[(week - 1) % list.length];
+    return `${subject}: week ${week}`;
+  };
+
+  const rows: Prisma.LessonNoteCreateManyInput[] = [];
+  let approved = 0;
+  let submitted = 0;
+  let returned = 0;
+  let missing = 0;
+
+  for (const offering of offerings) {
+    for (let week = 1; week <= weeksSoFar; week += 1) {
+      // One week in seven never gets written at all, which is what puts names
+      // on the "who is behind" list.
+      if (chance(0.14)) {
+        missing += 1;
+        continue;
+      }
+
+      const weekEnding = weekEndingFor(week, term);
+      // Handed in the Friday before the week, which is on time.
+      const submittedAt = new Date(weekEnding);
+      submittedAt.setDate(submittedAt.getDate() - (chance(0.75) ? 7 : 2));
+
+      // The most recent week is still in the queue; older ones are settled.
+      const recent = week >= weeksSoFar;
+      const status = recent
+        ? "SUBMITTED"
+        : chance(0.12)
+          ? "RETURNED"
+          : "APPROVED";
+
+      if (status === "APPROVED") approved += 1;
+      if (status === "SUBMITTED") submitted += 1;
+      if (status === "RETURNED") returned += 1;
+
+      const topic = topicFor(offering.subject.name, week);
+      const vetted = status !== "SUBMITTED";
+
+      rows.push({
+        offeringId: offering.id,
+        weekNumber: week,
+        weekEnding,
+        topic,
+        subTopic: chance(0.5) ? null : "Introduction and key vocabulary",
+        objectives: [
+          `State what is meant by ${topic.toLowerCase()}`,
+          "Give two examples from everyday life",
+        ],
+        rpk: "Pupils have covered the previous week's work and can read the key words on the board.",
+        materials: pick([
+          ["Chalkboard", "Flash cards", "Textbook"],
+          ["Charts", "Real objects", "Exercise books"],
+          ["Pictures", "Chalkboard illustration"],
+        ]),
+        coreCompetencies: pick([
+          ["Critical thinking", "Communication"],
+          ["Collaboration", "Personal development"],
+          ["Creativity and innovation"],
+        ]),
+        introduction:
+          "Review the previous lesson through question and answer, then introduce the topic with a familiar example.",
+        development:
+          "Explain the key ideas on the board. Pupils work in pairs on the class exercise while the teacher moves round. Two pairs present to the class.",
+        closure: "Recap the main points and set the exercise for the exercise book.",
+        evaluation: "Five questions on the board, marked in class.",
+        homework: chance(0.6) ? "Exercise 3, questions 1 to 5." : null,
+        // Written after the week, so only the older notes have one.
+        reflection:
+          !recent && chance(0.4)
+            ? pick([
+                "The class needed longer on the examples than planned; the evaluation was set as homework instead.",
+                "Went well. The pairs work kept the quieter pupils involved.",
+                "Two pupils were absent and will need catching up on Monday.",
+              ])
+            : null,
+        periodsPlanned: between(2, 5),
+        status: status as never,
+        submittedAt,
+        vettedById: vetted ? vetter : null,
+        vettedAt: vetted ? new Date(submittedAt.getTime() + 86_400_000) : null,
+        vetterRemarks:
+          status === "RETURNED"
+            ? pick([
+                "The objectives are not measurable. Rewrite them as what the pupil will be able to do.",
+                "No teaching and learning materials listed for a practical topic.",
+                "The evaluation does not test the second objective.",
+              ])
+            : null,
+      });
+    }
+  }
+
+  if (rows.length) {
+    await db.lessonNote.createMany({ data: rows, skipDuplicates: true });
+  }
+
+  console.log(
+    `    ${rows.length} notes across ${weeksSoFar} weeks: ${approved} approved, ${submitted} waiting, ${returned} sent back, ${missing} never written`,
   );
 }
