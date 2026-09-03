@@ -34,7 +34,9 @@ A single system answers those questions because the same fact is only stored onc
 
 **Pupils.** Records, guardians and family links with siblings visible, bulk import, custom fields the school defines itself, photographs, ID cards, documents, medical information behind its own permission, and discipline records behind another.
 
-**Teaching.** Class levels and sections, subjects, a timetable builder that refuses to double book a teacher, daily attendance, a gradebook, assessments weighted the way the school weights them, and grading scales the school sets.
+**Teaching.** Class levels and sections, subjects, daily attendance, a gradebook, assessments weighted the way the school weights them, and grading scales the school sets.
+
+**Timetabling.** A bell schedule the school sets, a grid that refuses to double book a teacher, a class or a room, and a builder that will lay out the whole school from how many periods a week each subject gets. It respects what is already placed, works around staff who are not in every day, checks its own output before saving any of it, and gives the same answer twice on the same data. When it cannot fit everything it names the teachers who are being asked for more periods than a week holds, because that is usually the real answer.
 
 **Report cards.** Generated for a class and a term, with subject marks, totals, averages, positions, attendance and the form teacher's remark, printed on letterhead and published to the guardian portal when the school is ready.
 
@@ -176,7 +178,7 @@ There is no fixed asset revaluation and no foreign currency accounting. The ledg
 
 The cafeteria does not cost a meal against the provisions used to cook it. It knows what was served and what was charged; working out what the kitchen consumed to do it is still a matter of reading the store issues alongside it.
 
-Timetabling is a builder with checks rather than an automatic solver. It will refuse to double book a teacher or a room and it will not generate a timetable from constraints on its own.
+The timetable builder is a good heuristic rather than an exact solver. School timetabling is a hard problem and an exact answer for twenty classes is not something to wait for on a web page, so it does what a human timetabler does: places the most constrained first, spreads a subject across the week, and reports honestly what it could not fit. On a school whose staffing allows a complete timetable it produces one.
 
 The system needs an internet connection. It is not an offline application.
 

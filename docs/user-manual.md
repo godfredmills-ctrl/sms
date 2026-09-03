@@ -96,11 +96,31 @@ Once subjects exist, connect them to classes. That connection is what tells the 
 
 ### 2.4 The timetable
 
-The timetable builder is under Academics, then Timetable. You define the periods in a day, then place subjects and teachers into them for each class.
+Academics, then Timetable.
 
-The system checks for clashes as you go. It will not let you put one teacher in two rooms at the same time, and it will tell you which lesson is in the way.
+**The day.** The bell schedule is set once, in Settings, and every class shares it: the periods, their times, and which of them are break, assembly or worship. Nothing is placed into a break.
+
+**By hand.** Pick a class, click a cell, choose a subject. The system refuses to put one teacher in two rooms at the same time, and says who is already teaching what and when rather than only that something is wrong. It refuses the same for a class already in a lesson and for a room already booked.
+
+It compares the clock, not the period number. Two classes need not ring the same bells, so JHS 1 period 2 can sit across JHS 2 period 3 while never sharing a number.
+
+**Built for you.** Timetable, then Build it for me.
+
+Before it can run, each subject needs to know how much of the week it gets. That is the one number the builder cannot work without, and the same screen is where it is set: a row per subject per class, with how many periods a week and how many of those should be back to back. A science practical is one lesson that cannot be split, not two singles that happen to be adjacent.
+
+It respects what is already there. Breaks, assembly and anything labelled by hand are never moved, even when you tick "replace". A school that has hand-built Monday and wants the rest filled in around it gets exactly that.
+
+It checks its own work before saving any of it, and if it finds a clash it saves nothing.
+
+Run it twice on the same data and you get the same timetable. That is deliberate: one that cannot be reproduced is one nobody can tell they have improved.
+
+**When it cannot fit everything in.** It says what it could not place and, more usefully, why. Nine times in ten a half-built timetable is not the software: it is a school asking one teacher for more periods than a week holds. The screen names those teachers, says how many periods each is wanted for against how many they can teach, and gives the most that could be placed by any arrangement at all. The answer to that is more teaching staff, fewer periods a week, or a longer day, and none of them is a button.
+
+**When somebody cannot teach.** Time off is recorded per member of staff, either a whole day or a single period. Part-time staff are the usual case, and a builder that does not know Mr Osei is only in on Tuesdays and Thursdays produces a timetable that has to be thrown away.
 
 Timetables can be printed for a class, for a teacher, or for the whole school.
+
+![Building a timetable. The figures on the right are the one thing the builder cannot work without.](screenshots/timetable-generate.png)
 
 ### 2.5 The calendar
 

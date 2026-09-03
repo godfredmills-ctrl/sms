@@ -18,12 +18,45 @@
 
 import { randomBytes, createHash } from "node:crypto";
 import { rmSync } from "node:fs";
+import { createConnection } from "node:net";
 
 import { PGlite } from "@electric-sql/pglite";
 import { createServer } from "pglite-server";
 
 const PORT = Number(process.env.DEV_DB_PORT ?? 5432);
 const DATA = ".pgdata";
+
+/**
+ * Refuse to start if something already has the port, BEFORE touching the data.
+ *
+ * Checked first because the order matters. Left to fail on listen, this had
+ * already opened the data directory and, with `--session`, written to it: two
+ * processes with the same PGlite files open, one of them about to die. That is
+ * how a data directory gets corrupted, and it is easy to do by accident when a
+ * previous run is still up in another window.
+ */
+const taken = await new Promise((resolve) => {
+  const socket = createConnection({ host: "127.0.0.1", port: PORT });
+  socket.setTimeout(1500);
+  socket.on("connect", () => {
+    socket.destroy();
+    resolve(true);
+  });
+  socket.on("timeout", () => {
+    socket.destroy();
+    resolve(false);
+  });
+  socket.on("error", () => resolve(false));
+});
+
+if (taken) {
+  console.error(
+    `\n  Something is already serving on port ${PORT}.\n\n` +
+      "  Not starting: two processes with the same PGlite data directory open\n" +
+      "  is how it gets corrupted. Stop the other one first.\n",
+  );
+  process.exit(1);
+}
 
 if (process.argv.includes("--fresh")) {
   rmSync(DATA, { recursive: true, force: true });
