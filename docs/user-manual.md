@@ -190,7 +190,39 @@ Graduating a pupil moves them out of the active register without deleting anythi
 
 ## Part 4: Daily teaching
 
-### 4.1 Attendance
+### 4.1 Lesson notes
+
+Lesson notes, then My notes.
+
+The weekly preparation every teacher writes and the head or head of department vets before the week is taught. The system holds it in the format the form already uses: topic, sub-topic, objectives, relevant previous knowledge, teaching and learning materials, core competencies, the introduction, development and closure, the evaluation and the homework.
+
+**Writing one.** Pick the week, pick the subject, fill it in. It saves as a draft as often as you like and only you can see it. The panel tells you what is still empty as you type, and it will not let you hand in a note with a required section missing, because a note handed in half finished wastes your time and the head's.
+
+**Handing it in.** Submit it and it goes to whoever vets. Once it is with them it cannot be edited: a note that changes after somebody has signed it off is a signature on a document that no longer exists.
+
+**Getting it back.** A note sent back carries the reason, at the top of the note and on your list of weeks. Edit it and hand it in again. Nothing can be sent back without a reason, because a note returned with no remark comes back three times.
+
+**The reflection.** Written after the week, not before, and it stays open even after the note is approved. It is the one part of the form that is honest about how the teaching actually went.
+
+**The weeks.** The strip of numbers is the term. A green dot is a week where every one of your subjects has a note handed in; a red one is a week that has already been taught and does not. Going back and filling in a week you missed is the point of it being there.
+
+![A teacher's own notes for a week. The one sent back carries the reason.](screenshots/lesson-notes.png)
+
+### 4.2 Vetting them
+
+Lesson notes, then Vetting. This needs the vetting permission, which teachers do not have.
+
+The left half is the queue: everything handed in and not yet looked at, oldest week first. Open one, read it, and either approve it or send it back with remarks.
+
+The right half is the half a pile of exercise books cannot do. It lists the teachers who have not handed in a note for weeks that have already been taught, with the subjects. A stack of books tells you who handed in; it says nothing at all about who did not, and that is the person worth knowing about.
+
+A draft does not count as handed in. It is a form somebody opened, not a note anybody has seen.
+
+**Nobody vets their own note.** A head of department who teaches has both permissions and still cannot approve their own work. The button is not drawn and the system refuses it. A note somebody signed off themselves is vetted in the sense that a receipt you wrote yourself is proof of payment.
+
+![The vetting queue, and the teachers who have handed nothing in.](screenshots/lesson-notes-vetting.png)
+
+### 4.3 Attendance
 
 Attendance is taken per class per day, or per lesson if the school works that way.
 
@@ -202,7 +234,7 @@ Attendance reports show patterns rather than single days. A pupil missing every 
 
 ![Taking a register.](screenshots/attendance.png)
 
-### 4.2 The gradebook
+### 4.4 The gradebook
 
 The gradebook is where marks are entered.
 
@@ -212,7 +244,7 @@ A blank is not a zero. If a pupil has not been assessed, leave the cell empty. T
 
 Mark a pupil absent for an assessment rather than giving them zero. An absence is left out of both sides of the calculation. A zero drags the average down and drags the whole class position with it.
 
-### 4.3 Assessments and how they are weighted
+### 4.5 Assessments and how they are weighted
 
 A subject's mark is made of components. Typically continuous assessment counts for thirty per cent and the end of term examination for seventy, but the split is set by the school under Settings, then Grading.
 
@@ -222,7 +254,7 @@ Grading scales are also set under Settings. A scale turns a percentage into a gr
 
 ![The gradebook. A blank is not a zero.](screenshots/gradebook.png)
 
-### 4.4 Report cards
+### 4.6 Report cards
 
 Reports, then Report cards.
 
@@ -232,7 +264,7 @@ Review before publishing. A report card that has been published is visible in th
 
 Report cards print on the school's letterhead. Absences show as "Abs" rather than as a zero, so a parent can see the difference between a child who did badly and a child who was not there.
 
-### 4.5 Examinations
+### 4.7 Examinations
 
 Examinations are handled separately from ordinary class assessments because they involve the whole school at once.
 
@@ -252,7 +284,7 @@ Examinations are handled separately from ordinary class assessments because they
 
 **Marks** are entered per paper, across every class at once, which is how an examinations officer actually works. The marks flow into the gradebook and onto the report card, so nothing is entered twice.
 
-### 4.6 Transcripts and certificates
+### 4.8 Transcripts and certificates
 
 Credentials, then Issue. Choose the pupil and the kind of document.
 
@@ -648,7 +680,9 @@ Train by job, not by module. Five sessions, roughly half a day each.
 
 **Session two: the office.** Registrar and front desk. Admissions, admitting a pupil, guardians and family links, ID cards, visitors, and the website enquiry list.
 
-**Session three: teaching staff.** Attendance, the gradebook, assessments, report cards. This is the largest group and the one where the "a blank is not a zero" point needs making twice.
+**Session three: teaching staff.** Lesson notes, attendance, the gradebook, assessments, report cards. This is the largest group and the one where the "a blank is not a zero" point needs making twice.
+
+Do lesson notes first in that session, and do them by writing a real one for next week rather than by describing the screen. It is the part of the system a teacher touches most often, and the part where the difference between a form and a habit is decided in the first fortnight.
 
 **Session four: the bursar.** Fee structures, invoicing a term, taking payments, discounts, reminders, expenditure and payroll. Longest session. Do it separately and do not rush it.
 

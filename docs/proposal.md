@@ -36,6 +36,8 @@ A single system answers those questions because the same fact is only stored onc
 
 **Teaching.** Class levels and sections, subjects, daily attendance, a gradebook, assessments weighted the way the school weights them, and grading scales the school sets.
 
+**Lesson notes.** The weekly preparation every teacher writes and the head vets, in the format the Ghana Education Service expects: topic, objectives, relevant previous knowledge, teaching and learning materials, core competencies, the three phases, evaluation. Notes are handed in, sent back with remarks or approved, and nobody can vet their own however senior they are. The screen a head opens lists both the queue and the teachers who have handed nothing in, which is the half a pile of exercise books cannot do.
+
 **Timetabling.** A bell schedule the school sets, a grid that refuses to double book a teacher, a class or a room, and a builder that will lay out the whole school from how many periods a week each subject gets. It respects what is already placed, works around staff who are not in every day, checks its own output before saving any of it, and gives the same answer twice on the same data. When it cannot fit everything it names the teachers who are being asked for more periods than a week holds, because that is usually the real answer.
 
 **Report cards.** Generated for a class and a term, with subject marks, totals, averages, positions, attendance and the form teacher's remark, printed on letterhead and published to the guardian portal when the school is ready.
