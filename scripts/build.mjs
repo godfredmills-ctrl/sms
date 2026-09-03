@@ -103,6 +103,9 @@ for (const check of [
   ["printed register fits", "scripts/check-register-fit.mjs"],
   ["house style dashes", "scripts/check-dashes.mjs"],
   ["guardian contact filters", "scripts/check-guardian-contact.mjs"],
+  // Last of the static guards, because it reads this file and should read it
+  // in the state the rest of the build agrees with.
+  ["every suite is wired in", "scripts/check-suites-wired.mjs"],
 ]) {
   run(`Checking ${check[0]}`, check[1], []);
 }
@@ -115,6 +118,16 @@ for (const check of [
  * take about a second between them and they are the only thing standing
  * between a refactor and a silently wrong balance sheet, so they belong in
  * the build rather than in a habit.
+ *
+ * The habit duly lapsed. Nine of these existed and were not listed here, and
+ * three had been dying on their first import for months without anybody
+ * hearing about it, because nothing ran them. check-suites-wired.mjs above now
+ * refuses a build that leaves one out.
+ *
+ * Every one runs with --conditions=react-server. A suite that reaches a module
+ * marked server-only otherwise resolves it to a file whose whole body is a
+ * throw, and the failure reads as a broken test rather than a missing flag.
+ * Passing it to all of them is one fewer decision to get wrong.
  */
 for (const check of [
   ["asset rules", "scripts/check-assets.ts"],
@@ -125,8 +138,20 @@ for (const check of [
   ["timetable rules", "scripts/check-timetable.ts"],
   ["lesson note rules", "scripts/check-lesson-notes.ts"],
   ["cover rules", "scripts/check-cover.ts"],
+  ["boarding rules", "scripts/check-boarding.ts"],
+  ["admission rules", "scripts/check-admissions.ts"],
+  ["examination rules", "scripts/check-exams.ts"],
+  ["mark entry", "scripts/check-marks.ts"],
+  ["payroll arithmetic", "scripts/check-payroll.ts"],
+  ["the importer", "scripts/check-import.ts"],
+  ["integration settings", "scripts/check-integrations.ts"],
+  ["markdown rendering", "scripts/check-markdown.ts"],
+  ["dashboard panels", "scripts/check-dashboard.ts"],
 ]) {
-  run(`Checking ${check[0]}`, await binOf("tsx/cli"), [check[1]]);
+  run(`Checking ${check[0]}`, await binOf("tsx/cli"), [
+    "--conditions=react-server",
+    check[1],
+  ]);
 }
 
 run("Generating Prisma client", await binOf("prisma/build/index.js"), ["generate"]);
