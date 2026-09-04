@@ -111,6 +111,7 @@ const SHOTS = [
   ["communications", "/communications/compose", {}],
   ["guardians", "/guardians", {}],
   ["staff", "/staff", {}],
+  ["appraisals", "/appraisals", {}],
   ["roles", "/users/roles", {}],
   ["settings", "/settings/school", {}],
   ["integrations", "/settings/integrations", {}],

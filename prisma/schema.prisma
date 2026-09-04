@@ -422,6 +422,7 @@ model AcademicYear {
   admissions     AdmissionApplication[]
   journalEntries JournalEntry[]
   requisitions   Requisition[]
+  appraisals     Appraisal[]
 
   @@unique([schoolId, name])
 }
@@ -451,6 +452,7 @@ model Term {
   mealSubscriptions MealSubscription[]
   mealMenus         MealMenu[]
   requisitions      Requisition[]
+  appraisals        Appraisal[]
 
   @@unique([academicYearId, sequence])
 }
@@ -874,9 +876,11 @@ model Staff {
   requisitionsRaised  Requisition[] @relation("RequisitionRequestedBy")
   requisitionsDecided Requisition[] @relation("RequisitionDecidedBy")
 
-  coverWhileAway CoverAssignment[] @relation("CoverAbsent")
-  coveringFor    CoverAssignment[] @relation("CoverStaff")
-  coverArranged  CoverAssignment[] @relation("CoverArrangedBy")
+  coverWhileAway  CoverAssignment[] @relation("CoverAbsent")
+  coveringFor     CoverAssignment[] @relation("CoverStaff")
+  coverArranged   CoverAssignment[] @relation("CoverArrangedBy")
+  appraisals      Appraisal[]       @relation("Appraisee")
+  appraisalsGiven Appraisal[]       @relation("Appraiser")
 
   @@index([status])
   @@index([department])
@@ -5866,4 +5870,127 @@ model RequisitionLine {
 
   @@index([requisitionId])
   @@index([stockItemId])
+}
+
+// ---------------------------------------------------------------------------
+// Appraisal
+//
+// The judgement a head writes at the end of a year, and the facts underneath
+// it. Every part of this system already holds evidence about how a teacher has
+// got on: notes handed in, registers taken, cover taken on, days away. None of
+// it has ever been in one place, so an appraisal is written from memory.
+//
+// What is deliberately NOT here is a computed rating. The evidence is gathered
+// and shown; the ratings come from a person who has been in the room. See the
+// long note at the head of lib/appraisal-rules.ts.
+//
+// The two structural rules: nobody appraises themselves, and only the person
+// being appraised can agree to it. The first is a CHECK. The second cannot be
+// expressed in SQL and lives in the rules module, which the screen and the
+// action both read.
+// ---------------------------------------------------------------------------
+
+enum AppraisalStatus {
+  /// Opened for the period. The appraisee writes first.
+  DRAFT
+  /// Self-assessment written, and with the appraiser.
+  SELF_ASSESSED
+  /// Rated and commented on. Waiting for the appraisee to respond.
+  APPRAISED
+  /// Both have signed it.
+  AGREED
+  /// The appraisee has recorded disagreement, in their own words.
+  DISPUTED
+}
+
+model Appraisal {
+  id String @id @default(cuid())
+
+  /// The person being appraised.
+  staffId String
+  staff   Staff  @relation("Appraisee", fields: [staffId], references: [id], onDelete: Cascade)
+
+  /// The person doing it. Not nullable: an appraisal with nobody answerable
+  /// for it is the document this module exists to replace.
+  appraiserId String
+  appraiser   Staff  @relation("Appraiser", fields: [appraiserId], references: [id], onDelete: Restrict)
+
+  academicYearId String
+  academicYear   AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
+  /// Null for a whole-year appraisal, which is the common case here. A school
+  /// that appraises termly sets it.
+  termId         String?
+  term           Term?        @relation(fields: [termId], references: [id], onDelete: SetNull)
+
+  status AppraisalStatus @default(DRAFT)
+
+  /// The appraisee, in their own words, written before they are rated.
+  selfAssessment String?
+  selfAssessedAt DateTime?
+
+  /// The appraiser, in theirs.
+  appraiserComment String?
+  appraisedAt      DateTime?
+
+  /// The appraisee again, at the end. Required to record disagreement, which
+  /// is what makes disagreeing a thing they can actually do.
+  response    String?
+  respondedAt DateTime?
+
+  /// What the system showed on the day it was appraised.
+  ///
+  /// A snapshot, because the facts keep moving: notes are handed in late, more
+  /// cover is taken, and a year later the figures beneath a signed appraisal
+  /// would no longer be the figures the person signed against.
+  evidence Json?
+
+  scores  AppraisalScore[]
+  targets AppraisalTarget[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([staffId])
+  @@index([appraiserId])
+  @@index([academicYearId])
+  @@index([status])
+}
+
+model AppraisalScore {
+  id String @id @default(cuid())
+
+  appraisalId String
+  appraisal   Appraisal @relation(fields: [appraisalId], references: [id], onDelete: Cascade)
+
+  /// One of the keys in CRITERIA. Stored as text rather than an enum because
+  /// a school that adds a heading should not need a migration.
+  criterion String
+
+  /// 1 to 4. Null until somebody has actually decided.
+  rating Int?
+  note   String?
+
+  @@unique([appraisalId, criterion])
+  @@index([appraisalId])
+}
+
+model AppraisalTarget {
+  id String @id @default(cuid())
+
+  appraisalId String
+  appraisal   Appraisal @relation(fields: [appraisalId], references: [id], onDelete: Cascade)
+
+  description String
+  /// When it should have happened by. What makes it a target rather than a
+  /// wish.
+  reviewBy    DateTime?
+  /// Set at the next appraisal, looking back.
+  met         Boolean?
+
+  sortKey Int @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([appraisalId])
 }

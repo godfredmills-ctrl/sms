@@ -58,6 +58,12 @@ export const PERMISSIONS: PermissionDef[] = [
     ["update", "update", "Edit staff records"],
     ["delete", "delete", "Delete staff records"],
     ["leave.manage", "update", "Approve and manage staff leave"],
+    // Appraisal. Reading your own is not a permission: it is your own record
+    // and every member of staff has it. What is gated is conducting one, and
+    // reading everybody else, which are different jobs.
+    ["appraisal.conduct", "approve", "Appraise the staff assigned to you"],
+    ["appraisal.read", "read", "Read every appraisal in the school"],
+    ["appraisal.manage", "update", "Open appraisals and set who appraises whom"],
     ["export", "read", "Export staff data"],
   ]),
 
@@ -442,6 +448,12 @@ export const ROLE_PRESETS: RolePreset[] = [
       "finance.requisition.read",
       "finance.requisition.request",
       "finance.requisition.approve",
+      // The head appraises, reads every appraisal, and decides who appraises
+      // whom. Nobody appraises themselves, so the head is appraised by the
+      // board and that record is kept off this system on purpose.
+      "staff.appraisal.conduct",
+      "staff.appraisal.read",
+      "staff.appraisal.manage",
       ...expand("asset"),
       ...expand("stock"),
       ...expand("cafeteria"),
@@ -477,6 +489,9 @@ export const ROLE_PRESETS: RolePreset[] = [
       // not here: the money is the bursar and the head between them.
       "finance.requisition.read",
       "finance.requisition.request",
+      // An assistant head appraises the teaching staff. Reading everybody
+      // else is deliberately not here: their own appraisees, and no further.
+      "staff.appraisal.conduct",
       ...expand("boarding"),
       "admission.read",
       "admission.interview",

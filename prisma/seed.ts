@@ -33,6 +33,7 @@ import {
   type Arrangement as CoverArrangement,
 } from "../src/lib/cover-rules";
 import { outstandingTotal as requisitionOutstanding } from "../src/lib/requisition-rules";
+import { CRITERIA as APPRAISAL_CRITERIA } from "../src/lib/appraisal-rules";
 import {
   allClashes,
   generateTimetable,
@@ -212,6 +213,9 @@ async function main() {
   // After expenditure, whose categories it draws on, and after staff, because
   // who asked and who decided have to be two different people.
   await seedRequisitions(staff, terms, year.id);
+  // Last of the staff seeds: it reads the year, and it wants a staff room
+  // with more than the named cast in it.
+  await seedAppraisals(staff, year.id);
   await seedAdmissions(levels, staff, year.id, roles);
 
   console.log("\nDone.\n");
@@ -328,6 +332,9 @@ async function reset() {
     // points at a category too, so both go before it.
     "expense", "budgetLine", "expenseCategory", "vendor",
     "visitor",
+    // An appraisal points at two members of staff and a year; its scores and
+    // targets point at it, so they go first and it goes before the staff.
+    "appraisalScore", "appraisalTarget", "appraisal",
     // Requisition lines point at their requisition and at a store item, so
     // both clear before the categories and the staff they name.
     "requisitionLine", "requisition",
@@ -7617,5 +7624,164 @@ async function seedRequisitions(staff: StaffRow[], terms: TermRow[], academicYea
 
   console.log(
     `    ${created} requisitions, ${(committedMinor / 100).toLocaleString("en-GH", { minimumFractionDigits: 2 })} cedis committed and not yet met`,
+  );
+}
+
+// -----------------------------------------------------------------------------
+// Appraisals
+//
+// One in every state, including a disputed one. The disputed one is the point
+// of seeding this at all: a demonstration where every appraisal was agreed
+// would teach a school that disagreeing is not something the software expects,
+// which is the opposite of what it is for.
+// -----------------------------------------------------------------------------
+
+async function seedAppraisals(staff: StaffRow[], academicYearId: string) {
+  console.log("  Appraisals…");
+
+  const head = staff.find((member) => member.roleKey === "head_teacher");
+  const assistant = staff.find((member) => member.roleKey === "assistant_head");
+  if (!head || !assistant) return;
+
+  const teachers = staff.filter(
+    (member) => member.isTeaching && member.id !== head.id && member.id !== assistant.id,
+  );
+  if (teachers.length < 4) return;
+
+  const day = (offset: number) => {
+    const date = new Date();
+    date.setDate(date.getDate() + offset);
+    date.setHours(14, 0, 0, 0);
+    return date;
+  };
+
+  const plans: Array<{
+    staff: StaffRow;
+    appraiser: StaffRow;
+    status: "DRAFT" | "SELF_ASSESSED" | "APPRAISED" | "AGREED" | "DISPUTED";
+    self?: string;
+    comment?: string;
+    response?: string;
+    ratings?: number[];
+    targets?: Array<[string, number]>;
+  }> = [
+    // The assistant head is appraised by the head, which is the chain a
+    // school actually has and which the demonstration login needs: without it
+    // the person the printed credentials sign you in as has an empty half of
+    // the screen, and the half that is empty is their own record.
+    {
+      staff: assistant,
+      appraiser: head,
+      status: "APPRAISED",
+      self: "Two terms of running the timetable single-handed while we were short. The cover board has taken most of the strain off the mornings, but the second half of the year was heavy.",
+      comment:
+        "Has held the academic side together through a difficult year and rebuilt the timetable twice without complaint. Lesson observation in the second term was among the best I have seen here. Where I would push is delegation: too much of this year sat with one person, and some of that was a choice.",
+      ratings: [4, 3, 4, 3, 4, 4, 4, 4],
+      targets: [
+        ["Hand the timetable build to a second person and supervise rather than do it.", 120],
+        ["Take the two afternoons a week that the timetable already gives you.", 30],
+      ],
+    },
+    {
+      staff: teachers[0]!,
+      appraiser: assistant,
+      status: "DRAFT",
+    },
+    {
+      staff: teachers[1]!,
+      appraiser: assistant,
+      status: "SELF_ASSESSED",
+      self: "A hard year and a good one. The JHS 2 set came to me two terms behind and finished within eight marks of JHS 2 Amber. I have been late with notes more than I would like, which is mostly the two afternoons I took cover in the second term. I would like a hand with the practical work: the equipment we have is not enough for a class of forty-four.",
+    },
+    {
+      staff: teachers[2]!,
+      appraiser: assistant,
+      status: "APPRAISED",
+      self: "Steady. I got the marking back faster this year than last, which was the target.",
+      comment:
+        "Well prepared and consistently on time, and the marking turnaround is much improved: I checked three sets in the second term and none was more than four days old. The lesson I saw in week seven was well pitched and the class was with it throughout. Where I would push is the quieter half of the room, who were not asked anything in forty minutes.",
+      ratings: [3, 4, 3, 4, 3, 4, 4, 3],
+      targets: [
+        ["Ask at least six pupils by name in every lesson, and write down which six.", 60],
+        ["Take one of the JHS 3 revision clubs in the third term.", 90],
+      ],
+    },
+    {
+      staff: teachers[3]!,
+      appraiser: assistant,
+      status: "AGREED",
+      self: "I took on more than I planned to and I think it showed in the second term.",
+      comment:
+        "A generous colleague and the first person to say yes when cover is needed, which is worth saying out loud because it does not appear on any timetable. Preparation slipped in the second term and both of us know why. The teaching itself is good and the results bear it out.",
+      response:
+        "Agreed, and I would rather the cover was spread a bit more evenly next year.",
+      ratings: [3, 2, 3, 3, 3, 3, 4, 4],
+      targets: [
+        ["Hand lesson notes in by the Friday before the week they are for.", 45],
+        ["Agree with the deputy a cap on cover periods in any one week.", 30],
+      ],
+    },
+    {
+      staff: teachers[4] ?? teachers[0]!,
+      appraiser: head,
+      status: "DISPUTED",
+      self: "I have taught four classes across two year groups all year with no free period on three days of the week.",
+      comment:
+        "The teaching is sound and the pupils like being taught by this colleague. Paperwork has been a persistent problem: lesson notes were late more often than not and two sets of marks missed the report card deadline.",
+      response:
+        "I do not accept the rating for preparation. I asked in September for the fourth class to go to somebody else and was told there was nobody. Twenty-eight periods a week and no free period on three days is not a paperwork problem, and none of that is anywhere in this appraisal.",
+      ratings: [3, 2, 3, 2, 3, 3, 3, 3],
+      targets: [["Review the timetable load before the third term begins.", 21]],
+    },
+  ];
+
+  const CRITERION_KEYS = APPRAISAL_CRITERIA.map((criterion) => criterion.key);
+
+  let created = 0;
+  const seen = new Set<string>();
+
+  for (const plan of plans) {
+    // One per person per period, which the database also enforces. The seed
+    // has to respect it too, or a fifth teacher short of staff would collide
+    // with a fallback above.
+    if (seen.has(plan.staff.id)) continue;
+    seen.add(plan.staff.id);
+
+    const rated = plan.ratings ?? [];
+
+    await db.appraisal.create({
+      data: {
+        staffId: plan.staff.id,
+        appraiserId: plan.appraiser.id,
+        academicYearId,
+        status: plan.status,
+        selfAssessment: plan.self ?? null,
+        selfAssessedAt: plan.self ? day(-40) : null,
+        appraiserComment: plan.comment ?? null,
+        appraisedAt: plan.comment ? day(-14) : null,
+        response: plan.response ?? null,
+        respondedAt: plan.response ? day(-7) : null,
+        scores: {
+          create: CRITERION_KEYS.map((criterion, index) => ({
+            criterion,
+            rating: rated[index] ?? null,
+          })),
+        },
+        targets: {
+          create: (plan.targets ?? []).map(([description, days], index) => ({
+            description,
+            reviewBy: day(days),
+            sortKey: index,
+          })),
+        },
+      },
+    });
+
+    created += 1;
+  }
+
+  const disputed = plans.filter((plan) => plan.status === "DISPUTED").length;
+  console.log(
+    `    ${created} appraisals across five states, ${disputed} not agreed by the person it is about`,
   );
 }

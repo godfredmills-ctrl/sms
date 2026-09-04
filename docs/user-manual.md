@@ -324,6 +324,32 @@ Transcripts pull the pupil's results across the years. Certificates use a templa
 
 Every credential issued gets a verification code. Anybody holding the printed document can check it at the school's public verification address, which is how an employer or a university confirms that a certificate is genuine.
 
+### 4.10 Appraisal
+
+Staff, then Appraisals. Every member of staff sees their own; conducting one is a permission, and so is reading everybody else's.
+
+An appraisal here has two voices and it is built that way on purpose. A document with one signature is a report about somebody, not an appraisal of them.
+
+**The order it happens in.** Whoever manages staff opens one for a year and names who will conduct it. The appraisee writes their own account first, before anybody rates them. The appraiser then rates each of the eight headings, writes the appraisal and sets at least one target. The appraisee reads it and either agrees or records disagreement in their own words.
+
+**Nobody appraises themselves.** However senior. The screen does not offer it, the action refuses it, and the database will not store it. The head is appraised by the governing board, and that record is deliberately kept off this system.
+
+**Only the appraisee signs.** An appraiser cannot mark an appraisal as agreed on somebody's behalf, and cannot record their disagreement for them. That is the whole of what the signature means.
+
+**Disagreeing is a real option.** It needs words, and those words sit on the file beside the appraisal permanently. A disputed appraisal can go back for another conversation and be revised, and the disagreement stays on the record either way.
+
+**What the system holds.** The screen shows what the rest of the system already knows about the period: lesson notes handed in of those the school asked for, registers marked, cover taken on, days away, and the timetabled load that gives all of them their meaning.
+
+These are counts and they are not a score. Nothing is added up, weighted or turned into a rating, and that is a deliberate refusal rather than a thing nobody got round to. A teacher whose notes are late every week because they are covering for two absent colleagues is not a worse teacher than one with an empty timetable and immaculate paperwork. The ratings come from a person who has been in the room; the figures are there so that person is not working from memory.
+
+They are frozen the moment the appraisal is recorded, because a year later the numbers underneath a signed document would no longer be the numbers the person signed against.
+
+**The scale.** Four points and no middle: outstanding, good, developing, needs attention. An odd-numbered scale collects a whole staff room in the centre, which is a way of writing an appraisal without making a judgement.
+
+There is no overall until every heading has been rated. A partial average looks exactly like a whole one, and the heading somebody has not filled in is reliably the one they were avoiding.
+
+![Appraisals: your own, and the people you appraise.](screenshots/appraisals.png)
+
 ## Part 5: Money
 
 ### 5.1 Fee structures
