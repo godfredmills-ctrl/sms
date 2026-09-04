@@ -3,6 +3,8 @@
  * sidebar is derived from the role rather than maintained separately.
  */
 
+import { CLINIC_DAYBOOK } from "@/lib/access";
+
 export type NavItem = {
   label: string;
   href: string;
@@ -10,6 +12,17 @@ export type NavItem = {
   icon: string;
   /** Any one of these grants visibility. Empty means "everyone signed in". */
   permissions?: string[];
+  /**
+   * And every one of these as well.
+   *
+   * Needed because some pages ask an AND question and a list of alternatives
+   * cannot say so. The clinic day-book is the case that found it: it wants
+   * student.medical.read AND (student.read OR student.medical.update), and
+   * with only the OR half expressible the sidebar offered it to every teacher
+   * in the school and the page answered 404. A link that leads nowhere is the
+   * two-parts-disagreeing bug with a padlock missing from it.
+   */
+  all?: string[];
   badge?: "unreadNotifications";
   /**
    * Set by the shell, not by this file: the viewer lacks the permission, so
@@ -24,6 +37,7 @@ export type NavItem = {
     /** Lucide icon name; submenu rows carry their own icon like the parents. */
     icon?: string;
     permissions?: string[];
+    all?: string[];
     locked?: boolean;
   }>;
 };
@@ -116,13 +130,20 @@ export const STAFF_NAVIGATION: NavGroup[] = [
         label: "Clinic",
         href: "/clinic",
         icon: "Stethoscope",
-        permissions: ["student.medical.read"],
+        // Not a list of its own: the one declaration the page, this row and
+        // the dashboard panel all read, so they cannot come to differ again.
+        ...CLINIC_DAYBOOK,
       },
       {
         label: "Boarding",
         href: "/boarding",
         icon: "BedDouble",
-        permissions: ["boarding.read", "boarding.manage", "boarding.gate"],
+        permissions: [
+          "boarding.read",
+          "boarding.read.own",
+          "boarding.manage",
+          "boarding.gate",
+        ],
         children: [
           { label: "Overview", href: "/boarding", icon: "LayoutDashboard" },
           { label: "Leave-out", href: "/boarding/exeat", icon: "DoorOpen" },

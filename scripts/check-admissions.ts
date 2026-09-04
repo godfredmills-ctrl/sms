@@ -13,6 +13,8 @@ import {
   actsFor,
   assessmentAverage,
   can,
+  mayReadInterviewNotes,
+  showInterviewNote,
   stageOf,
   type ApplicationFacts,
 } from "../src/lib/admission-rules";
@@ -190,6 +192,49 @@ check(
   50,
 );
 check("a zero is a zero, not a missing mark", assessmentAverage([{ score: 0, maxScore: 100 }]), 0);
+
+// -----------------------------------------------------------------------------
+// The interview note
+//
+// Who gets the prose. Everyone who may read the pipeline sees that somebody
+// was interviewed; the note about the family needs a reason to be in the room.
+// -----------------------------------------------------------------------------
+
+const NOTE = { note: "Mother alone. Left the last school after a dispute.", attendees: "Mother" };
+const EMPTY = { note: null, attendees: null };
+const BLANK = { note: "   ", attendees: null };
+
+const interviewer = { interviews: true, decides: false };
+const decider = { interviews: false, decides: true };
+const both = { interviews: true, decides: true };
+const clerk = { interviews: false, decides: false };
+
+check("an interviewer may read", mayReadInterviewNotes(interviewer), true);
+check("a decider may read", mayReadInterviewNotes(decider), true);
+check("somebody who is both may read", mayReadInterviewNotes(both), true);
+check("the pipeline alone may not", mayReadInterviewNotes(clerk), false);
+
+check("the interviewer gets the words", showInterviewNote(NOTE, interviewer).note, NOTE.note);
+check("and who came", showInterviewNote(NOTE, interviewer).attendees, "Mother");
+check("nothing is withheld from them", showInterviewNote(NOTE, interviewer).withheld, false);
+check("the decider gets the words too", showInterviewNote(NOTE, decider).note, NOTE.note);
+
+// The one that matters. Not merely undrawn: absent from what is returned, so
+// a client component cannot receive it and choose not to draw it.
+check("the pipeline reader gets no words", showInterviewNote(NOTE, clerk).note, null);
+check("nor who came", showInterviewNote(NOTE, clerk).attendees, null);
+check("and is told a note exists", showInterviewNote(NOTE, clerk).withheld, true);
+
+// Nothing to withhold is not a withheld note: a row with no interview must
+// not claim there is one on file.
+check("no note is not a withheld note", showInterviewNote(EMPTY, clerk).withheld, false);
+check("nor for a reader who could see it", showInterviewNote(EMPTY, decider).withheld, false);
+check("whitespace is not a note", showInterviewNote(BLANK, clerk).withheld, false);
+check("an empty note reads as nothing", showInterviewNote(EMPTY, clerk).note, null);
+
+// Attendees travel with the note. "Father alone" is about the family too, and
+// splitting the two would leak half of it.
+check("attendees are withheld with the note", showInterviewNote({ note: null, attendees: "Father alone" }, clerk).attendees, null);
 
 console.log(
   failures ? `\n  ${failures} FAILURE(S)\n` : "\n  Every case behaves as written.\n",

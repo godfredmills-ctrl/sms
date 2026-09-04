@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 
 import { authorize, userCan } from "@/lib/auth";
+import { outsideScope } from "@/lib/boarding-rules";
+import { boardingScopeFor } from "@/lib/scope";
 import { allocationRefusal } from "@/lib/boarding";
 import { canBecome } from "@/lib/boarding-rules";
 import { db } from "@/lib/db";
@@ -413,6 +415,16 @@ export async function requestExeatAction(
       })
     : null;
 
+  // A house parent raises leave-out for their own boarders. The form offers
+  // only those names; this is the same rule stated where it is enforced
+  // rather than where it is displayed.
+  const refusal = outsideScope(
+    await boardingScopeFor(user),
+    bed?.room.houseId ?? null,
+    student.firstName + " " + student.lastName,
+  );
+  if (refusal) return { error: refusal };
+
   const created = await db.boardingExeat.create({
     data: {
       studentId,
@@ -475,8 +487,9 @@ export async function decideExeatAction(formData: FormData): Promise<BoardingSta
   const to = text(formData, "status");
   if (!id) return { error: "Which leave-out?" };
 
+  let reader;
   try {
-    await authorize("boarding.read");
+    reader = await authorize(["boarding.read", "boarding.read.own"]);
   } catch (error) {
     return { error: (error as Error).message };
   }
@@ -487,10 +500,25 @@ export async function decideExeatAction(formData: FormData): Promise<BoardingSta
       status: true,
       dueBackAt: true,
       releasedToName: true,
+      houseId: true,
       student: { select: { id: true, firstName: true, lastName: true } },
     },
   });
   if (!exeat) return { error: "That leave-out was not found." };
+
+  /*
+   * Whose boarder this is, settled before anything is decided about them.
+   *
+   * The desk lists a house parent their own house only, so reaching this with
+   * somebody else is a stale page, a shared link, or somebody trying. All
+   * three deserve a sentence rather than a silent success on another house.
+   */
+  const notTheirs = outsideScope(
+    await boardingScopeFor(reader),
+    exeat.houseId,
+    exeat.student.firstName + " " + exeat.student.lastName,
+  );
+  if (notTheirs) return { error: notTheirs };
 
   if (!canBecome(exeat.status, to)) {
     return {

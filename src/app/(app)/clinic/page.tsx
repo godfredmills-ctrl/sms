@@ -13,9 +13,10 @@ import {
 } from "@/components/ui";
 import { Pager, pageOf } from "@/components/pager";
 import { RefreshButton } from "@/components/refresh-button";
+import { CLINIC_DAYBOOK, passesWith } from "@/lib/access";
 import { requirePermission, userCan } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { seesWholeSchool } from "@/lib/scope";
+
 import { formatDateTime, humanise, listName, relativeTime, toNumber } from "@/lib/utils";
 
 import { VisitForm } from "./visit-form";
@@ -45,7 +46,7 @@ export default async function ClinicPage({
   // student.medical.read so that an allergy shows on their own class list —
   // not so that they can read every child's complaints. The nurse, the head
   // and the office (student.read) see the book; a teacher does not.
-  if (!seesWholeSchool(user) && !canLog) notFound();
+  if (!passesWith(CLINIC_DAYBOOK, user.permissions)) notFound();
 
   const params = await searchParams;
   const { page, skip, take } = pageOf(params, PER_PAGE);

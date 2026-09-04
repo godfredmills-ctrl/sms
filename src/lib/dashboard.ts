@@ -23,6 +23,8 @@
  * short page rather than a wall of zeroes.
  */
 
+import { CLINIC_DAYBOOK, passes, type Gate } from "@/lib/access";
+
 export type PanelKey =
   | "myDay"
   | "myMarking"
@@ -36,10 +38,8 @@ export type PanelKey =
   | "myPay"
   | "comingUp";
 
-type PanelRule = {
+type PanelRule = Gate & {
   key: PanelKey;
-  /** Any one of these reveals the panel. Empty means everyone signed in. */
-  permissions?: string[];
   /** Needs a linked staff record — a personal panel, not an office one. */
   needsStaff?: boolean;
   /**
@@ -85,7 +85,16 @@ const PANELS: PanelRule[] = [
   // --- Your responsibility --------------------------------------------------
   {
     key: "clinicToday",
-    permissions: ["student.medical.read"],
+    /*
+     * The gate the page uses, not a looser one.
+     *
+     * This was student.medical.read, which every teacher holds, so the panel
+     * drew the whole school day at the clinic — the children by name and what
+     * they came in with — on the dashboard of anybody who can see an allergy
+     * on their own class list. It did not error and nobody was refused
+     * anything, which is why it lasted.
+     */
+    ...CLINIC_DAYBOOK,
     weight: 30,
     // The nurse's whole job. For a form teacher who also holds the
     // permission it stays where it is: useful, not the first thing.
@@ -138,8 +147,10 @@ function holdsAny(viewer: DashboardViewer, keys: string[]): boolean {
 export function panelsFor(viewer: DashboardViewer): PanelKey[] {
   return PANELS.filter((panel) => {
     if (panel.needsStaff && !viewer.staffId) return false;
-    if (panel.permissions && !holdsAny(viewer, panel.permissions)) return false;
-    return true;
+    // passes rather than a bare any-of: a panel may need one of several
+    // permissions and all of some others, which is how the clinic panel is
+    // kept to the people the clinic page itself would let in.
+    return passes(panel, (permission) => viewer.permissions.has(permission));
   })
     .map((panel) => ({
       key: panel.key,
@@ -162,8 +173,17 @@ export function roleSummaryFor(viewer: DashboardViewer): string | null {
 
   if (has("dashboard.management")) return "Your school today";
   if (has("payroll.manage") || has("finance.payment.record")) return "The money today";
-  if (has("student.medical.update")) return "The clinic today";
+  /*
+   * Admissions before the clinic, which is not the order it reads in.
+   *
+   * The registrar holds student.medical.update, because the office keeps the
+   * pupil record and the medical tab is part of it, not because the registrar
+   * runs the san. Asked the other way round they were greeted with "The
+   * clinic today" every morning. The nurse holds no admissions permission, so
+   * this order costs them nothing.
+   */
   if (has("student.import") || has("student.create")) return "Admissions today";
+  if (has("student.medical.update")) return "The clinic today";
   if (has("attendance.take")) return "Your day";
   return null;
 }

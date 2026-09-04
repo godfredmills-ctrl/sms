@@ -5,6 +5,8 @@ import { Printer } from "lucide-react";
 
 import { LinkButton, PageHeader } from "@/components/ui";
 import { requirePermission, userCan } from "@/lib/auth";
+import { houseFilter } from "@/lib/boarding-rules";
+import { boardingScopeFor } from "@/lib/scope";
 import { EXEAT_TRANSITIONS, type ExeatStatusValue } from "@/lib/boarding-rules";
 import { db } from "@/lib/db";
 import { formatDateTime, listName } from "@/lib/utils";
@@ -15,11 +17,28 @@ export const metadata: Metadata = { title: "Leave-out" };
 export const dynamic = "force-dynamic";
 
 export default async function ExeatPage() {
-  const user = await requirePermission(["boarding.read", "boarding.manage", "boarding.gate"]);
+  const user = await requirePermission([
+    "boarding.read",
+    "boarding.read.own",
+    "boarding.manage",
+    "boarding.gate",
+  ]);
 
   const canApprove = userCan(user, "boarding.exeat.approve");
   const canGate = userCan(user, "boarding.gate");
   const canRequest = userCan(user, "boarding.exeat.request");
+
+  /*
+   * Whose gate this is.
+   *
+   * A house parent sees the leave-out of their own boarders. Not a privacy
+   * nicety alone: the row carries where a child has gone, who collected them
+   * and on what telephone number, which is exactly the information a school
+   * should be careful with and exactly what a list of three hundred rows
+   * makes it impossible to be careful with.
+   */
+  const scope = await boardingScopeFor(user);
+  const houses = houseFilter(scope);
 
   // Two queries, not one capped list. Everything still open is fetched
   // without a limit, because "who is off the premises" must never be a
@@ -32,7 +51,7 @@ export default async function ExeatPage() {
 
   const [open, finished, boarders] = await Promise.all([
     db.boardingExeat.findMany({
-      where: { status: { in: [...openStatuses] } },
+      where: { status: { in: [...openStatuses] }, ...houses },
       orderBy: { dueBackAt: "asc" },
       select: {
         id: true,
@@ -61,7 +80,7 @@ export default async function ExeatPage() {
     // A tail of what has closed — enough to answer "did she come back on
     // Sunday" without loading a term of history.
     db.boardingExeat.findMany({
-      where: { status: { in: ["RETURNED", "CANCELLED"] } },
+      where: { status: { in: ["RETURNED", "CANCELLED"] }, ...houses },
       orderBy: { dueBackAt: "desc" },
       take: 60,
       select: {
@@ -90,7 +109,20 @@ export default async function ExeatPage() {
     }),
     canRequest
       ? db.student.findMany({
-          where: { status: "ENROLLED", isBoarder: true },
+          // Only boarders this person could raise a leave-out for. Offering a
+          // name the action would then refuse is the disagreement between a
+          // screen and its action that this codebase keeps hunting.
+          where: {
+            status: "ENROLLED",
+            isBoarder: true,
+            ...(scope.all
+              ? {}
+              : {
+                  boardingAllocations: {
+                    some: { endedOn: null, room: { houseId: { in: scope.houseIds } } },
+                  },
+                }),
+          },
           orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
           take: 2000,
           select: {

@@ -39,6 +39,8 @@ export type BoardRow = {
   recommendation: string | null;
   interviewNote: string | null;
   interviewAttendees: string | null;
+  /** A note was written and this reader is not shown it. */
+  interviewNoteWithheld: boolean;
   offerExpiresOn: string | null;
   waitlistRank: number | null;
   stage: Stage;
@@ -205,6 +207,14 @@ export function PipelineBoard({
                                : {row.interviewAttendees}
                               </span>
                             ) : null}
+                          </p>
+                        ) : row.interviewNoteWithheld ? (
+                          // Said rather than hidden. A reader who is shown
+                          // nothing concludes nobody wrote anything, and asks
+                          // the interviewer to write it again.
+                          <p className="mt-1 text-xs text-[var(--text-subtle)] italic">
+                            An interview note is on file. It is read by whoever
+                            interviews and whoever decides.
                           </p>
                         ) : null}
 

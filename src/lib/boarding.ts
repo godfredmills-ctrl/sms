@@ -1,7 +1,13 @@
 import "server-only";
 
 import { db } from "./db";
-import { bedsFree, houseRefusal } from "./boarding-rules";
+import {
+  EVERY_HOUSE,
+  bedsFree,
+  houseFilter,
+  houseRefusal,
+  type HouseScope,
+} from "./boarding-rules";
 
 /**
  * Boarding: the beds, and who is off the premises.
@@ -35,8 +41,12 @@ export type RoomOccupancy = {
  * question this answers — is there a bed — is asked while a parent is standing
  * at the desk.
  */
-export async function occupancy(academicYearId: string): Promise<RoomOccupancy[]> {
+export async function occupancy(
+  academicYearId: string,
+  scope: HouseScope = EVERY_HOUSE,
+): Promise<RoomOccupancy[]> {
   const rooms = await db.boardingRoom.findMany({
+    where: houseFilter(scope),
     orderBy: [{ house: { name: "asc" } }, { name: "asc" }],
     select: {
       id: true,
@@ -181,9 +191,9 @@ export async function unhoused(academicYearId: string) {
  * The overdue ones lead, because that is the only reason anybody opens this
  * list in a hurry.
  */
-export async function whoIsOut() {
+export async function whoIsOut(scope: HouseScope = EVERY_HOUSE) {
   const out = await db.boardingExeat.findMany({
-    where: { status: "OUT" },
+    where: { status: "OUT", ...houseFilter(scope) },
     orderBy: { dueBackAt: "asc" },
     select: {
       id: true,

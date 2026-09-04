@@ -5,6 +5,7 @@ import { LifeBuoy, Mail, MapPin, Phone, ShieldCheck } from "lucide-react";
 import { Card, CardBody, CardHeader, PageHeader, SectionTitle } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { passes } from "@/lib/access";
 import { navigationFor } from "@/lib/navigation";
 import { userCanAny } from "@/lib/auth";
 
@@ -47,7 +48,9 @@ export default async function HelpPage() {
     .map((group) => ({
       label: group.label,
       // An item with no permissions listed is open to everyone in the portal.
-      items: group.items.filter((item) => userCanAny(user, item.permissions ?? [])),
+      items: group.items.filter((item) =>
+        passes(item, (permission) => userCanAny(user, [permission])),
+      ),
     }))
     .filter((group) => group.items.length > 0);
 

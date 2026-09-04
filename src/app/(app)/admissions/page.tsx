@@ -3,7 +3,7 @@ import Link from "next/link";
 import { AlertTriangle, TrendingUp, UserPlus, Users } from "lucide-react";
 
 import { Alert, Badge, LinkButton, PageHeader, StatCard } from "@/components/ui";
-import { actsFor } from "@/lib/admission-rules";
+import { actsFor, showInterviewNote } from "@/lib/admission-rules";
 import { pipeline, placesByLevel } from "@/lib/admissions";
 import { requirePermission, userCan } from "@/lib/auth";
 import { db } from "@/lib/db";
@@ -82,6 +82,20 @@ export default async function AdmissionsPage() {
   const mayOffer = userCan(user, "admission.offer");
   const mayAssess = userCan(user, "admission.assess");
   const mayInterview = userCan(user, "admission.interview");
+
+  /*
+   * Who reads the prose.
+   *
+   * An interview note is written in confidence about a family. Everyone who
+   * may read the pipeline sees that an interview happened and what was
+   * recommended; the note itself needs a reason to be in the room.
+   */
+  const reader = {
+    interviews: mayInterview,
+    decides: userCan(user, "admission.offer"),
+  };
+  const shown = (row: { interviewNote: string | null; interviewAttendees: string | null }) =>
+    showInterviewNote({ note: row.interviewNote, attendees: row.interviewAttendees }, reader);
   const mayManage = userCan(user, "admission.manage");
   // The letter route accepts either of these, so the link is gated on the
   // same pair rather than on the stage.
@@ -99,8 +113,11 @@ export default async function AdmissionsPage() {
     papers: row.papers,
     average: row.average,
     recommendation: row.recommendation,
-    interviewNote: row.interviewNote,
-    interviewAttendees: row.interviewAttendees,
+    // Decided here, not in the markup: the board is a client component, and
+    // anything handed to it has left the building whether or not it is drawn.
+    interviewNote: shown(row).note,
+    interviewAttendees: shown(row).attendees,
+    interviewNoteWithheld: shown(row).withheld,
     offerExpiresOn: row.offerExpiresOn ? formatDate(row.offerExpiresOn) : null,
     waitlistRank: row.waitlistRank,
     stage: row.stage,

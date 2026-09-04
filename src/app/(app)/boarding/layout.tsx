@@ -4,7 +4,12 @@ import { TabNav, type Tab } from "@/components/tab-nav";
 import { requirePermission, userCan } from "@/lib/auth";
 
 export default async function BoardingLayout({ children }: { children: ReactNode }) {
-  const user = await requirePermission(["boarding.read", "boarding.manage", "boarding.gate"]);
+  const user = await requirePermission([
+    "boarding.read",
+    "boarding.read.own",
+    "boarding.manage",
+    "boarding.gate",
+  ]);
 
   const tabs: Tab[] = [
     { href: "/boarding", label: "Overview" },

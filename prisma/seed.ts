@@ -964,6 +964,13 @@ async function seedStaff(roles: Record<string, string>, schoolId: string) {
     { first: "Priscilla", last: "Darko", title: "Ms", role: "nurse", job: "School Nurse", dept: "Health", teaching: false, email: "nurse@goldencrest.edu.gh" },
     { first: "Daniel", last: "Kyei", title: "Mr", role: "librarian", job: "Librarian", dept: "Administration", teaching: false, email: "library@goldencrest.edu.gh" },
     { first: "Linda", last: "Nyarko", title: "Ms", role: "front_desk", job: "School Secretary", dept: "Administration", teaching: false, email: "frontdesk@goldencrest.edu.gh" },
+    // The two people the house_parent role exists for, and until now the only
+    // named role with nobody in it. The houses were parented by the system
+    // administrator, the head teacher and the assistant head, because
+    // seedBoarding took the first three rows of this list, so the one screen
+    // that is now scoped to a house had nobody to scope it for.
+    { first: "Yaa", last: "Boakye", title: "Mrs", role: "house_parent", job: "House Parent, Sutherland House", dept: "Boarding", teaching: false, email: "houseparent@goldencrest.edu.gh" },
+    { first: "Kwesi", last: "Otoo", title: "Mr", role: "house_parent", job: "House Parent, Aggrey House", dept: "Boarding", teaching: false, email: "aggrey@goldencrest.edu.gh" },
   ];
 
   /*
@@ -4513,6 +4520,7 @@ async function printCredentials() {
     ["Form Teacher", "teacher@goldencrest.edu.gh", process.env.SEED_ADMIN_PASSWORD ?? "ChangeMe123!"],
     ["Registrar", "registrar@goldencrest.edu.gh", process.env.SEED_ADMIN_PASSWORD ?? "ChangeMe123!"],
     ["School Nurse", "nurse@goldencrest.edu.gh", process.env.SEED_ADMIN_PASSWORD ?? "ChangeMe123!"],
+    ["House Parent", "houseparent@goldencrest.edu.gh", process.env.SEED_ADMIN_PASSWORD ?? "ChangeMe123!"],
     ["Parent / Guardian", "parent@goldencrest.edu.gh", "Parent123!"],
     ["Student", "student@goldencrest.edu.gh", "Student123!"],
   ];
@@ -5045,7 +5053,19 @@ async function seedBoarding(students: StudentRow[], staff: StaffRow[], academicY
   const boarders = students.filter((student) => student.isBoarder);
   if (boarders.length === 0) return;
 
-  const [houseParent, assistant, second] = staff;
+  /*
+   * By role, not by position.
+   *
+   * This was staff[0], staff[1] and staff[2], which is the system
+   * administrator, the head teacher and the assistant head: three people who
+   * do not sleep on the compound, put down as the parents of two houses
+   * because they happened to be at the front of an array. Now that a house
+   * parent sees their own house and nothing else, who holds the post is the
+   * whole of what the screen shows.
+   */
+  const parents = staff.filter((member) => member.roleKey === "house_parent");
+  const [second, houseParent] = parents;
+  const assistant = staff.find((member) => member.roleKey === "assistant_head");
 
   const boys = await db.boardingHouse.create({
     data: {

@@ -15,6 +15,7 @@ import {
 import { requirePermission, userCan } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { occupancy, unhoused, whoIsOut } from "@/lib/boarding";
+import { boardingScopeFor } from "@/lib/scope";
 import { isOverdue, roomTone } from "@/lib/boarding-rules";
 import { formatDateTime, listName, relativeTime } from "@/lib/utils";
 
@@ -22,7 +23,12 @@ export const metadata: Metadata = { title: "Boarding" };
 export const dynamic = "force-dynamic";
 
 export default async function BoardingPage() {
-  const user = await requirePermission(["boarding.read", "boarding.manage", "boarding.gate"]);
+  const user = await requirePermission([
+    "boarding.read",
+    "boarding.read.own",
+    "boarding.manage",
+    "boarding.gate",
+  ]);
 
   const year = await db.academicYear.findFirst({
     where: { isCurrent: true },
@@ -44,11 +50,40 @@ export default async function BoardingPage() {
     );
   }
 
+  /*
+   * Whose boarding this is.
+   *
+   * A house parent sees their own house and nothing else, here and at the
+   * gate and in the actions behind both. The three lists below are filtered by
+   * the same scope, so the counts at the top and the rooms underneath are
+   * about one thing rather than two.
+   */
+  const scope = await boardingScopeFor(user);
+
   const [rooms, out, waiting, boarders] = await Promise.all([
-    occupancy(year.id),
-    whoIsOut(),
-    unhoused(year.id),
-    db.student.count({ where: { status: "ENROLLED", isBoarder: true } }),
+    occupancy(year.id, scope),
+    whoIsOut(scope),
+    // Boarders with no bed at all are in no house, so there is no house to
+    // scope them by, and placing them needs boarding.manage, which a house
+    // parent does not have. Asked only by whoever could act on the answer.
+    scope.all ? unhoused(year.id) : Promise.resolve([]),
+    db.student.count({
+      where: {
+        status: "ENROLLED",
+        isBoarder: true,
+        ...(scope.all
+          ? {}
+          : {
+              boardingAllocations: {
+                some: {
+                  endedOn: null,
+                  academicYearId: year.id,
+                  room: { houseId: { in: scope.houseIds } },
+                },
+              },
+            }),
+      },
+    }),
   ]);
 
   const now = new Date();
@@ -88,6 +123,14 @@ export default async function BoardingPage() {
         }
       />
 
+      {scope.all ? null : (
+        <Alert tone="info" className="mb-4">
+          {scope.houseIds.length === 0
+            ? "You are not recorded as the parent of any house, so there is nothing here yet. Whoever manages boarding sets that on the house."
+            : "Your house. Whoever runs boarding sees every house; you see the one you sleep in."}
+        </Alert>
+      )}
+
       <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatCard
           label="Off the premises"
@@ -103,13 +146,15 @@ export default async function BoardingPage() {
           tone={filled > beds ? "danger" : "neutral"}
           icon={<BedDouble className="size-4" />}
         />
-        <StatCard
-          label="Boarders without a bed"
-          value={String(waiting.length)}
-          hint={waiting.length ? "Marked as boarders, sleeping nowhere" : "Everyone is placed"}
-          tone={waiting.length ? "warning" : "success"}
-          icon={<UserMinus className="size-4" />}
-        />
+        {scope.all ? (
+          <StatCard
+            label="Boarders without a bed"
+            value={String(waiting.length)}
+            hint={waiting.length ? "Marked as boarders, sleeping nowhere" : "Everyone is placed"}
+            tone={waiting.length ? "warning" : "success"}
+            icon={<UserMinus className="size-4" />}
+          />
+        ) : null}
         <StatCard
           label="Boarders on the roll"
           value={String(boarders)}

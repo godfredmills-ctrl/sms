@@ -137,3 +137,80 @@ export function roomTone(capacity: number, occupied: number): Tone {
   if (occupied === capacity) return "warning";
   return "success";
 }
+
+// ---------------------------------------------------------------------------
+// Whose house
+//
+// A boarding school here has five or six houses and a house parent who sleeps
+// in one of them. Until now every boarding screen showed all of them, and the
+// question of whether that was right was left open for months.
+//
+// It is not right, for two reasons that are worth separating. The small one is
+// that a list of three hundred boarders across six houses, shown to somebody
+// responsible for fifty, is a list nobody reads; "who is out" stops being a
+// thing you scan before lights out. The large one is that the boarding screens
+// reach a child's medical notes and their discipline record, and a house
+// parent has no more claim to those for another house than any other teacher
+// does.
+//
+// So the scope is a real thing, and it is a value passed about rather than a
+// query each screen writes for itself. The alternative — every page filtering
+// by house in its own words — is how a list ends up refusing what an action
+// permits, which is the failure this codebase keeps finding.
+// ---------------------------------------------------------------------------
+
+export type HouseScope =
+  /// Whoever runs boarding across the school: the boarding master, the head.
+  | { all: true }
+  /// A house parent, and the houses they answer for. Usually one.
+  | { all: false; houseIds: string[] };
+
+export const EVERY_HOUSE: HouseScope = { all: true };
+
+export function scopeOfHouses(houseIds: string[]): HouseScope {
+  return { all: false, houseIds };
+}
+
+/** Whether this scope covers a house. */
+export function withinScope(
+  scope: HouseScope,
+  houseId: string | null | undefined,
+): boolean {
+  if (scope.all) return true;
+  if (!houseId) return false;
+  return scope.houseIds.includes(houseId);
+}
+
+/**
+ * A Prisma filter for the houses in scope, spread into a wider where clause.
+ *
+ * An empty object for somebody who sees everything, so the caller does not
+ * have to branch. A house parent with no house yet gets a filter that matches
+ * nothing, which is the honest answer: it is not "everything" and it is not an
+ * error either, it is somebody whose house has not been recorded.
+ */
+export function houseFilter(scope: HouseScope) {
+  if (scope.all) return {};
+  return { houseId: { in: scope.houseIds } };
+}
+
+/**
+ * Why this person may not act on this house, or null if they may.
+ *
+ * The screens filter and this refuses, and both read the same scope, so a
+ * house parent cannot reach another house by keeping a link from a colleague
+ * or by editing the address bar.
+ */
+export function outsideScope(
+  scope: HouseScope,
+  houseId: string | null | undefined,
+  what = "that boarder",
+): string | null {
+  if (withinScope(scope, houseId)) return null;
+
+  if (!scope.all && scope.houseIds.length === 0) {
+    return "You are not recorded as the parent of any house, so there is nobody here you can act for. Whoever manages boarding sets that on the house.";
+  }
+
+  return `${what.charAt(0).toUpperCase()}${what.slice(1)} is not in your house. Whoever runs boarding, or the parent of that house, deals with this one.`;
+}

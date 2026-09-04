@@ -7,38 +7,38 @@
  * table that are not a matter of taste: a teacher never sees a payroll figure,
  * a guardian never sees a staff panel, what waits on you comes first.
  *
- *   npx tsx scripts/check-dashboard.ts
+ *   npx tsx --conditions=react-server scripts/check-dashboard.ts
+ *
+ * The roles are read out of ROLE_PRESETS rather than written here. They used
+ * to be written here, and the copy had drifted: this file believed a teacher
+ * did not hold student.medical.read, so "a teacher does not see the clinic"
+ * passed while every teacher in the school was in fact being shown the day at
+ * the san, the children named. A fixture that approximates the thing under
+ * test is a fixture that agrees with itself.
  */
 import { panelsFor, roleSummaryFor } from "../src/lib/dashboard";
+import { PERMISSIONS, ROLE_PRESETS } from "../src/lib/rbac";
 
-const ROLES: Record<string, string[]> = {
-  "form teacher": [
-    "dashboard.view", "student.read.own", "student.update", "student.medical.read",
-    "attendance.take", "attendance.read", "assessment.grade", "lms.quiz.manage",
-    "communication.message", "staff.leave.manage",
-  ],
-  teacher: [
-    "dashboard.view", "student.read.own", "attendance.take", "assessment.grade",
-    "lms.quiz.manage", "communication.message",
-  ],
-  bursar: [
-    "dashboard.view", "dashboard.finance", "finance.read", "finance.payment.record",
-    "payroll.read", "payroll.manage", "student.read", "communication.message",
-  ],
-  "head teacher": [
-    "dashboard.view", "dashboard.management", "student.read", "finance.read",
-    "payroll.read", "payroll.approve", "staff.leave.manage", "communication.message",
-    "student.create",
-  ],
-  nurse: [
-    "dashboard.view", "student.medical.read", "student.medical.update",
-    "communication.message",
-  ],
-  registrar: [
-    "dashboard.view", "student.read", "student.create", "student.import",
-    "communication.message",
-  ],
-};
+const EVERY = PERMISSIONS.map((permission) => permission.key);
+
+/** The permissions a shipped role actually grants. */
+function presetPermissions(key: string): string[] {
+  const preset = ROLE_PRESETS.find((entry) => entry.key === key);
+  if (!preset) throw new Error(`No such role preset: ${key}`);
+  return preset.permissions === "*" ? EVERY : preset.permissions;
+}
+
+const ROLES: Record<string, string[]> = Object.fromEntries(
+  [
+    ["form teacher", "form_teacher"],
+    ["teacher", "teacher"],
+    ["bursar", "bursar"],
+    ["head teacher", "head_teacher"],
+    ["nurse", "nurse"],
+    ["registrar", "registrar"],
+    ["house parent", "house_parent"],
+  ].map(([label, key]) => [label, presetPermissions(key)]),
+);
 
 // -----------------------------------------------------------------------------
 // The report
@@ -101,15 +101,39 @@ ok("the head sees the school", has("head teacher", "schoolPulse"));
 ok("a teacher does not see the money", !has("teacher", "moneyToday"));
 ok("a form teacher does not either", !has("form teacher", "moneyToday"));
 ok("nor does the nurse", !has("nurse", "moneyToday"));
-ok("nor the registrar", !has("registrar", "moneyToday"));
+// The registrar holds finance.read: a place is not offered until the entrance
+// fee is settled, and that is their question to answer. It follows that the
+// money panel is theirs, and this test says so rather than assuming otherwise.
+ok("the registrar does see it, holding finance.read", has("registrar", "moneyToday"));
 ok("a teacher does not see the school pulse", !has("teacher", "schoolPulse"));
 ok("a teacher does not see payroll", !has("teacher", "payrollStatus"));
 ok("the nurse does not see payroll", !has("nurse", "payrollStatus"));
 
 // The clinic panel carries medical detail about named children.
+/*
+ * The clinic day-book: the whole school day at the san, children named.
+ *
+ * The panel used to ask only for student.medical.read, which every teacher
+ * holds so that an allergy shows on their own class list. It drew the panel
+ * for all of them and nothing errored. It now reads the same gate the clinic
+ * page enforces, and these are the four assertions that say so.
+ */
 ok("the nurse sees the clinic", has("nurse", "clinicToday"));
+ok("so does the office", has("registrar", "clinicToday"));
 ok("a teacher does not", !has("teacher", "clinicToday"));
+ok("nor a form teacher", !has("form teacher", "clinicToday"));
 ok("the bursar does not", !has("bursar", "clinicToday"));
+
+/*
+ * A house parent gets the personal panels and nothing of the school.
+ *
+ * Their boarders reach them through the pupil, one child at a time, which is
+ * the right shape for a question at ten at night. A school-wide panel is not.
+ */
+ok("a house parent has no clinic panel", !has("house parent", "clinicToday"));
+ok("no money panel", !has("house parent", "moneyToday"));
+ok("no school pulse", !has("house parent", "schoolPulse"));
+ok("and no payroll", !has("house parent", "payrollStatus"));
 
 // A guardian is not staff. Every personal staff panel has to vanish, and the
 // test is written as a whole-list assertion rather than a handful of nots, so

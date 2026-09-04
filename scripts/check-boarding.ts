@@ -9,12 +9,17 @@
  * timestamp is what the school has when somebody asks where a child was.
  */
 import {
+  EVERY_HOUSE,
   EXEAT_TRANSITIONS,
   bedsFree,
   canBecome,
   houseRefusal,
+  houseFilter,
   isOverdue,
+  outsideScope,
   roomTone,
+  scopeOfHouses,
+  withinScope,
 } from "../src/lib/boarding-rules";
 
 let failures = 0;
@@ -117,6 +122,86 @@ check(
   isOverdue({ status: "OUT", dueBackAt: due }, due),
   false,
 );
+
+// -----------------------------------------------------------------------------
+// Whose house
+//
+// The half of boarding that is about privacy rather than beds. A house parent
+// sees their own house; whoever runs boarding sees all of them. The screens
+// filter by this and the actions refuse by it, so what is worth pinning is
+// that both readings agree and that the empty cases are the safe way round.
+// -----------------------------------------------------------------------------
+
+const everything = EVERY_HOUSE;
+const rutherford = scopeOfHouses(["rutherford"]);
+const two = scopeOfHouses(["rutherford", "aggrey"]);
+const nowhere = scopeOfHouses([]);
+
+check("everything covers a house", withinScope(everything, "rutherford"), true);
+check("and any other house", withinScope(everything, "aggrey"), true);
+
+// A boarder with no bed has no house. For somebody who sees the school that
+// is still theirs to deal with; for a house parent it is nobody in
+// particular, and the answer has to be no rather than a permissive null.
+check("everything covers a boarder with no house", withinScope(everything, null), true);
+check("a house parent does not cover a boarder with no house", withinScope(rutherford, null), false);
+check("nor an undefined one", withinScope(rutherford, undefined), false);
+
+check("their own house", withinScope(rutherford, "rutherford"), true);
+check("not another one", withinScope(rutherford, "aggrey"), false);
+check("two houses, first", withinScope(two, "rutherford"), true);
+check("two houses, second", withinScope(two, "aggrey"), true);
+check("two houses, neither", withinScope(two, "guggisberg"), false);
+
+// The dangerous default. Somebody with the scoped permission and no house
+// recorded must see nothing, not everything: an empty list of houses read as
+// "no filter" is how a scope becomes decoration.
+check("no house recorded covers nothing", withinScope(nowhere, "rutherford"), false);
+check("not even a boarder with no house", withinScope(nowhere, null), false);
+
+// The filter the queries spread in has to say the same thing as withinScope.
+check("everything filters nothing", JSON.stringify(houseFilter(everything)), "{}");
+check(
+  "a house parent filters to their houses",
+  JSON.stringify(houseFilter(two)),
+  JSON.stringify({ houseId: { in: ["rutherford", "aggrey"] } }),
+);
+check(
+  "no house recorded filters to nothing at all",
+  JSON.stringify(houseFilter(nowhere)),
+  JSON.stringify({ houseId: { in: [] } }),
+);
+
+// The refusal, which is the same rule read the other way round: anything
+// withinScope allows, outsideScope must not refuse, and the reverse.
+for (const [label, scope] of [
+  ["everything", everything],
+  ["one house", rutherford],
+  ["two houses", two],
+  ["no house", nowhere],
+] as const) {
+  for (const houseId of ["rutherford", "aggrey", null]) {
+    check(
+      `${label} agrees with itself about ${houseId ?? "no house"}`,
+      outsideScope(scope, houseId) === null,
+      withinScope(scope, houseId),
+    );
+  }
+}
+
+check("a house parent is refused another house", typeof outsideScope(rutherford, "aggrey"), "string");
+check("and not their own", outsideScope(rutherford, "rutherford"), null);
+check("everybody is allowed everything", outsideScope(everything, "aggrey"), null);
+
+// The two refusals say different things, because they need different fixes:
+// one is somebody reaching past their house, the other is a house parent
+// nobody has recorded as the parent of anything.
+const wrongHouse = outsideScope(rutherford, "aggrey", "Ama Serwaa") ?? "";
+const noHouse = outsideScope(nowhere, "aggrey") ?? "";
+check("the wrong house names the boarder", wrongHouse.startsWith("Ama Serwaa is not in your house"), true);
+check("a house parent with no house is told so", noHouse.includes("not recorded as the parent of any house"), true);
+check("and the two differ", wrongHouse === noHouse, false);
+check("a lower-case name is capitalised", (outsideScope(rutherford, "aggrey") ?? "").startsWith("That boarder"), true);
 
 console.log(
   failures ? `\n  ${failures} FAILURE(S)\n` : "\n  Every case behaves as written.\n",

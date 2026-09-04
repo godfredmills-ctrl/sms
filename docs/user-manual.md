@@ -50,7 +50,9 @@ The system ships with thirteen roles. The main ones are Head Teacher, Assistant 
 
 Roles can be edited, and new ones created, by anyone holding the user management permission. In practice most schools use the roles as they come and adjust one or two.
 
-One rule is worth stating because it surprises people. The system hides what you cannot use. If a button is not on your screen, it is not that the feature is missing. It is that your role does not carry the permission for it. Ask an administrator rather than reporting a bug.
+One rule is worth stating because it surprises people. The system hides what you cannot use. If a button is not on your screen, it is not that the feature is missing. It is that your role does not carry the permission for it. Ask an administrator rather than reporting a bug. A screen you cannot open is shown greyed with a padlock rather than removed, so you can see what exists and ask for it by name.
+
+A second rule is quieter. Some things a role can see are narrowed to the part of the school it is responsible for, rather than being all or nothing. A teacher sees their own classes. A house parent sees their own house. A form teacher sees the register they own. The permission is what opens the screen; the scope is what the screen then contains.
 
 ### 1.4 Your own account
 
@@ -141,6 +143,8 @@ The stages run: enquiry, applied, assessed, interviewed, offered, accepted, enro
 **Entrance papers.** Record the marks for each paper. The system works out an average and shows it on the board so the shortlist is visible without opening every record.
 
 **Interviews.** Record who came, what was discussed and a recommendation. The notes are shown on the board row, because a one word recommendation with no reasoning behind it is not much use a fortnight later.
+
+The note itself is read by whoever interviews and whoever decides the offers. Everybody else who can open the admissions board sees that an interview happened, when, and what was recommended, and is told a note exists without being shown it. An interview note is prose about a family written in confidence, and the pipeline is a board of who is where.
 
 **Offers.** An offer carries a year group and a date by which the family must reply. Offers that have passed that date are shown first on the board, because nothing releases a held place on its own and a school that forgets will offer the same seat twice.
 
@@ -434,6 +438,18 @@ The gate screen shows who is currently off the premises and who is overdue. This
 
 Overdue leave-outs are shown first, because that is the only part of the list that needs anybody to do anything.
 
+### 6.5 Whose house
+
+A house parent sees their own house. Everything on these screens is filtered to it: the beds, who is off the premises, the leave-out list, and the boarders whose leave-out they can raise. Whoever runs boarding, and the head, see every house.
+
+This is not only tidiness, though a list of three hundred boarders shown to somebody responsible for fifty stops being a list anybody reads. A leave-out row says where a child has gone, who collected them and on what telephone number, and the boarding screens reach a boarder's medical record and their discipline record. A house parent has no more claim to those for another house than any other teacher does.
+
+The rule is enforced where it matters as well as where it shows. A house parent who reaches another house's leave-out by a stale page or a shared link is told it is not their house, rather than quietly being allowed to sign somebody else's boarder back in.
+
+If a house parent sees nothing at all, they have not been recorded as the parent of a house. That is set on the house itself, under Houses and rooms, by whoever manages boarding.
+
+Setting up beds and rooms is deliberately not a house parent's job. Allocating across the school needs to be done in one place by one person, or two houses end up promising the same bed.
+
 ## Part 7: What the school owns
 
 ### 7.1 The asset register
@@ -704,7 +720,7 @@ Train by job, not by module. Five sessions, roughly half a day each.
 
 **Session two: the office.** Registrar and front desk. Admissions, admitting a pupil, guardians and family links, ID cards, visitors, and the website enquiry list.
 
-**Session three: teaching staff.** Lesson notes, cover, attendance, the gradebook, assessments, report cards. This is the largest group and the one where the "a blank is not a zero" point needs making twice.
+**Session three: teaching staff.** Lesson notes, cover, attendance, the gradebook, assessments, report cards. Say early on that a teacher sees their own classes and not the school, because the first question in this session is always why somebody cannot find a child. This is the largest group and the one where the "a blank is not a zero" point needs making twice.
 
 Do lesson notes first in that session, and do them by writing a real one for next week rather than by describing the screen. It is the part of the system a teacher touches most often, and the part where the difference between a form and a habit is decided in the first fortnight.
 

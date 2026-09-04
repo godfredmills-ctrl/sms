@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
 import { getCurrentUser, userCanAny } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { passes } from "@/lib/access";
 import { navigationFor, type NavGroup } from "@/lib/navigation";
 import { isSuperAdmin } from "@/lib/rbac";
 
@@ -57,20 +58,21 @@ function filterNavigation(
   user: Parameters<typeof userCanAny>[0] & { roleKeys: string[] },
 ): NavGroup[] {
   const allowAll = isSuperAdmin(user);
-  const permitted = (permissions?: string[]) =>
-    allowAll || !permissions || userCanAny(user, permissions);
+  const holds = (permission: string) => userCanAny(user, [permission]);
+  const permitted = (item: { permissions?: string[]; all?: string[] }) =>
+    allowAll || passes(item, holds);
 
   return groups
     .map((group) => ({
       ...group,
       items: group.items.map((item) => ({
         ...item,
-        locked: !permitted(item.permissions),
+        locked: !permitted(item),
         children: item.children?.map((child) => ({
           ...child,
           // A child inside a locked parent is locked too, whatever it
           // declares — the parent's permission gates the segment.
-          locked: !permitted(item.permissions) || !permitted(child.permissions),
+          locked: !permitted(item) || !permitted(child),
         })),
       })),
     }))

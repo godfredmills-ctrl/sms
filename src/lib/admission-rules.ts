@@ -158,3 +158,72 @@ export const DECISIONS = [
   { value: "RESERVE", label: "Hold in reserve", tone: "warning" },
   { value: "DECLINE", label: "Do not offer", tone: "danger" },
 ] as const satisfies ReadonlyArray<{ value: string; label: string; tone: Tone }>;
+
+// ---------------------------------------------------------------------------
+// The interview note
+//
+// The other question this module left open. An interview note is prose about
+// a family, written in confidence by whoever sat in the room: that the mother
+// is raising three children alone, that the child left the last school after
+// a dispute, that the father would not answer a question about the report. It
+// is exactly the kind of thing a school has to write down and exactly the kind
+// of thing it should be careful who reads.
+//
+// admission.read means "view the admissions pipeline", and the pipeline is a
+// board of who is where. Three roles hold it today and all three would pass
+// this test, so nothing is leaking; but the permission is the promise, and a
+// school that grants admission.read to the front desk so somebody can answer
+// "has our application been looked at" would be handing over the notes too.
+//
+// So the outcome and the note are separated. Anyone who may read the pipeline
+// sees that an interview happened, when, and what was recommended, because
+// that is what the board is for. The prose needs a reason to be in the room:
+// you conduct interviews, or you decide the offers.
+//
+// The board still says a note exists. Hiding the fact as well as the text
+// would leave a reader believing nobody wrote anything, and then asking the
+// interviewer to write it again.
+// ---------------------------------------------------------------------------
+
+export type InterviewReader = {
+  /** admission.interview: they sit in these rooms themselves. */
+  interviews: boolean;
+  /** admission.offer: the decision is theirs to make. */
+  decides: boolean;
+};
+
+export function mayReadInterviewNotes(reader: InterviewReader): boolean {
+  return reader.interviews || reader.decides;
+}
+
+export type InterviewNote = {
+  note: string | null;
+  attendees: string | null;
+};
+
+export type ShownInterviewNote = {
+  note: string | null;
+  attendees: string | null;
+  /** A note exists and this reader is not shown it. */
+  withheld: boolean;
+};
+
+/**
+ * What of an interview note this reader gets.
+ *
+ * Returned as a value rather than decided in the markup, so the page cannot
+ * pass the text down to a client component and then choose not to draw it.
+ * Anything that reaches the browser has left the building.
+ */
+export function showInterviewNote(
+  note: InterviewNote,
+  reader: InterviewReader,
+): ShownInterviewNote {
+  const has = Boolean(note.note?.trim());
+
+  if (mayReadInterviewNotes(reader)) {
+    return { note: note.note, attendees: note.attendees, withheld: false };
+  }
+
+  return { note: null, attendees: null, withheld: has };
+}

@@ -1,4 +1,9 @@
 import { db } from "@/lib/db";
+import {
+  EVERY_HOUSE,
+  scopeOfHouses,
+  type HouseScope,
+} from "@/lib/boarding-rules";
 
 /**
  * The class sections that make up a staff member's "own classes" — the ones
@@ -267,4 +272,50 @@ export async function classSectionScopeFilter(user: {
   if (seesWholeSchool(user)) return {};
   const own = await ownSectionIdsFor(user.staffId);
   return { id: { in: own } };
+}
+
+/**
+ * The boarding houses a member of staff answers for.
+ *
+ * Both roles the schema records: the house parent who sleeps on the compound
+ * and the assistant who covers when they do not. The assistant field existed
+ * from the first boarding migration and nothing had ever read it, which is the
+ * same shape of omission as the assistant form teacher who could not open the
+ * register they take every other week.
+ */
+export async function housesLedBy(staffId: string | null | undefined): Promise<string[]> {
+  if (!staffId) return [];
+
+  const houses = await db.boardingHouse.findMany({
+    where: {
+      active: true,
+      OR: [{ houseParentId: staffId }, { assistantId: staffId }],
+    },
+    select: { id: true },
+  });
+
+  return houses.map((house) => house.id);
+}
+
+/**
+ * What this person may see of boarding.
+ *
+ * boarding.read and boarding.manage are the school-wide permissions: whoever
+ * runs boarding, and the head. boarding.read.own is the house parent, and it
+ * resolves to their own houses and nothing else.
+ *
+ * Computed here rather than on each page, because the boarding overview, the
+ * leave-out desk and the actions behind both have to mean the same houses. Two
+ * screens disagreeing about whose boarders these are is how a child gets
+ * signed back in by somebody who cannot see they went out.
+ */
+export async function boardingScopeFor(user: {
+  staffId: string | null;
+  permissions: Set<string>;
+}): Promise<HouseScope> {
+  if (user.permissions.has("boarding.read") || user.permissions.has("boarding.manage")) {
+    return EVERY_HOUSE;
+  }
+
+  return scopeOfHouses(await housesLedBy(user.staffId));
 }

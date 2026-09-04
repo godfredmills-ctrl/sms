@@ -116,6 +116,11 @@ export const PERMISSIONS: PermissionDef[] = [
 
   ...define("boarding", [
     ["read", "read", "View houses, beds and who is off the premises"],
+    // The house parent's scope, and the same shape as student.read.own. The
+    // boarding screens reach a boarder's medical note and discipline record,
+    // and a house parent has no more claim to those for another house than
+    // any other teacher does.
+    ["read.own", "read", "View their own boarding house"],
     ["manage", "update", "Manage houses and rooms, and allocate beds"],
     ["exeat.request", "create", "Raise a leave-out for a boarder"],
     ["exeat.approve", "approve", "Approve or turn down a leave-out"],
@@ -610,7 +615,25 @@ export const ROLE_PRESETS: RolePreset[] = [
     rank: 55,
     permissions: [
       "dashboard.view",
-      ...expand("boarding"),
+      /*
+       * Their house, not the school.
+       *
+       * This was expand("boarding"), which is every boarding permission there
+       * is: a house parent could edit another house, allocate beds across the
+       * school, and read the leave-out — and through it the medical and
+       * discipline record — of three hundred children they are not
+       * responsible for. Nobody had decided that. It was what expanding a
+       * module happens to mean, and the question sat open for months.
+       *
+       * boarding.read.own is the scoped read, resolved through
+       * boardingScopeFor. The gate and the leave-out decisions stay, because
+       * they are the job; each is refused outside their houses by the same
+       * scope the screens filter by.
+       */
+      "boarding.read.own",
+      "boarding.exeat.request",
+      "boarding.exeat.approve",
+      "boarding.gate",
       // Their boarders, not the school. student.read.own is the scoped one;
       // student.read would open every child's record in the school, which a
       // house parent has no more claim to than any other teacher.
