@@ -88,6 +88,7 @@ export default async function StudentPortalPage() {
       },
     }),
     getStudentStatement(user.studentId),
+    // portal-scope: addressed to every pupil.
     db.announcement.findMany({
       where: { status: "PUBLISHED", audiences: { has: "STUDENT" } },
       orderBy: [{ isPinned: "desc" }, { publishedAt: "desc" }],

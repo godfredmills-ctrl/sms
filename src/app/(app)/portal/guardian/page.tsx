@@ -114,6 +114,7 @@ export default async function GuardianPortalPage({
     links.map((link) => getStudentStatement(link.student.id)),
   );
 
+  // portal-scope: as on the announcements page: addressed to every guardian.
   const announcements = await db.announcement.findMany({
     where: {
       status: "PUBLISHED",
@@ -131,9 +132,19 @@ export default async function GuardianPortalPage({
     },
   });
 
+  /*
+   * The payment this parent has just come back from paying.
+   *
+   * Scoped to their own children, which it was not. The reference comes off
+   * the query string, so an unscoped lookup answered with the amount and
+   * receipt number of any payment in the school whose reference somebody
+   * held: and a reference is printed on a receipt, quoted in an email, and
+   * read out over the counter. Nothing errored, and the page it rendered was
+   * the right page about the wrong family.
+   */
   const pendingPayment = ref
-    ? await db.payment.findUnique({
-        where: { reference: ref },
+    ? await db.payment.findFirst({
+        where: { reference: ref, studentId: { in: links.map((link) => link.student.id) } },
         select: { status: true, amountMinor: true, receiptNo: true },
       })
     : null;

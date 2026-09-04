@@ -103,6 +103,7 @@ for (const check of [
   ["printed register fits", "scripts/check-register-fit.mjs"],
   ["house style dashes", "scripts/check-dashes.mjs"],
   ["guardian contact filters", "scripts/check-guardian-contact.mjs"],
+  ["portal query scope", "scripts/check-portal-scope.mjs"],
   // Last of the static guards, because it reads this file and should read it
   // in the state the rest of the build agrees with.
   ["every suite is wired in", "scripts/check-suites-wired.mjs"],

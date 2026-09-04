@@ -12,6 +12,7 @@ export const dynamic = "force-dynamic";
 export default async function GuardianAnnouncementsPage() {
   await requireUser();
 
+  // portal-scope: an announcement to guardians is addressed to all of them.
   const announcements = await db.announcement.findMany({
     where: {
       status: "PUBLISHED",

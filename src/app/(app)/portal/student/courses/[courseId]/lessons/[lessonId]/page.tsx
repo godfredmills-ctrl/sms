@@ -24,6 +24,7 @@ export async function generateMetadata({
   params: Promise<{ lessonId: string }>;
 }): Promise<Metadata> {
   const { lessonId } = await params;
+  // portal-scope: the title, for the browser tab. The page below refuses the lesson itself unless this pupil is enrolled in its course.
   const lesson = await db.lesson.findUnique({
     where: { id: lessonId },
     select: { title: true },
@@ -82,6 +83,7 @@ export default async function LessonPage({
 
   // Neighbours across the whole course, so "next" crosses a module boundary
   // instead of dead-ending at the last lesson of a module.
+  // portal-scope: the neighbours within a course this pupil has already been shown to be enrolled in.
   const siblings = await db.lesson.findMany({
     where: { isPublished: true, module: { courseId, isPublished: true } },
     orderBy: [{ module: { sortKey: "asc" } }, { sortKey: "asc" }],

@@ -28,6 +28,8 @@ export async function generateMetadata({
   params: Promise<{ quizId: string }>;
 }): Promise<Metadata> {
   const { quizId } = await params;
+  // portal-scope: the title, for the browser tab. The page below refuses the
+  // quiz itself unless this pupil is enrolled in the class it was set for.
   const quiz = await db.quiz.findUnique({
     where: { id: quizId },
     select: { title: true },
@@ -47,6 +49,8 @@ export default async function StudentQuizPage({
 
   const { quizId } = await params;
 
+  // portal-scope: enrolment in the class this quiz was set for is checked
+  // below, before a single question is read.
   const quiz = await db.quiz.findUnique({
     where: { id: quizId },
     include: {

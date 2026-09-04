@@ -25,6 +25,7 @@ export default async function GuardianBoardingPage() {
 
   const [wardIds, year] = await Promise.all([
     wardIdsFor(user.guardianId),
+    // portal-scope: which year the school is in is not a family fact.
     db.academicYear.findFirst({ where: { isCurrent: true }, select: { id: true } }),
   ]);
 

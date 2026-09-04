@@ -23,6 +23,7 @@ export default async function GuardianCalendarPage() {
   const now = new Date();
 
   const [events, term] = await Promise.all([
+    // portal-scope: the school calendar is one calendar.
     db.calendarEvent.findMany({
       where: { audiences: { has: "GUARDIAN" }, endsAt: { gte: now } },
       orderBy: { startsAt: "asc" },
@@ -40,6 +41,7 @@ export default async function GuardianCalendarPage() {
         colour: true,
       },
     }),
+    // portal-scope: term dates are the same for every family.
     db.term.findFirst({
       where: { isCurrent: true },
       select: {

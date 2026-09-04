@@ -18,6 +18,7 @@ export const dynamic = "force-dynamic";
 export default async function StudentAnnouncementsPage() {
   await requireUser();
 
+  // portal-scope: an announcement to pupils is addressed to all of them.
   const announcements = await db.announcement.findMany({
     where: {
       status: "PUBLISHED",

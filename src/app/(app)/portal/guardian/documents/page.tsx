@@ -22,6 +22,7 @@ export default async function GuardianDocumentsPage() {
   const [shared, personal] = await Promise.all([
     // School-wide and public documents only. Staff-level and role-restricted
     // material is never surfaced in a parent portal, whatever its folder.
+    // portal-scope: public and school-wide only, filtered on accessLevel just above.
     db.document.findMany({
       where: {
         isArchived: false,

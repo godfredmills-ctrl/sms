@@ -21,6 +21,7 @@ export default async function StudentBoardingPage() {
   const user = await requireUser();
   if (!user.studentId) return <NotLinked />;
 
+  // portal-scope: which year the school is in is not a pupil fact.
   const year = await db.academicYear.findFirst({
     where: { isCurrent: true },
     select: { id: true },

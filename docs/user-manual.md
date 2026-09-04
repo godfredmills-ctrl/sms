@@ -184,7 +184,11 @@ Staff cards are printed the same way from the staff list.
 
 ### 3.6 Discipline
 
-Discipline records are kept per pupil, with the incident, what was decided and who dealt with it. They are visible to staff with the discipline permission and are not shown in the guardian portal, because a disciplinary record is a conversation the school should have with a family rather than something they read about online.
+Discipline records are kept per pupil, with the incident, what was decided and who dealt with it. The full record, including the account of what happened and the names of any witnesses, is visible only to staff with the discipline permission.
+
+**What a parent sees.** The guardian portal shows the facts of a record and not the narrative: the date, the category, the sanction, whether it is closed and how it was resolved. It does not show the description or anybody else who was involved.
+
+That split is deliberate and it follows from what the school has already done. When a record is raised the family is notified and told to contact the school, so a portal that then showed them nothing would be sending a parent to a page that denies the thing they were just rung about. The full account is a conversation, held between a form teacher and a family, and other children in it are not a parent to read about.
 
 ### 3.7 The end of the year
 

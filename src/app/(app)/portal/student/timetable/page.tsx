@@ -33,6 +33,7 @@ export default async function StudentTimetablePage() {
   });
 
   const slots = enrolment
+    // portal-scope: the section is this pupil own active enrolment, read immediately above.
     ? await db.timetableSlot.findMany({
         where: { classSectionId: enrolment.classSection.id },
         orderBy: [{ dayOfWeek: "asc" }, { periodIndex: "asc" }],
