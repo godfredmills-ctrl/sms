@@ -378,15 +378,35 @@ Reminders go to the bill payer rather than to every guardian.
 
 ![Expenditure, with what has been approved and what is waiting.](screenshots/expenses.png)
 
-### 5.7 Expenditure and budget
+### 5.7 Requisitions
+
+Finance, then Requisitions. Raising one needs the requisition permission, which departments hold; deciding is separate.
+
+A requisition is asking for something before it is bought. Expenditure records what the school spent, which arrives too late to change anything: by the time there is a bill, somebody has promised a supplier money.
+
+**Raising one.** Title it, choose the budget it comes from, list what is wanted with a quantity and an estimated price for each. It saves as a draft and only you can see it. Sending it for approval is a separate button, so a half-written request is not on somebody's desk by accident.
+
+**What the approver sees.** The list of items, the reason, and the budget line: what is left on it before this request, and what would be left after. That figure is the reason for the module. It counts three things and not two.
+
+**Spent, committed, left.** Spent is what has been billed. Committed is what has been approved and has not yet arrived, which is gone as far as this year is concerned even though there is no invoice. Left is the budget less both. Before requisitions existed the budget screen counted only bills, so a line with four approved requests waiting in a drawer read as healthy as one with none, and next year's budget was set from it.
+
+**Nobody decides their own.** However senior. The button is not drawn, the action refuses it, and the database refuses it as well. A school where one person raises and approves has a filing system rather than a control.
+
+**Over budget.** Allowed, and not silent. Approving something that takes a line past its budget asks for a reason, and the reason is kept with the name and the date. Refusing outright would be worked around by not raising the requisition at all, which would lose the record as well as the control. A category with no budget set is a separate case: it is unmeasured, not overspent, and it is not reported as an overspend.
+
+**When it arrives.** Record what actually came, line by line. Half a delivery releases half the commitment: the rest stays against the budget until it turns up. When everything has arrived, mark the requisition met and the commitment is released in full, because the bill now counts it.
+
+![Requisitions: what has been asked for, and what is already committed.](screenshots/requisitions.png)
+
+### 5.8 Expenditure and budget
 
 Finance, then Expenditure. Every bill the school pays is recorded here with its category, its supplier, the amount, any withholding tax and whether it has been paid.
 
 Expenditure is approved by somebody other than the person who recorded it. This is deliberate and it is why the head teacher holds the approval permission rather than the bursar.
 
-The budget is set per category per year. The income and expenditure statement shows the budget against the actual, so the governing board can see where the year is going rather than only where it has been.
+The budget is set per category per year, and each line carries three figures: what has been spent, what has been committed by approved requisitions that have not yet arrived, and the budget itself. A line is over when the first two together pass the third. The income and expenditure statement shows the budget against the actual, so the governing board can see where the year is going rather than only where it has been.
 
-### 5.8 Payroll
+### 5.9 Payroll
 
 Payroll, then Runs. Set each member of staff's salary and allowances under Salaries, then prepare a run for the month.
 
@@ -394,7 +414,7 @@ The run works out gross pay, deductions including SSNIT and PAYE, and net pay. R
 
 Payslips are printed for the whole run or for one person. Staff can also see their own payslips in the system without going to the bursar for a copy.
 
-### 5.9 The general ledger
+### 5.10 The general ledger
 
 Finance, then Ledger.
 

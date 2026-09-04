@@ -145,6 +145,14 @@ export const PERMISSIONS: PermissionDef[] = [
     ["expense.pay", "update", "Mark expenditure as paid"],
     ["vendor.manage", "update", "Manage vendors and expense categories"],
     ["budget.manage", "update", "Set the annual budget"],
+    // Requisitions: asking before buying. Raising one is open to any
+    // department that spends money; deciding is separate, because the database
+    // refuses a request approved by the person who raised it and the
+    // permissions should not pretend otherwise.
+    ["requisition.read", "read", "See requisitions across the school"],
+    ["requisition.request", "create", "Raise a requisition"],
+    ["requisition.approve", "approve", "Approve or turn down a requisition"],
+    ["requisition.fulfil", "update", "Record a requisition as met"],
     // Writing an entry and posting it are separate, for the same reason
     // recording a bill and approving it are: posting is the moment a figure
     // reaches the accounts, and the person who can do that should be able to
@@ -429,6 +437,11 @@ export const ROLE_PRESETS: RolePreset[] = [
       "finance.expense.read",
       "finance.expense.approve",
       "finance.budget.manage",
+      // The head decides the requisitions the bursar raised, which is the
+      // half of the control a school with one bursar would otherwise lose.
+      "finance.requisition.read",
+      "finance.requisition.request",
+      "finance.requisition.approve",
       ...expand("asset"),
       ...expand("stock"),
       ...expand("cafeteria"),
@@ -460,6 +473,10 @@ export const ROLE_PRESETS: RolePreset[] = [
       "letter.read",
       "letter.write",
       "letter.finalise",
+      // The academic side asks for its own materials. Deciding is deliberately
+      // not here: the money is the bursar and the head between them.
+      "finance.requisition.read",
+      "finance.requisition.request",
       ...expand("boarding"),
       "admission.read",
       "admission.interview",

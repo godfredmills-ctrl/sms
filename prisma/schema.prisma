@@ -421,6 +421,7 @@ model AcademicYear {
   boardingBeds   BoardingAllocation[]
   admissions     AdmissionApplication[]
   journalEntries JournalEntry[]
+  requisitions   Requisition[]
 
   @@unique([schoolId, name])
 }
@@ -449,6 +450,7 @@ model Term {
   journalEntries    JournalEntry[]
   mealSubscriptions MealSubscription[]
   mealMenus         MealMenu[]
+  requisitions      Requisition[]
 
   @@unique([academicYearId, sequence])
 }
@@ -868,6 +870,9 @@ model Staff {
   mealsTaken        MealServiceRecord[]
   unavailability    StaffUnavailability[]
   lessonNotesVetted LessonNote[]          @relation("LessonNoteVetter")
+
+  requisitionsRaised  Requisition[] @relation("RequisitionRequestedBy")
+  requisitionsDecided Requisition[] @relation("RequisitionDecidedBy")
 
   coverWhileAway CoverAssignment[] @relation("CoverAbsent")
   coveringFor    CoverAssignment[] @relation("CoverStaff")
@@ -3947,8 +3952,9 @@ model ExpenseCategory {
   expenses Expense[]
   budgets  BudgetLine[]
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  requisitions Requisition[]
 
   @@index([active])
 }
@@ -4013,8 +4019,9 @@ model Expense {
   assetMaintenances AssetMaintenance[] @relation("MaintenanceExpense")
   stockMovements    StockMovement[]    @relation("StockExpense")
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  requisitions Requisition[] @relation("RequisitionExpense")
 
   @@index([status])
   @@index([categoryId])
@@ -4905,8 +4912,9 @@ model StockItem {
 
   movements StockMovement[]
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  requisitionLines RequisitionLine[]
 
   @@index([categoryId])
   @@index([locationId])
@@ -5721,4 +5729,141 @@ model CoverAssignment {
   @@index([date])
   @@index([coverStaffId, date])
   @@index([absentStaffId, date])
+}
+
+// ---------------------------------------------------------------------------
+// Requisitions
+//
+// Asking for something before it is bought.
+//
+// The expenditure module records what the school spent, which is the back half
+// of the job and arrives too late to change anything: by the time there is a
+// bill, somebody has already promised a supplier money. This is the front
+// half, and it is what makes one number possible that the system could not
+// produce before. A budget line has three figures against it, not two: spent,
+// committed, and what is actually left.
+//
+// A requisition is a request, an approval, and a delivery. The three are
+// deliberately separate people wherever the school has three people: the
+// database refuses a request approved by the person who raised it.
+// ---------------------------------------------------------------------------
+
+enum RequisitionStatus {
+  /// Being written. Only the person writing it can see it.
+  DRAFT
+  /// Sent, and with whoever approves. It cannot be edited while it is there.
+  SUBMITTED
+  /// Approved. Its estimate is committed against the budget until it is met.
+  APPROVED
+  /// Turned down, with a reason. It can be edited and sent again.
+  REJECTED
+  /// Issued from the store or bought. No longer committed: the bill counts now.
+  FULFILLED
+  /// Withdrawn. Kept rather than deleted, so the reference is not reused.
+  CANCELLED
+}
+
+model Requisition {
+  id String @id @default(cuid())
+
+  /// "REQ/2026/0007". Quoted on the printed form, unique, never reused.
+  reference String @unique
+
+  /// What it is for, in the words the person asking would use.
+  title         String
+  /// Why the school should buy it. Read by whoever approves, and by whoever
+  /// asks in April what this was.
+  justification String?
+
+  /// The budget it draws on. The same categories expenditure is filed under,
+  /// so a requisition and the bill it becomes land on one line.
+  categoryId String
+  category   ExpenseCategory @relation(fields: [categoryId], references: [id])
+
+  /// The department asking. Free text, because a school reorganises its
+  /// departments more often than it reorganises its software.
+  department String?
+
+  academicYearId String?
+  academicYear   AcademicYear? @relation(fields: [academicYearId], references: [id], onDelete: SetNull)
+  termId         String?
+  term           Term?         @relation(fields: [termId], references: [id], onDelete: SetNull)
+
+  /// When it is wanted by. A request for the first week of term raised in the
+  /// holidays is a different thing from the same request raised in week three.
+  neededBy DateTime?
+
+  requestedById String
+  requestedBy   Staff  @relation("RequisitionRequestedBy", fields: [requestedById], references: [id], onDelete: Cascade)
+
+  status RequisitionStatus @default(DRAFT)
+
+  submittedAt DateTime?
+
+  decidedById  String?
+  decidedBy    Staff?    @relation("RequisitionDecidedBy", fields: [decidedById], references: [id], onDelete: SetNull)
+  decidedAt    DateTime?
+  /// Why it was turned down, or why it was approved over budget. Required for
+  /// both: a refusal nobody can act on and an overspend nobody signed are the
+  /// two failures this record exists to prevent.
+  decisionNote String?
+
+  /// What the budget line stood at when it was approved, in minor units. A
+  /// snapshot, because budgets are revised and the question in April is what
+  /// the person approving it could see at the time.
+  budgetAtDecisionMinor    Int?
+  committedAtDecisionMinor Int?
+
+  fulfilledAt DateTime?
+  /// The bill it turned into, where it was bought rather than issued.
+  expenseId   String?
+  expense     Expense?  @relation("RequisitionExpense", fields: [expenseId], references: [id], onDelete: SetNull)
+
+  lines RequisitionLine[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([categoryId])
+  @@index([requestedById])
+  @@index([academicYearId])
+  @@index([neededBy])
+}
+
+model RequisitionLine {
+  id String @id @default(cuid())
+
+  requisitionId String
+  requisition   Requisition @relation(fields: [requisitionId], references: [id], onDelete: Cascade)
+
+  /// What it is, in the words the person asking would use. The storekeeper
+  /// reads this and nothing else when they go to the shelf.
+  description String
+
+  /// The store item this is, where the store already carries it. Null for
+  /// anything that has to be bought.
+  stockItemId String?
+  stockItem   StockItem? @relation(fields: [stockItemId], references: [id], onDelete: SetNull)
+
+  quantity Int
+  unit     String?
+
+  /// What one is expected to cost, in minor units. An estimate, and named as
+  /// one everywhere it is shown: the bill decides the real figure.
+  estimatedUnitMinor Int @default(0)
+
+  /// How many have actually been issued or delivered. Per line rather than a
+  /// tick on the request, so half a delivery releases half the commitment.
+  fulfilledQty Int @default(0)
+
+  note String?
+
+  sortKey Int @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([requisitionId])
+  @@index([stockItemId])
 }

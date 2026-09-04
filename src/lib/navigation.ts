@@ -380,6 +380,18 @@ export const STAFF_NAVIGATION: NavGroup[] = [
         icon: "HandCoins",
         permissions: ["finance.expense.read"],
         children: [
+          {
+            // Before Bills, because it happens before a bill does. The order
+            // of this submenu is the order the money actually moves in.
+            label: "Requisitions",
+            href: "/finance/requisitions",
+            icon: "ClipboardList",
+            permissions: [
+              "finance.requisition.read",
+              "finance.requisition.request",
+              "finance.requisition.approve",
+            ],
+          },
           { label: "Bills", href: "/finance/expenses", icon: "ReceiptText" },
           { label: "Vendors & categories", href: "/finance/vendors", icon: "Store" },
           {

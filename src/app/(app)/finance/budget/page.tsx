@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Alert, PageHeader } from "@/components/ui";
 import { requirePermission } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { outstandingTotal } from "@/lib/requisition-rules";
 import { COMMITTED } from "@/lib/expenses";
 
 import { BudgetForm, type BudgetRow } from "./budget-form";
@@ -43,7 +44,7 @@ export default async function BudgetPage({
     );
   }
 
-  const [categories, budgets] = await Promise.all([
+  const [categories, budgets, requisitions] = await Promise.all([
     db.expenseCategory.findMany({
       where: { active: true },
       orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
@@ -64,7 +65,24 @@ export default async function BudgetPage({
       where: { academicYearId: year.id },
       select: { categoryId: true, amountMinor: true },
     }),
+    // Approved and not yet met. The figure the table could not show, computed
+    // the same way the requisition screen computes it.
+    db.requisition.findMany({
+      where: { status: "APPROVED", academicYearId: year.id },
+      select: {
+        categoryId: true,
+        lines: { select: { quantity: true, estimatedUnitMinor: true, fulfilledQty: true } },
+      },
+    }),
   ]);
+
+  const committedFor = new Map<string, number>();
+  for (const requisition of requisitions) {
+    committedFor.set(
+      requisition.categoryId,
+      (committedFor.get(requisition.categoryId) ?? 0) + outstandingTotal(requisition.lines),
+    );
+  }
 
   const budgetFor = new Map(budgets.map((line) => [line.categoryId, line.amountMinor]));
 
@@ -77,6 +95,7 @@ export default async function BudgetPage({
       code: category.code,
       amount: set === undefined ? "" : (set / 100).toFixed(2),
       spentMinor: category.expenses.reduce((sum, expense) => sum + expense.amountMinor, 0),
+      committedMinor: committedFor.get(category.id) ?? 0,
     };
   });
 

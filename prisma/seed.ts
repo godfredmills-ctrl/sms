@@ -32,6 +32,7 @@ import {
   today as coverToday,
   type Arrangement as CoverArrangement,
 } from "../src/lib/cover-rules";
+import { outstandingTotal as requisitionOutstanding } from "../src/lib/requisition-rules";
 import {
   allClashes,
   generateTimetable,
@@ -208,6 +209,9 @@ async function main() {
   // After the timetable and the staff, because it is the two of them meeting:
   // leave, and the periods it leaves without anybody in the room.
   await seedCover(staff);
+  // After expenditure, whose categories it draws on, and after staff, because
+  // who asked and who decided have to be two different people.
+  await seedRequisitions(staff, terms, year.id);
   await seedAdmissions(levels, staff, year.id, roles);
 
   console.log("\nDone.\n");
@@ -324,6 +328,9 @@ async function reset() {
     // points at a category too, so both go before it.
     "expense", "budgetLine", "expenseCategory", "vendor",
     "visitor",
+    // Requisition lines point at their requisition and at a store item, so
+    // both clear before the categories and the staff they name.
+    "requisitionLine", "requisition",
     // Cover points at a timetable slot and at three different members of
     // staff, so it clears before the leave that made it necessary.
     "coverAssignment",
@@ -7384,5 +7391,231 @@ async function seedCover(staff: StaffRow[]) {
 
   console.log(
     `    ${plans.length} leave requests, ${created} periods covered, ${lost} written off, ${open} still open`,
+  );
+}
+
+// -----------------------------------------------------------------------------
+// Requisitions
+//
+// A term of asking, in every state the board can be in. The one that matters
+// for the demonstration is the approved-and-not-yet-met pile: without it the
+// budget screen shows a committed column of zeroes, which is exactly the
+// screen the module was built to replace.
+// -----------------------------------------------------------------------------
+
+async function seedRequisitions(staff: StaffRow[], terms: TermRow[], academicYearId: string) {
+  console.log("  Requisitions…");
+
+  const categories = await db.expenseCategory.findMany({
+    where: { active: true },
+    orderBy: { name: "asc" },
+    select: { id: true, name: true },
+  });
+  if (categories.length === 0) return;
+
+  const head = staff.find((member) => member.roleKey === "head_teacher");
+  const bursar = staff.find((member) => member.roleKey === "bursar");
+  const assistant = staff.find((member) => member.roleKey === "assistant_head");
+  if (!head || !bursar || !assistant) return;
+
+  const term = terms.find((entry) => entry.sequence === 2) ?? terms[0];
+  /*
+   * By name, and it throws rather than falling back.
+   *
+   * The first version returned categories[0] when nothing matched, which filed
+   * football kit and an air conditioner under Catering and provisions: data
+   * that is wrong in a way a demonstration makes look deliberate. A seed that
+   * cannot find what it means should say so while somebody is watching.
+   */
+  const categoryFor = (needle: string) => {
+    const found = categories.find((category) =>
+      category.name.toLowerCase().includes(needle),
+    );
+    if (!found) throw new Error(`No expense category matching "${needle}"`);
+    return found;
+  };
+
+  const day = (offset: number) => {
+    const date = new Date();
+    date.setDate(date.getDate() + offset);
+    date.setHours(9, 0, 0, 0);
+    return date;
+  };
+
+  /*
+   * Seven requests across the states, and who asked matters.
+   *
+   * The assistant head raises what the academic side needs and the head
+   * decides those; the bursar raises the office ones and the head decides
+   * those too. Nowhere does one person appear on both sides of a request: the
+   * database would refuse it, and a demonstration that quietly worked round
+   * its own control would be teaching the wrong thing.
+   */
+  const plans: Array<{
+    title: string;
+    category: string;
+    department: string;
+    justification: string;
+    by: StaffRow;
+    decidedBy: StaffRow | null;
+    status: "DRAFT" | "SUBMITTED" | "APPROVED" | "REJECTED" | "FULFILLED";
+    note?: string;
+    neededIn: number;
+    lines: Array<[string, number, string, number, number?]>;
+  }> = [
+    {
+      title: "Exercise books for the JHS block",
+      category: "teaching and learning",
+      department: "Academics",
+      justification:
+        "The stock room is down to two boxes and JHS 2 starts the second half of the syllabus in week four.",
+      by: assistant,
+      decidedBy: head,
+      status: "APPROVED",
+      neededIn: 9,
+      // Half of it has arrived, which is the case that makes the committed
+      // figure interesting: the rest is still against the budget.
+      lines: [
+        ["Exercise books, 80 leaves", 40, "box", 4800, 22],
+        ["Manila cards", 30, "pack", 1200, 30],
+      ],
+    },
+    {
+      title: "Science laboratory consumables",
+      category: "teaching and learning",
+      department: "Science",
+      justification:
+        "Iodine solution, litmus and the glassware broken last term. The practical for the mock is in week six.",
+      by: assistant,
+      decidedBy: head,
+      status: "APPROVED",
+      neededIn: 16,
+      lines: [
+        ["Iodine solution, 500ml", 6, "bottle", 8500],
+        ["Litmus paper", 20, "book", 900],
+        ["Beakers, 250ml", 24, "each", 2200],
+      ],
+    },
+    {
+      title: "Replacement bulbs and switches, administration block",
+      category: "repairs and maintenance",
+      department: "Estates",
+      justification: "Four corridors are on one working bulb between them.",
+      by: bursar,
+      decidedBy: head,
+      status: "APPROVED",
+      neededIn: 4,
+      lines: [
+        ["LED bulbs, 12W", 60, "each", 1800],
+        ["Two-way switches", 12, "each", 2500],
+      ],
+    },
+    {
+      title: "Football kit for the inter-house competition",
+      category: "furniture and equipment",
+      department: "Sports",
+      justification:
+        "Both sets are eight years old and the away set no longer matches itself.",
+      by: assistant,
+      decidedBy: null,
+      status: "SUBMITTED",
+      neededIn: 21,
+      lines: [
+        ["Jerseys, numbered", 32, "each", 6500],
+        ["Match balls", 6, "each", 18000],
+      ],
+    },
+    {
+      title: "Printer toner for the front office",
+      category: "teaching and learning",
+      department: "Administration",
+      justification: "One cartridge left, and report cards print in three weeks.",
+      by: bursar,
+      decidedBy: null,
+      status: "SUBMITTED",
+      neededIn: 12,
+      lines: [["Toner cartridge, black", 4, "each", 42000]],
+    },
+    {
+      title: "Air conditioner for the staff common room",
+      category: "furniture and equipment",
+      department: "Estates",
+      justification: "The room is unusable between noon and three.",
+      by: assistant,
+      decidedBy: head,
+      status: "REJECTED",
+      note:
+        "Not this term. Get two quotations and bring it back in the third term budget, where there is a line for it.",
+      neededIn: 30,
+      lines: [["Split air conditioner, 1.5hp", 1, "each", 480000]],
+    },
+    {
+      title: "Chalk and duster stock for the term",
+      category: "teaching and learning",
+      department: "Academics",
+      justification: "The usual termly order.",
+      by: assistant,
+      decidedBy: head,
+      status: "FULFILLED",
+      neededIn: -14,
+      lines: [
+        ["Chalk, dustless", 40, "box", 1500, 40],
+        ["Board dusters", 25, "each", 800, 25],
+      ],
+    },
+  ];
+
+  let created = 0;
+  let committedMinor = 0;
+
+  for (const [index, plan] of plans.entries()) {
+    const category = categoryFor(plan.category);
+    const decidedAt =
+      plan.status === "APPROVED" || plan.status === "REJECTED" || plan.status === "FULFILLED"
+        ? day(-3)
+        : null;
+
+    const row = await db.requisition.create({
+      data: {
+        reference: `REQ-${new Date().getFullYear()}-${String(index + 1).padStart(5, "0")}`,
+        title: plan.title,
+        justification: plan.justification,
+        categoryId: category.id,
+        department: plan.department,
+        academicYearId,
+        termId: term?.id ?? null,
+        neededBy: day(plan.neededIn),
+        requestedById: plan.by.id,
+        status: plan.status,
+        submittedAt: plan.status === "DRAFT" ? null : day(-5),
+        decidedById: plan.decidedBy?.id ?? null,
+        decidedAt,
+        decisionNote: plan.note ?? null,
+        fulfilledAt: plan.status === "FULFILLED" ? day(-1) : null,
+        lines: {
+          create: plan.lines.map(([description, quantity, unit, price, got], order) => ({
+            description,
+            quantity,
+            unit,
+            estimatedUnitMinor: price,
+            fulfilledQty: got ?? 0,
+            sortKey: order,
+          })),
+        },
+      },
+      select: {
+        status: true,
+        lines: { select: { quantity: true, estimatedUnitMinor: true, fulfilledQty: true } },
+      },
+    });
+
+    created += 1;
+    if (row.status === "APPROVED") {
+      committedMinor += requisitionOutstanding(row.lines);
+    }
+  }
+
+  console.log(
+    `    ${created} requisitions, ${(committedMinor / 100).toLocaleString("en-GH", { minimumFractionDigits: 2 })} cedis committed and not yet met`,
   );
 }

@@ -16,8 +16,17 @@ export type BudgetRow = {
   code: string | null;
   /** What is budgeted, as a decimal string. Empty means no budget set. */
   amount: string;
-  /** Committed spending against it so far this year. */
+  /** Bills approved or paid against it this year. */
   spentMinor: number;
+  /**
+   * Requisitions approved and not yet met, at their estimate.
+   *
+   * The column this table did not have. It read "Committed so far" over a
+   * figure that was only what had been billed, so a line with four approved
+   * requests sitting in a drawer looked as healthy as one with none, and the
+   * person setting next year budget was working from it.
+   */
+  committedMinor: number;
 };
 
 /**
@@ -57,7 +66,8 @@ export function BudgetForm({
     return { totalMinor: total, setLines: lines };
   }, [amounts]);
 
-  const committedMinor = rows.reduce((sum, row) => sum + row.spentMinor, 0);
+  const spentMinor = rows.reduce((sum, row) => sum + row.spentMinor, 0);
+  const committedMinor = rows.reduce((sum, row) => sum + row.committedMinor, 0);
 
   return (
     <form action={action} className="space-y-4">
@@ -73,7 +83,10 @@ export function BudgetForm({
               <tr className="border-b border-[var(--border)] bg-[var(--surface-2)] text-left">
                 <th className="px-4 py-2.5 font-medium text-[var(--text-muted)]">Category</th>
                 <th className="px-4 py-2.5 text-right font-medium text-[var(--text-muted)]">
-                  Committed so far
+                  Spent
+                </th>
+                <th className="px-4 py-2.5 text-right font-medium text-[var(--text-muted)]">
+                  Committed
                 </th>
                 <th className="px-4 py-2.5 text-right font-medium text-[var(--text-muted)]">
                   Budget for {yearName}
@@ -84,7 +97,10 @@ export function BudgetForm({
               {rows.map((row) => {
                 const parsed = Number.parseFloat(amounts[row.categoryId] ?? "");
                 const budgetMinor = Number.isFinite(parsed) ? Math.round(parsed * 100) : null;
-                const over = budgetMinor !== null && row.spentMinor > budgetMinor;
+                // Both against the line, because both are gone. A budget
+                // measured against bills alone is the question nobody asked.
+                const usedMinor = row.spentMinor + row.committedMinor;
+                const over = budgetMinor !== null && usedMinor > budgetMinor;
 
                 return (
                   <tr
@@ -110,11 +126,17 @@ export function BudgetForm({
                       >
                         {formatMoney(row.spentMinor)}
                       </p>
-                      {over ? (
-                        <p className="numeric text-xs text-[var(--danger)]">
-                          over by {formatMoney(row.spentMinor - budgetMinor)}
-                        </p>
-                      ) : null}
+                    </td>
+                    <td className="px-4 py-2 text-right">
+                      <p
+                        className={`numeric ${
+                          row.committedMinor
+                            ? "text-[var(--text)]"
+                            : "text-[var(--text-subtle)]"
+                        }`}
+                      >
+                        {formatMoney(row.committedMinor)}
+                      </p>
                     </td>
                     <td className="px-4 py-2 text-right">
                       <input
@@ -131,6 +153,14 @@ export function BudgetForm({
                         }
                         className="numeric w-32 rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface)] px-2 py-1.5 text-right text-[var(--text)] outline-none focus:border-[var(--primary)]"
                       />
+                      {/* Beside the figure it overruns, rather than beside
+                          committed: spent and committed together are what
+                          pass it, and neither alone is the reason. */}
+                      {over ? (
+                        <p className="numeric mt-1 text-xs text-[var(--danger)]">
+                          over by {formatMoney(usedMinor - budgetMinor)}
+                        </p>
+                      ) : null}
                     </td>
                   </tr>
                 );
@@ -140,6 +170,9 @@ export function BudgetForm({
               <tr className="bg-[var(--surface-2)]">
                 <td className="px-4 py-2.5 font-medium text-[var(--text)]">
                   {setLines} of {rows.length} line{rows.length === 1 ? "" : "s"} budgeted
+                </td>
+                <td className="numeric px-4 py-2.5 text-right text-[var(--text-muted)]">
+                  {formatMoney(spentMinor)}
                 </td>
                 <td className="numeric px-4 py-2.5 text-right text-[var(--text-muted)]">
                   {formatMoney(committedMinor)}
@@ -157,6 +190,13 @@ export function BudgetForm({
         A blank figure means no budget was set for that line, which is different from
         budgeting nothing: the statement shows the first as a dash and the second as
         zero, and only the second is being overspent.
+      </p>
+
+      <p className="max-w-2xl text-sm text-[var(--text-muted)]">
+        Spent is what has been billed. Committed is what has been approved and
+        not yet arrived, which is gone as far as this year is concerned even
+        though no invoice exists. A line is over when the two together pass the
+        budget, and until requisitions existed only the first was counted.
       </p>
 
       <SaveButton />

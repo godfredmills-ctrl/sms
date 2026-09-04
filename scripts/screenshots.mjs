@@ -94,6 +94,8 @@ const SHOTS = [
   ["fee-statement", "/finance/statement", {}],
   ["ledger", "/finance/ledger", {}],
   ["expenses", "/finance/expenses", {}],
+  ["requisitions", "/finance/requisitions", {}],
+  ["budget", "/finance/budget", {}],
   ["payroll", "/payroll", {}],
   ["cafeteria-counter", "/cafeteria", {}],
   ["cafeteria-menu", "/cafeteria/menu", {}],
