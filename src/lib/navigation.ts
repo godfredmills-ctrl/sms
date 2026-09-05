@@ -589,6 +589,12 @@ export const STAFF_NAVIGATION: NavGroup[] = [
         href: "/reports",
         icon: "BarChart3",
         permissions: ["report.read", "report.build"],
+        children: [
+          { label: "Build one", href: "/reports", icon: "Database" },
+          // The one document a board actually receives, and the only screen
+          // here that is a document rather than a query.
+          { label: "To the board", href: "/reports/board", icon: "FileText" },
+        ],
       },
       {
         label: "Website",

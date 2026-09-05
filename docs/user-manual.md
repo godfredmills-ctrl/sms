@@ -746,6 +746,22 @@ Three jobs need to run on a schedule. They are ordinary web addresses that a sch
 
 The README that ships with the system has the exact addresses and the go live checklist.
 
+### 12.6 The report to the board
+
+Reports, then To the board. Print it from the button at the top; it comes out on the school's letterhead.
+
+Every figure in this document already exists on some other screen. What has never existed is the one document, so it gets assembled by hand the week before the meeting out of six screens and a calculator. That is why board papers and the software disagree, quietly and routinely, and why nobody can say which is wrong.
+
+**Every figure says what it counted.** Not "attendance 94%" but "94%, present or late, over 10,100 marks, second term". A board member who cannot see what was counted cannot challenge it, and a figure nobody can challenge is decoration rather than evidence.
+
+**A figure the school cannot state honestly says so.** It is not shown as nought. "Nothing was spent on repairs" and "nobody recorded any repairs" are different sentences, and a board given the first when the second is true will plan next year around it. The front page counts the gaps and each one says why it is missing.
+
+**Comparisons are only drawn where they are fair.** A term four weeks in, set against a whole one, reads as a collapse that did not happen. Where the two periods are not of comparable length the report says so instead of doing the arithmetic.
+
+**Rates change in points, not per cent.** Attendance of 94 against 91 is up three points. Called "up 3%" it is read as a third of what actually happened, which is the confusion that lives in board papers everywhere.
+
+**Money is measured against like.** The budget is annual, so what is set against it is the year's spending and the year's commitments, not the term's. The term's spending is shown too, separately and labelled as such.
+
 ## Part 13: What the system prints
 
 Everything in this list prints on the school's letterhead and is generated fresh each time rather than stored, so a document is always current.
@@ -776,7 +792,9 @@ Do lesson notes first in that session, and do them by writing a real one for nex
 
 **Session four: the bursar.** Fee structures, invoicing a term, taking payments, discounts, reminders, expenditure and payroll. Longest session. Do it separately and do not rush it.
 
-**Session five: heads of department and senior staff.** Examinations, analytics, reports, memos, approvals.
+**Session five: heads of department and senior staff.** Examinations, analytics, reports, memos, approvals. Requisitions belong here too: this is the group who raise them.
+
+**Session six: the head, and whoever sits on the board.** Appraisal, and the report to the board. Print the board report during the session and read it round the table. The argument for it is not that it saves an afternoon, though it does; it is that everybody is then looking at figures that say where they came from, and that the ones the school cannot yet produce are named rather than quietly absent.
 
 Boarding, the asset register, the store, the cafeteria and the alumni register are trained separately with the people who actually run them, usually an hour each.
 
