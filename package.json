@@ -24,6 +24,7 @@
     "pdf:preview": "tsx --conditions=react-server scripts/preview-pdf.ts",
     "import:check": "tsx --conditions=react-server scripts/check-import.ts",
     "db:seed": "tsx --conditions=react-server prisma/seed.ts",
+    "school:new": "tsx --conditions=react-server scripts/new-school.ts",
     "db:seed:force": "npx --yes tsx --conditions=react-server prisma/seed.ts",
     "db:studio": "prisma studio",
     "setup": "prisma generate && prisma migrate dev --name init && npm run db:seed",

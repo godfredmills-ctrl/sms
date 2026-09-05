@@ -73,6 +73,34 @@ The seed prints who it landed on and which class was populated.
 The seed is deterministic and re-runnable: `npm run db:seed` wipes and rebuilds
 the same school every time.
 
+### 4. Or set up a real school
+
+`db:seed` is a demonstration: it truncates every table and invents Golden Crest
+International School. **Never run it against a school with real data in it.**
+
+For a school that is going to be used, migrate and then provision:
+
+```bash
+npm run db:deploy          # applies migrations, creates nothing else
+npm run school:new -- \
+  --name "St Monica Preparatory School" \
+  --email head@stmonica.edu.gh \
+  --admin "Ama Boateng" \
+  --year 2026/2027         # optional: creates the year and three terms
+```
+
+That creates the permission catalogue, the thirteen shipped roles, the school
+profile, a main campus and one administrator, and nothing else. No pupils, no
+staff, no sample fee structures: demonstration data in a live system is
+indistinguishable from real data six months later.
+
+The administrator's password is generated and printed once. It is stored
+nowhere else and the account must change it at first sign-in.
+
+`school:new` refuses to run if the database already has a school, users or
+roles in it. A script that provisions and a script that wipes should never be
+one keystroke apart.
+
 ### Checking the data hangs together
 
 ```
@@ -94,6 +122,48 @@ home page has blocks. It is read-only and exits non-zero on a failure, so it
 can gate a deploy. Run it after every seed.
 
 ---
+
+## Running two schools
+
+**One deployment is one school.** Of the 172 models in the schema, three carry a
+`schoolId` — `Campus`, `AcademicYear` and `Setting` — and about two dozen call
+sites ask for `school.findFirst()`, meaning *the* school. `campusId` exists on
+`Staff`, `Student`, `ClassSection` and `AssetLocation` but is not used as a
+filter anywhere: it is a label on a record, not a scope.
+
+So a second `School` row would partition almost nothing. Both schools' pupils
+would be on one roll, both staff in one directory, both sets of fees in one
+ledger. That is a data-protection problem rather than an inconvenience.
+
+Run the same codebase twice instead, each with its own database:
+
+| Variable | School A | School B |
+| --- | --- | --- |
+| `DATABASE_URL` | its own Postgres | a different Postgres |
+| `APP_URL` | `https://a.example.edu.gh` | `https://b.example.edu.gh` |
+| `SESSION_SECRET` | its own 48 random bytes | **different** 48 random bytes |
+| `STORAGE_LOCAL_DIR` | its own directory or bucket | a different one |
+
+On Railway that is two services from the same repository, each with its own
+Postgres. `scripts/start.mjs` applies migrations on boot, so each database
+brings itself up to date.
+
+Three things to be deliberate about:
+
+- **A separate `SESSION_SECRET` for each.** Sharing one means a session cookie
+  minted at A is cryptographically valid at B. Nothing in the code expects to be
+  asked which school a session belongs to, because there has only ever been one.
+- **Separate file storage.** `STORAGE_LOCAL_DIR` defaults to
+  `./storage/uploads`. Two services sharing a volume share pupil photographs and
+  documents.
+- **Separate integration credentials.** Paystack, SMS and email keys live in the
+  database per deployment. Two schools billing through one merchant account will
+  reconcile into one another's ledgers.
+
+If the two are genuinely one legal school on two sites, sharing a roll, a fee
+structure and a staff list, then `Campus` is the right model — but the campus
+field would first have to be applied as a filter across every list in the
+system, which it is not today.
 
 ## Deploying to Railway
 
@@ -400,7 +470,8 @@ src/app/
 | `npm run db:check` | Non-destructive: is the database reachable, and what is in it? |
 | `npm run db:verify` | Read-only: does the data hang together? Exits 1 on a failure |
 | `npm run pdf:preview` | Writes a sample report card, transcript and certificate to `$SCRATCH` — no database needed |
-| `npm run db:seed` | Rebuild the demo school — **wipes first** |
+| `npm run school:new` | Set a real school up on an empty database. Refuses if one is already there |
+| `npm run db:seed` | Rebuild the demo school — **wipes first**. Never against real data |
 | `npm run db:seed:force` | Same, but fetches `tsx` on demand (for a container where dev dependencies were pruned) |
 | `npm run db:studio` | Prisma Studio |
 | `npm run typecheck` | TypeScript, no emit |

@@ -9,7 +9,7 @@ import {
 } from "@/lib/letterhead";
 import { sanitisePdfText } from "@/lib/pdf-text";
 import type { BoardReport } from "@/lib/board-report";
-import { completeness, gaps, printable } from "@/lib/board-report-rules";
+import { completeness, gapLabel, gaps, printable } from "@/lib/board-report-rules";
 
 /**
  * The report to the board, as the paper that goes round the table.
@@ -158,7 +158,7 @@ export async function renderBoardReportPdf(input: {
   if (holes.length) {
     text("What the school cannot yet state", { size: 10.5, font: bold, gap: 3 });
     for (const hole of holes) {
-      text(`${hole.section}, ${hole.label}. ${hole.why}`, {
+      text(`${gapLabel(hole)}. ${hole.why}`, {
         size: 8.5,
         colour: MUTED,
         indent: 10,

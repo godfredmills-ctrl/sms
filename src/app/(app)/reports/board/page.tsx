@@ -14,7 +14,7 @@ import {
 import { requirePermission } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { boardReport, periodsFor } from "@/lib/board-report";
-import { completeness, gaps, printable } from "@/lib/board-report-rules";
+import { completeness, gapLabel, gaps, printable } from "@/lib/board-report-rules";
 import { formatDate, formatDateTime } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Report to the board" };
@@ -132,9 +132,7 @@ export default async function BoardReportPage({
               <ul className="mt-2 space-y-1">
                 {holes.map((hole) => (
                   <li key={`${hole.section}-${hole.label}`} className="text-xs leading-relaxed">
-                    <span className="font-medium">
-                      {hole.section}, {hole.label}:
-                    </span>{" "}
+                    <span className="font-medium">{gapLabel(hole)}:</span>{" "}
                     <span className="text-[var(--text-muted)]">{hole.why}</span>
                   </li>
                 ))}

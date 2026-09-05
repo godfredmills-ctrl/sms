@@ -18,6 +18,7 @@ import {
   comparable,
   completeness,
   figure,
+  gapLabel,
   gaps,
   orderSections,
   printable,
@@ -224,6 +225,11 @@ check("it names its section", holes[0]?.section, "Money");
 check("and the figure", holes[0]?.label, "Repairs");
 check("and why", holes[0]?.why, "No expenditure has been recorded against this category.");
 check("a complete report has no gaps", gaps([section("x", "X", [figure("a", "1", "b")])]).length, 0);
+
+// A section with one headline number shares its name with that number, and
+// naming it twice is a stutter in a document read aloud in a meeting.
+check("a gap names its section and figure", gapLabel({ section: "Money", label: "Repairs" }), "Money, Repairs");
+check("unless they are the same", gapLabel({ section: "Attendance", label: "Attendance" }), "Attendance");
 
 // -----------------------------------------------------------------------------
 

@@ -280,6 +280,18 @@ export function completeness(sections: Section[]): Completeness {
   };
 }
 
+/**
+ * How to name a gap, once, so both renderers say it the same way.
+ *
+ * "Attendance, Attendance" is what comes out when a section and its figure
+ * share a name, which they do whenever a section has one headline number.
+ * Saying it twice reads as a stutter in a document somebody is about to read
+ * aloud in a meeting.
+ */
+export function gapLabel(gap: { section: string; label: string }): string {
+  return gap.section === gap.label ? gap.section : `${gap.section}, ${gap.label}`;
+}
+
 /** Every gap, gathered, so the covering note can list them. */
 export function gaps(sections: Section[]): Array<{ section: string; label: string; why: string }> {
   return sections.flatMap((section) =>
