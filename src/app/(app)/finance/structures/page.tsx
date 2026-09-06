@@ -132,9 +132,19 @@ export default async function StructuresPage() {
                     structure.classLevel?.name ?? "All levels",
                     humanise(structure.boarderType ?? "ALL"),
                     humanise(structure.studentType ?? "ALL"),
+                    // Which cycle it bills on. Without it, a bursar looking at
+                    // two published structures cannot tell which raises nine
+                    // bills a year and which raises three, and that difference
+                    // is the whole of what a family owes.
+                    structure.cycle === "MONTHLY"
+                      ? `Monthly, due on day ${structure.dueDayOfMonth ?? 1}`
+                      : "Once a term",
                   ].join(" · ")}
                   action={
                     <>
+                      {structure.cycle === "MONTHLY" ? (
+                        <Badge tone="info">Monthly</Badge>
+                      ) : null}
                       <Badge tone={structure.isPublished ? "success" : "warning"}>
                         {structure.isPublished ? "Published" : "Draft"}
                       </Badge>
