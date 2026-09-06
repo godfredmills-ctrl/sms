@@ -1,9 +1,11 @@
+import fs from "node:fs";
 import path from "node:path";
 
 import { NextResponse } from "next/server";
 
 import { db } from "@/lib/db";
 import { env } from "@/lib/env";
+import { migrationStatus, type MigrationRow } from "@/lib/migration-status";
 import { isS3, s3ConfigProblems } from "@/lib/storage";
 
 export const dynamic = "force-dynamic";
@@ -59,6 +61,63 @@ function firstMeaningfulLine(message: string): string {
 }
 
 /**
+ * The migrations this build ships, from the image itself.
+ *
+ * Not standalone output, and the start script runs `prisma migrate deploy` from
+ * the repository root, so this directory is present wherever the server runs.
+ * Null rather than an empty array when it cannot be read: an empty list would
+ * mean "this build ships no migrations", and every applied migration would then
+ * look like a database running ahead of the code. A directory that is missing
+ * and a directory that is empty are different facts.
+ */
+function migrationsOnDisk(): string[] | null {
+  try {
+    return fs
+      .readdirSync(path.join(process.cwd(), "prisma", "migrations"), {
+        withFileTypes: true,
+      })
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => entry.name)
+      .sort();
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * What the database says it has applied.
+ *
+ * Existence is tested with to_regclass rather than by querying the table and
+ * catching the error. A failed statement leaves some drivers unwilling to take
+ * the next one on the same connection — PGlite in particular wedges and then
+ * reports every later query as an unreachable database, which would turn this
+ * endpoint into a liar in the other direction.
+ */
+async function appliedMigrations(): Promise<MigrationRow[] | null> {
+  const [{ present }] = await db.$queryRaw<Array<{ present: boolean }>>`
+    SELECT to_regclass('public._prisma_migrations') IS NOT NULL AS present
+  `;
+  if (!present) return null;
+
+  const rows = await db.$queryRaw<
+    Array<{
+      migration_name: string;
+      finished_at: Date | null;
+      rolled_back_at: Date | null;
+    }>
+  >`
+    SELECT "migration_name", "finished_at", "rolled_back_at"
+    FROM "_prisma_migrations"
+  `;
+
+  return rows.map((row) => ({
+    name: row.migration_name,
+    finished: row.finished_at !== null,
+    rolledBack: row.rolled_back_at !== null,
+  }));
+}
+
+/**
  * Health check.
  *
  * Deliberately returns 200 whenever the process is serving traffic, and
@@ -69,6 +128,11 @@ function firstMeaningfulLine(message: string): string {
  * "service unavailable" with no indication of why. Answering 200 with
  * `database: "unreachable"` plus the driver's own message turns that into a
  * diagnosis you can read.
+ *
+ * The migration state is a real comparison, not a proxy for one. This endpoint
+ * used to answer it by counting tables and reporting "applied" for any count
+ * above zero, which meant a deployment nine migrations and seventeen tables
+ * behind its own code reported perfect health. See src/lib/migration-status.ts.
  */
 export async function GET() {
   const startedAt = Date.now();
@@ -85,24 +149,28 @@ export async function GET() {
   try {
     await db.$queryRaw`SELECT 1`;
 
-    // A reachable database that has no tables means migrations have not run.
     const [{ count }] = await db.$queryRaw<Array<{ count: bigint }>>`
       SELECT COUNT(*)::bigint AS count
       FROM information_schema.tables
       WHERE table_schema = 'public'
     `;
 
-    const migrated = Number(count) > 0;
+    const migrations = migrationStatus({
+      onDisk: migrationsOnDisk(),
+      rows: await appliedMigrations(),
+    });
 
     return NextResponse.json({
-      status: migrated ? "ok" : "degraded",
+      status: migrations.healthy ? "ok" : "degraded",
       database: "connected",
-      migrations: migrated ? "applied" : "pending",
-      ...(migrated
-        ? {}
-        : {
-            hint: "The database is reachable but has no tables. Check the deploy logs for migration errors, or run `npx prisma migrate deploy`.",
-          }),
+      migrations: migrations.state,
+      applied: migrations.applied,
+      // Named, not merely counted: an operator reading this over SSH needs to
+      // know WHICH module is missing, and the names carry that.
+      ...(migrations.pending.length ? { pending: migrations.pending } : {}),
+      ...(migrations.failed.length ? { failed: migrations.failed } : {}),
+      ...(migrations.ahead.length ? { ahead: migrations.ahead } : {}),
+      ...(migrations.hint ? { hint: migrations.hint } : {}),
       tables: Number(count),
       storage: storageStatus(),
       latencyMs: Date.now() - startedAt,
