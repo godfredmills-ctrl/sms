@@ -7,6 +7,7 @@ import type {
 } from "@prisma/client";
 
 import { db } from "./db";
+import { dueDateFor, type Cycle, type Month } from "./billing-cycle";
 import { generateCode } from "./crypto";
 import { applyPercentage, splitEvenly, sumMinor } from "./money";
 import { financeSettings } from "./settings";
@@ -137,7 +138,26 @@ export async function generateTermInvoices(options: {
   createdById?: string | null;
   /** Validate and report without writing anything. */
   dryRun?: boolean;
+  /**
+   * Which kind of structure to bill from. Termly by default, so every existing
+   * caller keeps the behaviour it has always had.
+   */
+  cycle?: Cycle;
+  /** The month being billed. Required for a monthly run, ignored otherwise. */
+  month?: Month | null;
 }): Promise<BillingResult> {
+  const cycle: Cycle = options.cycle ?? "TERM";
+  const month = cycle === "MONTHLY" ? (options.month ?? null) : null;
+
+  if (cycle === "MONTHLY" && !month) {
+    return {
+      created: 0,
+      skipped: 0,
+      totalBilledMinor: 0,
+      errors: [{ studentId: "-", message: "A monthly run needs a month to bill." }],
+    };
+  }
+
   const result: BillingResult = {
     created: 0,
     skipped: 0,
@@ -155,6 +175,10 @@ export async function generateTermInvoices(options: {
       academicYearId: options.academicYearId,
       OR: [{ termId: options.termId }, { termId: null }],
       isPublished: true,
+      // The two cycles are billed separately and deliberately. A school with a
+      // monthly tuition structure and a termly examination levy presses
+      // generate twice, and each run raises only its own kind of bill.
+      cycle,
     },
     include: { items: { include: { category: true } } },
   });
@@ -162,7 +186,10 @@ export async function generateTermInvoices(options: {
   if (!structures.length) {
     result.errors.push({
       studentId: "-",
-      message: "No published fee structure matches this year and term.",
+      message:
+        cycle === "MONTHLY"
+          ? "No published fee structure is set to bill monthly."
+          : "No published fee structure matches this year and term.",
     });
     return result;
   }
@@ -212,14 +239,20 @@ export async function generateTermInvoices(options: {
         select: { type: true, value: true, categoryId: true },
       },
       invoices: {
-        where: { termId: options.termId },
+        // Billed already? For a term that is one invoice for the term; for a
+        // month it is one for that month. Asking the termly question during a
+        // monthly run would skip every pupil who has any bill this term, which
+        // is all of them from October onwards.
+        where: month ? { billingMonth: month.start } : { termId: options.termId },
         select: { id: true },
       },
     },
   });
 
   for (const student of students) {
-    // One invoice per student per term — re-running billing must be safe.
+    // One invoice per student per period — re-running billing must be safe.
+    // The unique index says the same thing and is the one that cannot lose a
+    // race between two people pressing generate at once.
     if (student.invoices.length) {
       result.skipped += 1;
       continue;
@@ -279,9 +312,21 @@ export async function generateTermInvoices(options: {
         studentId: student.id,
         academicYearId: options.academicYearId,
         termId: options.termId,
-        title: structure.name,
+        billingMonth: month?.start ?? null,
+        // The month goes on the bill, because a family with nine bills a year
+        // needs to know which one this is at a glance. A termly bill keeps the
+        // structure name it has always had.
+        title: month ? `${structure.name}: ${month.label}` : structure.name,
         currency: structure.currency,
-        dueDate: options.dueDate ?? structure.dueDate,
+        /*
+         * A monthly bill falls due on the school's day of the month, clamped
+         * to the end of a short one. The structure's dueDate is a single date
+         * and cannot serve nine bills: using it would make every month of the
+         * year fall due on the same day in, say, October.
+         */
+        dueDate: month
+          ? dueDateFor(month, structure.dueDayOfMonth ?? 1)
+          : (options.dueDate ?? structure.dueDate),
         createdById: options.createdById,
         lines: lines.map((line, index) => ({
           categoryId: line.categoryId,
@@ -306,6 +351,8 @@ export async function createInvoice(input: {
   studentId: string;
   academicYearId: string;
   termId?: string | null;
+  /** The month a monthly bill covers. Null for a termly one. */
+  billingMonth?: Date | null;
   title?: string | null;
   currency?: string;
   dueDate?: Date | null;
@@ -350,6 +397,7 @@ export async function createInvoice(input: {
           studentId: input.studentId,
           academicYearId: input.academicYearId,
           termId: input.termId ?? null,
+          billingMonth: input.billingMonth ?? null,
           title: input.title ?? null,
           currency: input.currency ?? "GHS",
           status: input.status ?? "ISSUED",

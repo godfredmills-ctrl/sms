@@ -6,6 +6,7 @@ import { LedgerSearch } from "@/components/ledger-search";
 import { Pager, pageOf } from "@/components/pager";
 import { RefreshButton } from "@/components/refresh-button";
 import { requirePermission, userCan } from "@/lib/auth";
+import { billableMonths, hasStarted } from "@/lib/billing-cycle";
 import { db } from "@/lib/db";
 import { formatMoney, percentOf } from "@/lib/money";
 
@@ -92,7 +93,15 @@ export default async function InvoicesPage({
         isCurrent: true,
         terms: {
           orderBy: { sequence: "asc" },
-          select: { id: true, name: true, isCurrent: true },
+          // The dates as well, because the billable months of a year are
+          // derived from its terms rather than stored anywhere.
+          select: {
+            id: true,
+            name: true,
+            isCurrent: true,
+            startDate: true,
+            endDate: true,
+          },
         },
       },
     }),
@@ -154,6 +163,35 @@ export default async function InvoicesPage({
   // Current year and term first, so the common case needs no selection.
   yearOptions.sort((a, b) => Number(Boolean(b.description)) - Number(Boolean(a.description)));
   termOptions.sort((a, b) => Number(Boolean(b.description)) - Number(Boolean(a.description)));
+
+  /*
+   * The months a school could bill, newest first.
+   *
+   * Only those that have started: a month cannot honestly be billed before it
+   * begins, and offering it in a list is how somebody bills it. The action
+   * refuses the same thing from the same rules, because a select is a
+   * suggestion and an action is the decision.
+   */
+  const currentYear = years.find((year) => year.isCurrent) ?? years[0];
+
+  const monthOptions = currentYear
+    ? billableMonths(currentYear.terms)
+        .filter((month) => hasStarted(month, new Date()))
+        .reverse()
+        .map((month) => ({
+          value: month.key,
+          label: month.label,
+          description: month.term.name,
+        }))
+    : [];
+
+  // Whether to offer the choice at all. A school that bills termly should not
+  // be asked to decide something it has no answer to.
+  const hasMonthly = canGenerate
+    ? (await db.feeStructure.count({
+        where: { isPublished: true, cycle: "MONTHLY" },
+      })) > 0
+    : false;
 
   return (
     <>
@@ -232,7 +270,12 @@ export default async function InvoicesPage({
                 title="Bulk billing"
                 description="Bills every enrolled student from the published fee structure that matches their level, boarding status and fee band."
               />
-              <GenerateForm years={yearOptions} terms={termOptions} />
+              <GenerateForm
+                years={yearOptions}
+                terms={termOptions}
+                months={monthOptions}
+                hasMonthly={hasMonthly}
+              />
             </Card>
           </div>
         ) : null}

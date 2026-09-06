@@ -360,7 +360,27 @@ A fee structure says what a particular year group pays in a particular term, bro
 
 Fee categories are defined once and reused. This is what makes the income statement legible later.
 
-### 5.2 Billing a term
+### 5.2 Billing monthly instead of termly
+
+Most schools here bill once a term, and that is what a fee structure does unless it is told otherwise. A school that charges a monthly fee sets the structure to bill every month instead.
+
+**Setting it.** On the fee structure, under Finance then Fee structures, choose how often it bills. A monthly structure also needs the day of the month its bills fall due, because one date cannot serve nine bills.
+
+A short month uses its last day. Billing on the 31st gives the 28th in February rather than the 3rd of March, which would be a bill overdue before anything had looked at it.
+
+**Both at once.** The cycle is a property of the structure, not of the school, so a school can publish a monthly tuition structure and a termly examination levy and run them side by side. They are billed separately: choose which kind you are billing when you generate.
+
+**Generating.** Finance, then Invoices. Choose the month. Only months that have already started are offered, because a month cannot honestly be billed before it begins, and a bill raised in advance is one the school then has to withdraw from a family whose child may not be there yet.
+
+**A month belongs to one term.** April is often the tail of one term and the head of the next. The month is filed under whichever term holds more of it, so it is billed once rather than twice, and you do not have to work out which of the two it was.
+
+**Re-running is safe.** A pupil already billed for a month is skipped, and the database refuses a second invoice for the same pupil and the same month whatever the screen believes. Pressing generate twice is the most likely mistake in monthly billing and it is the one a parent notices.
+
+**What a bill looks like.** The month is on the invoice title, so a family with nine bills a year can see at a glance which one they are looking at.
+
+**Existing schools are untouched.** Every structure already published bills termly, which is what it already did, and every invoice already raised has no month against it, which is what a termly bill has. A school that never opens this sees no change at all.
+
+### 5.3 Billing a term
 
 Once the structure exists, generate invoices for the term. The system creates one invoice per pupil, based on the structure for their year group, with any discounts they hold applied.
 
@@ -370,7 +390,7 @@ Review before issuing. An invoice that has been issued is visible to the family.
 
 ![Invoices for a term, and what is still owed on each.](screenshots/invoices.png)
 
-### 5.3 Taking a payment at the desk
+### 5.4 Taking a payment at the desk
 
 Finance, then Payments, then record a payment.
 
@@ -380,7 +400,7 @@ The payment is applied to the oldest outstanding invoice first unless you say ot
 
 Cash, cheque, bank transfer, mobile money, card at a terminal, and scholarship or waiver are all recorded the same way. The method is kept because it is the first question anybody asks when reconciling the bank.
 
-### 5.4 Online payments
+### 5.5 Online payments
 
 If the school has set up a payment provider, guardians can pay from the guardian portal by mobile money or card.
 
@@ -388,13 +408,13 @@ The parent chooses what to pay, is taken to the provider, pays, and is brought b
 
 If the provider's notification is lost, which happens, a scheduled job picks the payment up later, asks the provider what became of it, and settles it. This is why the reconciliation job has to be scheduled before the school takes real money. Section 10.5 covers it.
 
-### 5.5 Discounts and scholarships
+### 5.6 Discounts and scholarships
 
 Finance, then Discounts. A discount can be a percentage or a fixed amount, and can apply to one fee line or the whole bill.
 
 Sibling discounts, staff discounts and scholarships are all handled the same way. Attach the discount to the pupil and it is applied whenever they are invoiced.
 
-### 5.6 Reminders
+### 5.7 Reminders
 
 Finance, then Reminders. Set how many days before a due date the first reminder goes, how often it repeats, and by which channel.
 
@@ -404,7 +424,7 @@ Reminders go to the bill payer rather than to every guardian.
 
 ![Expenditure, with what has been approved and what is waiting.](screenshots/expenses.png)
 
-### 5.7 Requisitions
+### 5.8 Requisitions
 
 Finance, then Requisitions. Raising one needs the requisition permission, which departments hold; deciding is separate.
 
@@ -424,7 +444,7 @@ A requisition is asking for something before it is bought. Expenditure records w
 
 ![Requisitions: what has been asked for, and what is already committed.](screenshots/requisitions.png)
 
-### 5.8 Expenditure and budget
+### 5.9 Expenditure and budget
 
 Finance, then Expenditure. Every bill the school pays is recorded here with its category, its supplier, the amount, any withholding tax and whether it has been paid.
 
@@ -432,7 +452,7 @@ Expenditure is approved by somebody other than the person who recorded it. This 
 
 The budget is set per category per year, and each line carries three figures: what has been spent, what has been committed by approved requisitions that have not yet arrived, and the budget itself. A line is over when the first two together pass the third. The income and expenditure statement shows the budget against the actual, so the governing board can see where the year is going rather than only where it has been.
 
-### 5.9 Payroll
+### 5.10 Payroll
 
 Payroll, then Runs. Set each member of staff's salary and allowances under Salaries, then prepare a run for the month.
 
@@ -440,7 +460,7 @@ The run works out gross pay, deductions including SSNIT and PAYE, and net pay. R
 
 Payslips are printed for the whole run or for one person. Staff can also see their own payslips in the system without going to the bursar for a copy.
 
-### 5.10 The general ledger
+### 5.11 The general ledger
 
 Finance, then Ledger.
 

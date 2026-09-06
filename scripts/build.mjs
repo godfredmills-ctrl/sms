@@ -142,6 +142,7 @@ for (const check of [
   ["requisition rules", "scripts/check-requisitions.ts"],
   ["appraisal rules", "scripts/check-appraisals.ts"],
   ["board report rules", "scripts/check-board-report.ts"],
+  ["billing cycle", "scripts/check-billing-cycle.ts"],
   ["boarding rules", "scripts/check-boarding.ts"],
   ["admission rules", "scripts/check-admissions.ts"],
   ["examination rules", "scripts/check-exams.ts"],

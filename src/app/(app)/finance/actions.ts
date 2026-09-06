@@ -4,6 +4,12 @@ import { revalidatePath } from "next/cache";
 import type { PaymentChannel } from "@prisma/client";
 
 import { authorize } from "@/lib/auth";
+import {
+  billableMonths,
+  generationRefusal,
+  parseMonth,
+  termForMonth,
+} from "@/lib/billing-cycle";
 import { db } from "@/lib/db";
 import { generateTermInvoices, recordPayment } from "@/lib/finance";
 import { guardianLinks } from "@/lib/guardian-contact";
@@ -127,14 +133,57 @@ export async function generateInvoicesAction(formData: FormData) {
   const academicYearId = String(formData.get("academicYearId") ?? "");
   const termId = String(formData.get("termId") ?? "");
   const dryRun = formData.get("dryRun") === "on";
+  const cycle = String(formData.get("cycle") ?? "TERM") === "MONTHLY" ? "MONTHLY" : "TERM";
 
   if (!academicYearId || !termId) {
     return { ok: false as const, error: "Choose an academic year and term." };
   }
 
+  const month = cycle === "MONTHLY" ? parseMonth(String(formData.get("month") ?? "")) : null;
+
+  /*
+   * A monthly run is checked and placed before anything is written.
+   *
+   * Refused from the same rules the form reads, so a month the screen would
+   * not offer is a month this will not bill. The refusal worth having is a
+   * month that has not started: it is one click away in a select of the whole
+   * year, and it produces invoices the school then has to withdraw from
+   * families whose children may not even be there yet.
+   *
+   * The term is derived rather than taken from the form, because a month
+   * belongs to whichever term holds more of it and the person billing April
+   * should not have to know which of two that is.
+   */
+  let billedTermId = termId;
+
+  if (cycle === "MONTHLY") {
+    const [terms, structures] = await Promise.all([
+      db.term.findMany({
+        where: { academicYearId },
+        select: { id: true, name: true, startDate: true, endDate: true },
+      }),
+      db.feeStructure.count({
+        where: { academicYearId, isPublished: true, cycle: "MONTHLY" },
+      }),
+    ]);
+
+    const refused = generationRefusal({
+      cycle: "MONTHLY",
+      month,
+      months: billableMonths(terms),
+      now: new Date(),
+      structures,
+    });
+    if (refused) return { ok: false as const, error: refused };
+
+    billedTermId = (month ? termForMonth(month, terms)?.id : null) ?? termId;
+  }
+
   const result = await generateTermInvoices({
     academicYearId,
-    termId,
+    termId: billedTermId,
+    cycle,
+    month,
     dryRun,
     createdById: user.id,
   });
@@ -304,6 +353,28 @@ export async function createFeeStructureAction(
   const dueDate = text(formData, "dueDate");
   const minimumFirst = text(formData, "minimumFirstPayment");
 
+  const cycle = text(formData, "cycle") === "MONTHLY" ? "MONTHLY" : "TERM";
+
+  /*
+   * A monthly structure bills on a day of the month, not on a date.
+   *
+   * Checked here as well as by the CHECK constraint, because a constraint
+   * violation arrives as a message about a table and this arrives as a
+   * sentence about the form somebody is looking at.
+   */
+  let dueDayOfMonth: number | null = null;
+  if (cycle === "MONTHLY") {
+    const raw = text(formData, "dueDayOfMonth");
+    const day = Number(raw);
+    if (!raw || !Number.isInteger(day) || day < 1 || day > 31) {
+      return {
+        error:
+          "A monthly structure needs the day of the month its bills fall due, from 1 to 31.",
+      };
+    }
+    dueDayOfMonth = day;
+  }
+
   await db.feeStructure.create({
     data: {
       name,
@@ -312,7 +383,11 @@ export async function createFeeStructureAction(
       classLevelId: text(formData, "classLevelId") || null,
       boarderType: text(formData, "boarderType") || "ALL",
       studentType: text(formData, "studentType") || "ALL",
-      dueDate: dueDate ? new Date(dueDate) : null,
+      cycle,
+      dueDayOfMonth,
+      // A monthly structure has no single due date: each of its bills falls
+      // due on its own month.
+      dueDate: cycle === "MONTHLY" ? null : dueDate ? new Date(dueDate) : null,
       minimumFirstPaymentMinor: minimumFirst ? toMinor(minimumFirst) : null,
       notes: text(formData, "notes") || null,
     },

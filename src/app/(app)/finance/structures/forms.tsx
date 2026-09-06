@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { Plus } from "lucide-react";
 
@@ -12,8 +12,10 @@ import {
   CheckboxField,
   Field,
   Input,
+  Select,
   Textarea,
 } from "@/components/ui";
+import { CYCLES } from "@/lib/billing-cycle";
 
 import {
   createFeeCategoryAction,
@@ -74,6 +76,9 @@ export function StructureForm({
     createFeeStructureAction,
     {},
   );
+  // Which fields are shown depends on it: a monthly structure needs a day of
+  // the month, and a single due date cannot serve nine bills.
+  const [cycle, setCycle] = useState<string>("TERM");
 
   return (
     <form action={action}>
@@ -134,9 +139,48 @@ export function StructureForm({
           </Field>
         </div>
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Due date" htmlFor="dueDate">
-            <Input id="dueDate" name="dueDate" type="date" />
+          <Field
+            label="How often it bills"
+            htmlFor="cycle"
+            hint="Termly is what most schools here do. Monthly raises one bill per pupil per month of the term."
+          >
+            <Select
+              id="cycle"
+              name="cycle"
+              value={cycle}
+              onChange={(event) => setCycle(event.target.value)}
+            >
+              {CYCLES.map((entry) => (
+                <option key={entry.value} value={entry.value}>
+                  {entry.label}
+                </option>
+              ))}
+            </Select>
           </Field>
+
+          {cycle === "MONTHLY" ? (
+            <Field
+              label="Due on day of month"
+              htmlFor="dueDayOfMonth"
+              required
+              hint="1 to 31. A short month uses its last day, so billing on the 31st gives the 28th in February rather than the 3rd of March."
+            >
+              <Input
+                id="dueDayOfMonth"
+                name="dueDayOfMonth"
+                inputMode="numeric"
+                defaultValue="10"
+                required
+              />
+            </Field>
+          ) : (
+            <Field label="Due date" htmlFor="dueDate">
+              <Input id="dueDate" name="dueDate" type="date" />
+            </Field>
+          )}
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
           <Field
             label="Minimum first payment"
             htmlFor="minimumFirstPayment"

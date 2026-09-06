@@ -73,6 +73,19 @@ enum TermType {
   SEMESTER
 }
 
+/// How often a fee structure raises a bill.
+///
+/// On the structure rather than on the school, because a school billing
+/// monthly for tuition still charges an examination levy once a term. Both can
+/// be published in the same year and run side by side.
+enum BillingCycle {
+  /// One bill per pupil per term. What every school did before this existed,
+  /// and the default, so nothing already published changes behaviour.
+  TERM
+  /// One bill per pupil per month of the term, each with its own due date.
+  MONTHLY
+}
+
 enum EnrollmentStatus {
   ACTIVE
   COMPLETED
@@ -2014,6 +2027,17 @@ model FeeStructure {
   notes                    String?
   isPublished              Boolean   @default(false)
 
+  /// How often this structure bills. See BillingCycle.
+  cycle BillingCycle @default(TERM)
+
+  /// The day of the month a monthly bill falls due, 1 to 31.
+  ///
+  /// Clamped to the end of a short month when the invoice is raised: a school
+  /// billing on the thirty-first would otherwise get the third of March for
+  /// February, by which time the bill is overdue before the reminder rules
+  /// have looked at it. Ignored by a termly structure, which uses dueDate.
+  dueDayOfMonth Int?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -2058,6 +2082,15 @@ model Invoice {
   paidMinor     Int @default(0)
   /// Persisted so overdue queries and dashboards stay cheap.
   balanceMinor  Int @default(0)
+
+  /// The month this bill covers, for a monthly structure. Null for a termly
+  /// one, which is what almost every invoice in an existing school will be.
+  ///
+  /// The first of the month, as a DATE. A partial unique index on
+  /// (studentId, billingMonth) makes billing a pupil twice for one month
+  /// impossible rather than merely unlikely: re-running a month is the single
+  /// most likely mistake in monthly billing, and the one a parent notices.
+  billingMonth DateTime? @db.Date
 
   issueDate   DateTime  @default(now())
   dueDate     DateTime?
