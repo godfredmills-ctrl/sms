@@ -93,6 +93,10 @@ function run(label, bin, args) {
 // server" module exporting a value rather than an async function compiles,
 // type-checks and builds clean, then 500s the first time the page is opened.
 for (const check of [
+  // First, because it is the one that decides whether anything reaches the
+  // server at all. A lock file out of step with package.json builds perfectly
+  // here and dies on `npm ci` there, before a line is compiled.
+  ["the lock file matches package.json", "scripts/check-lockfile.mjs"],
   ["server-action exports", "scripts/check-server-exports.mjs"],
   ["internal links", "scripts/check-internal-links.mjs"],
   ["PDF text sanitising", "scripts/check-pdf-text.mjs"],
