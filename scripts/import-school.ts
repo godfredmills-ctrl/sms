@@ -179,6 +179,41 @@ async function main() {
   const rows = await readRegister(resolved);
   if (rows.length === 0) fail("That register has no rows with a name in it", [resolved]);
 
+  // --- Which database is this? ---------------------------------------------
+
+  /**
+   * Say the target out loud, and make a remote one deliberate.
+   *
+   * This script deletes when given --reset, and the difference between the
+   * throwaway Postgres on this machine and a school's live database is one
+   * environment variable that nobody reads. Naming the host every run costs a
+   * line; requiring --remote before writing to anything that is not this
+   * machine costs a word, and both are cheaper than restoring from backup.
+   */
+  let host = "(unparseable DATABASE_URL)";
+  try {
+    host = new URL(process.env.DATABASE_URL ?? "").hostname;
+  } catch {
+    // Leave the placeholder. A malformed URL is its own diagnosis.
+  }
+  const isLocal = /^(localhost|127\.0\.0\.1|::1)$/.test(host);
+
+  console.log(`\n  Database: ${host}${isLocal ? "  (this machine)" : "  REMOTE"}`);
+
+  if (!isLocal && !has("remote")) {
+    fail(`That is not a database on this machine: ${host}`, [
+      "This script writes a whole school, and deletes one when given --reset.",
+      "Pointing it at a live database by leaving DATABASE_URL set is the one",
+      "mistake worth making impossible.",
+      "",
+      "If you meant it, say so:",
+      "",
+      "    npm run school:import -- --file <register.xlsx> --remote",
+      "",
+      "Take a backup first. There is no undo.",
+    ]);
+  }
+
   const school = await db.school.findFirst();
   if (!school) {
     fail("There is no school on this database yet", [
