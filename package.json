@@ -48,7 +48,9 @@
     "setup:integrations": "node scripts/setup-integrations.mjs",
     "dev:db": "node scripts/dev-db.mjs",
     "verify:pages": "node scripts/sweep.mjs",
-    "docs:screenshots": "node scripts/screenshots.mjs"
+    "docs:screenshots": "node scripts/screenshots.mjs",
+    "school:import": "tsx --conditions=react-server scripts/import-school.ts",
+    "school:verify": "tsx --conditions=react-server scripts/verify-import.ts"
   },
   "prisma": {
     "seed": "tsx --conditions=react-server prisma/seed.ts"
