@@ -341,6 +341,9 @@ async function reset() {
     // Cover points at a timetable slot and at three different members of
     // staff, so it clears before the leave that made it necessary.
     "coverAssignment",
+    // The sign-in book names the person marked and the person who marked
+    // them, so both of those are staff and it clears before them.
+    "staffAttendance",
     "staffLeave", "student", "guardian", "staff",
     "classSection", "classLevel", "subject",
     "auditLog", "session", "verificationToken",

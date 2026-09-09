@@ -149,6 +149,7 @@ for (const check of [
   ["billing cycle", "scripts/check-billing-cycle.ts"],
   ["migration status", "scripts/check-migration-status.ts"],
   ["reading a school register", "scripts/check-school-import.ts"],
+  ["staff attendance", "scripts/check-staff-attendance.ts"],
   ["boarding rules", "scripts/check-boarding.ts"],
   ["admission rules", "scripts/check-admissions.ts"],
   ["examination rules", "scripts/check-exams.ts"],

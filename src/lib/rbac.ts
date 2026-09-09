@@ -58,6 +58,11 @@ export const PERMISSIONS: PermissionDef[] = [
     ["update", "update", "Edit staff records"],
     ["delete", "delete", "Delete staff records"],
     ["leave.manage", "update", "Approve and manage staff leave"],
+    // The staff sign-in book. Reading it and marking it are separate jobs: an
+    // administrator marks the register, a head reads it, and a bursar reads it
+    // because it is an input to pay.
+    ["attendance.read", "read", "View the staff attendance register"],
+    ["attendance.record", "create", "Mark and amend staff attendance"],
     // Appraisal. Reading your own is not a permission: it is your own record
     // and every member of staff has it. What is gated is conducting one, and
     // reading everybody else, which are different jobs.
@@ -454,6 +459,11 @@ export const ROLE_PRESETS: RolePreset[] = [
       "staff.appraisal.conduct",
       "staff.appraisal.read",
       "staff.appraisal.manage",
+      // Who came in. The head marks the register when nobody else has, and
+      // reads it constantly, because it is the first question about a class
+      // with no teacher standing in front of it.
+      "staff.attendance.read",
+      "staff.attendance.record",
       ...expand("asset"),
       ...expand("stock"),
       ...expand("cafeteria"),
@@ -517,6 +527,10 @@ export const ROLE_PRESETS: RolePreset[] = [
       ...expand("stock"),
       "payroll.read",
       "payroll.manage",
+      // Reads the register because unpaid absence is an input to pay, and
+      // deliberately cannot mark it. The person who decides what somebody is
+      // paid should not also decide whether they came in.
+      "staff.attendance.read",
       // The kitchen is a cost centre and the meal plans are a fee line, so
       // pricing and billing them belongs here. Serving does not: the bursar
       // has no business ticking a boarder off the supper list.
@@ -768,6 +782,10 @@ export const ROLE_PRESETS: RolePreset[] = [
       "dashboard.view",
       "student.read",
       "staff.read",
+      // The sign-in book sits on the front desk in most schools, because this
+      // is the person who watches everybody walk in.
+      "staff.attendance.read",
+      "staff.attendance.record",
       "website.enquiry.manage",
       "visitor.read",
       "visitor.manage",

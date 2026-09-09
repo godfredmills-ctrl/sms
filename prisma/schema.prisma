@@ -895,6 +895,9 @@ model Staff {
   appraisals      Appraisal[]       @relation("Appraisee")
   appraisalsGiven Appraisal[]       @relation("Appraiser")
 
+  attendance         StaffAttendance[] @relation("StaffAttended")
+  attendanceRecorded StaffAttendance[] @relation("StaffAttendanceRecorder")
+
   @@index([status])
   @@index([department])
   @@index([lastName, firstName])
@@ -6026,4 +6029,53 @@ model AppraisalTarget {
   updatedAt DateTime @updatedAt
 
   @@index([appraisalId])
+}
+
+// -----------------------------------------------------------------------------
+// Staff attendance
+// -----------------------------------------------------------------------------
+
+/// The staff sign-in book.
+///
+/// One row per member of staff per calendar day, and the unique index says so
+/// rather than trusting whoever writes the action. A register taken twice in a
+/// morning, once by the head and once by the administrator, is the ordinary way
+/// a school ends up with two contradictory answers about whether a teacher came
+/// in, and payroll then picks one of them.
+///
+/// Leave is NOT a status here. Somebody on approved leave has no row and needs
+/// none: their absence is derived from StaffLeave at the moment it is read, so
+/// cancelling or shortening leave corrects the register instead of leaving a
+/// stale ABSENT behind. src/lib/staff-attendance-rules.ts holds that rule, and
+/// the cover board already works the same way for the same reason.
+///
+/// Times are minutes past midnight, not timestamps. A sign-in book records a
+/// clock time on a named day, and storing 07:45 as an instant means storing a
+/// timezone with it, which is how a Ghanaian school ends up with a teacher who
+/// arrived at 07:45 the previous evening. An Int cannot drift.
+model StaffAttendance {
+  id      String @id @default(cuid())
+  staffId String
+  staff   Staff  @relation("StaffAttended", fields: [staffId], references: [id], onDelete: Cascade)
+
+  /// The calendar day, held as a DATE. See dayOf in cover-rules.
+  date   DateTime         @db.Date
+  status AttendanceStatus @default(PRESENT)
+
+  /// Minutes past midnight, 0 to 1439. Null when nobody wrote a time down.
+  arrivedMinutes Int?
+  leftMinutes    Int?
+  /// How late against the school's expected arrival, in minutes.
+  minutesLate    Int?
+
+  reason String?
+
+  recordedById String?
+  recordedBy   Staff?   @relation("StaffAttendanceRecorder", fields: [recordedById], references: [id], onDelete: SetNull)
+  recordedAt   DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([staffId, date])
+  @@index([date])
+  @@index([staffId, status])
 }

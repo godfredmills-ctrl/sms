@@ -163,6 +163,12 @@ export const STAFF_NAVIGATION: NavGroup[] = [
         children: [
           { label: "All staff", href: "/staff", icon: "Users" },
           {
+            label: "Attendance",
+            href: "/staff/attendance",
+            icon: "CalendarCheck",
+            permissions: ["staff.attendance.read", "staff.attendance.record"],
+          },
+          {
             // No permissions listed: every member of staff has an appraisal
             // record and it is their own. What is gated is conducting one,
             // which the page decides for itself.
