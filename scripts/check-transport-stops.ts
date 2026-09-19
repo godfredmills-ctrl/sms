@@ -15,7 +15,8 @@
  */
 
 import {
-  formatStops,
+  parseRows,
+  planRows,
   parseStops,
   planStops,
   stopRefusal,
@@ -168,31 +169,6 @@ check(
 );
 
 // -----------------------------------------------------------------------------
-// Round trip
-// -----------------------------------------------------------------------------
-
-const stops = [
-  { name: "Spintex Junction", landmark: "opposite Total", pickupTime: "06:40", dropoffTime: "15:40" },
-  { name: "Madina", landmark: null, pickupTime: null, dropoffTime: null },
-];
-check(
-  "formatting drops the trailing bars of a bare stop",
-  formatStops(stops),
-  "Spintex Junction | opposite Total | 06:40 | 15:40\nMadina",
-);
-check(
-  "and what it writes, it can read back",
-  parseStops(formatStops(stops)).stops.map((s) => ({
-    name: s.name,
-    landmark: s.landmark,
-    pickupTime: s.pickupTime,
-    dropoffTime: s.dropoffTime,
-  })),
-  stops,
-);
-check("formatting nothing is nothing", formatStops([]), "");
-
-// -----------------------------------------------------------------------------
 // What a save would do
 // -----------------------------------------------------------------------------
 
@@ -218,11 +194,15 @@ check("a renamed stop reads as a new stop", renamed.create.length, 1);
 check("and the old one as one with children on it", renamed.stranded.length, 1);
 check("named", renamed.stranded[0].name, "Baatsona");
 ok("it is NOT in the removal list", !renamed.remove.includes("s2"));
-const refusal = stopRefusal(renamed);
+const refusal = stopRefusal(renamed, { renameIsAmbiguous: true });
 ok("the save is refused", refusal !== null);
 ok("naming the stop", String(refusal).includes("Baatsona"));
 ok("and how many children stand there", String(refusal).includes("2 children"));
-ok("and saying that a rename looks like a deletion from here", String(refusal).includes("Renaming a stop"));
+ok("and saying that a rename looks like a deletion from a list", String(refusal).includes("Renaming a stop"));
+ok(
+  "the rows path does not say that, because there a removal is a removal",
+  !String(stopRefusal(renamed)).includes("Renaming a stop"),
+);
 
 check(
   "one child reads as a child, not as 1 children",
@@ -254,6 +234,98 @@ check("with the new sequence", reordered.update.map((u) => u.sequence), [1, 2]);
 check("creating nothing", reordered.create, []);
 check("and stranding nobody", reordered.stranded, []);
 
+// -----------------------------------------------------------------------------
+// Rows, which carry identity
+// -----------------------------------------------------------------------------
+
+const rowInput = {
+  ids: ["s1", "s2", ""],
+  names: ["Spintex Junction", "Baatsona Total", "Tema Community 7"],
+  landmarks: ["opposite Total", "", ""],
+  pickups: ["06:40", "06:55", "07:15"],
+  dropoffs: ["15:40", "15:25", "15:05"],
+};
+
+const rowed = parseRows(rowInput);
+check("three rows", rowed.rows.length, 3);
+check("and nothing wrong", rowed.problems, []);
+check("the known ones keep their ids", rowed.rows.map((r) => r.id), ["s1", "s2", null]);
+check("an empty landmark is null, not an empty string", rowed.rows[1].landmark, null);
+check("times come through", rowed.rows[2].pickupTime, "07:15");
+
+// The case the whole change is for. Baatsona was renamed, and it has
+// children standing at it.
+const rowPlan = planRows(rowed.rows, existing);
+check("the renamed stop is an UPDATE, not a delete and a create", rowPlan.update.length, 2);
+check("keeping its id", rowPlan.update[1].id, "s2");
+check("and its new name", rowPlan.update[1].stop.name, "Baatsona Total");
+check("nobody is stranded by a rename", rowPlan.stranded, []);
+check("so the save goes ahead", stopRefusal(rowPlan), null);
+check("the unnamed row is created", rowPlan.create.length, 1);
+check("the stop nobody uses is removed", rowPlan.remove, ["s3"]);
+
+// Removing a row is still a removal, and children still stop it.
+const removedRow = planRows(
+  [{ id: "s1", name: "Spintex Junction", landmark: null, pickupTime: null, dropoffTime: null }],
+  existing,
+);
+check("a removed stop with children is stranded", removedRow.stranded.length, 1);
+check("named", removedRow.stranded[0].name, "Baatsona");
+ok("and refused", stopRefusal(removedRow) !== null);
+ok(
+  "without the pasted-list caveat, because a removal here is deliberate",
+  !String(stopRefusal(removedRow)).includes("Renaming a stop"),
+);
+
+check("order on screen is order along the route", rowPlan.update.map((u) => u.sequence), [1, 2]);
+check("and the new row takes the place it was put in", rowPlan.create[0].sequence, 3);
+
+// Reordering by dragging rows about keeps every id.
+const swapped = planRows(
+  [
+    { id: "s2", name: "Baatsona", landmark: null, pickupTime: null, dropoffTime: null },
+    { id: "s1", name: "Spintex Junction", landmark: null, pickupTime: null, dropoffTime: null },
+    { id: "s3", name: "Old Depot", landmark: null, pickupTime: null, dropoffTime: null },
+  ],
+  existing,
+);
+check("ids follow their rows", swapped.update.map((u) => u.id), ["s2", "s1", "s3"]);
+check("with new sequences", swapped.update.map((u) => u.sequence), [1, 2, 3]);
+check("creating nothing", swapped.create, []);
+check("removing nothing", swapped.remove, []);
+
+// A stale id from a form somebody left open must not update a row that has
+// since become something else.
+const stale = planRows(
+  [{ id: "gone-since", name: "Somewhere", landmark: null, pickupTime: null, dropoffTime: null }],
+  [],
+);
+check("an id that no longer exists is treated as new", stale.create.length, 1);
+check("and updates nothing", stale.update, []);
+
+// Empty rows are what a half-pressed Add leaves behind.
+check(
+  "a row with no name is dropped, not complained about",
+  parseRows({ ids: [""], names: ["  "], landmarks: [""], pickups: [""], dropoffs: [""] }).rows.length,
+  0,
+);
+check(
+  "and it is not a problem",
+  parseRows({ ids: [""], names: [""], landmarks: [""], pickups: [""], dropoffs: [""] }).problems,
+  [],
+);
+
+const badRow = parseRows({
+  ids: [""], names: ["Spintex"], landmarks: [""], pickups: ["06.40"], dropoffs: [""],
+});
+check("a bad time in a row is still refused", badRow.rows.length, 0);
+ok("quoting it back", badRow.problems[0].message.includes("06.40"));
+
+const dupRow = parseRows({
+  ids: ["", ""], names: ["Madina", "madina"], landmarks: ["", ""], pickups: ["", ""], dropoffs: ["", ""],
+});
+check("two rows with one name keeps the first", dupRow.rows.length, 1);
+ok("and reports the second", dupRow.problems[0].message.includes("already stop 1"));
 // -----------------------------------------------------------------------------
 
 if (failures.length) {

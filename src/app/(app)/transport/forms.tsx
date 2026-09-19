@@ -15,20 +15,28 @@ import {
   Textarea,
 } from "@/components/ui";
 
+import { type StopRow } from "@/lib/transport-stops";
+
 import {
   saveRouteAction,
   saveVehicleAction,
   type TransportState,
 } from "./actions";
+import { StopsEditor } from "./stops-editor";
 
 /**
  * A route and its stops.
  *
- * The stops are one textarea rather than a repeating row of fields, because a
- * route is a list somebody already has written down — on paper, in a
- * WhatsApp message — and retyping it into eleven pairs of inputs is how it
- * ends up not being entered at all. The format is shown, not validated into
- * submission: a line with only a name still becomes a stop.
+ * The stops used to be one textarea of "name | landmark | 06:40 | 15:40"
+ * lines, on the argument that a route arrives already written down and
+ * retyping it into eleven pairs of inputs is how it ends up not entered at
+ * all. That argument was right about people and wrong about data: a typed line
+ * carries no identity, so correcting the spelling of a stop could not be told
+ * apart from deleting it, and the children assigned to it were left on a stop
+ * that had fallen off the route.
+ *
+ * Rows carry the stop id. Pasting a list is still there, inside the editor,
+ * for the case the textarea was defending.
  */
 export type RouteDraft = {
   id: string;
@@ -37,8 +45,7 @@ export type RouteDraft = {
   description: string | null;
   durationMins: number | null;
   feeMinor: number | null;
-  /** The stops, already rendered into the one-per-line format. */
-  stopsText: string;
+  stops: StopRow[];
 };
 
 export function RouteForm({ route }: { route?: RouteDraft }) {
@@ -82,21 +89,8 @@ export function RouteForm({ route }: { route?: RouteDraft }) {
           </Field>
         </div>
 
-        <Field
-          label="Stops"
-          htmlFor="route-stops"
-          hint="Name | landmark | pick-up | drop-off: one per line, in order."
-        >
-          <Textarea
-            id="route-stops"
-            name="stops"
-            rows={5}
-            className="font-mono text-xs"
-            defaultValue={route?.stopsText}
-            placeholder={
-              "Spintex Junction | opposite Total | 06:40 | 15:40\nBaatsona | by the traffic light | 06:55 | 15:25\nTema Community 7 | 07:15 | 15:05"
-            }
-          />
+        <Field label="Stops" hint="In the order the bus drives them.">
+          <StopsEditor stops={route?.stops ?? []} />
         </Field>
 
         <div className="grid gap-3 sm:grid-cols-2">

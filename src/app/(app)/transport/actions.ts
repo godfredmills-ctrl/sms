@@ -7,7 +7,7 @@ import { db } from "@/lib/db";
 import { toMinor } from "@/lib/money";
 import { normalisePhone } from "@/lib/utils";
 import { capacityOf, conflictingDirections, DIRECTIONS } from "@/lib/transport";
-import { parseStops, planStops, stopRefusal } from "@/lib/transport-stops";
+import { parseRows, planRows, stopRefusal } from "@/lib/transport-stops";
 
 export type TransportState = { ok?: boolean; error?: string; message?: string };
 
@@ -35,11 +35,15 @@ function optionalTime(formData: FormData, key: string): string | null {
 /**
  * Creates or edits a route, with its stops.
  *
- * Stops come in as lines — "Spintex Junction | opposite the Total | 06:40 |
- * 15:40" — because a route is a list and typing a list is how a list gets
- * entered. Existing stops are matched by name so re-saving a route adjusts
- * times rather than duplicating every stop, and a stop that disappears from
- * the list is kept if any child stands at it: deleting it would strand them.
+ * Stops arrive as rows, each carrying the id of the stop it is. That is what
+ * makes renaming one safe: it is an update to a known row, so the children
+ * standing there keep their place. When stops were typed as lines the only
+ * way to match them was by name, and correcting a spelling was
+ * indistinguishable from deleting the stop and adding a different one.
+ *
+ * A stop that has been removed and still has children assigned refuses the
+ * save. It used to be pushed to sequence 999 and left there, which hid it at
+ * the end of the route with its passengers still on it.
  */
 export async function saveRouteAction(
   _previous: TransportState,
@@ -80,14 +84,24 @@ export async function saveRouteAction(
   // Read the stops BEFORE writing anything. A route saved with its stops
   // refused is a half-saved route, and the person is told it failed while the
   // code and the fee have quietly changed underneath them.
-  const parsed = parseStops(text(formData, "stops"));
+  //
+  // getAll keeps document order, so the five arrays line up by index and the
+  // order of the rows on screen is the order along the route.
+  const strings = (key: string) => formData.getAll(key).map((value) => String(value));
+  const parsed = parseRows({
+    ids: strings("stopId"),
+    names: strings("stopName"),
+    landmarks: strings("stopLandmark"),
+    pickups: strings("stopPickup"),
+    dropoffs: strings("stopDropoff"),
+  });
   if (parsed.problems.length) {
     const first = parsed.problems[0];
     return {
       error:
         parsed.problems.length === 1
-          ? `Line ${first.line}: ${first.message}`
-          : `Line ${first.line}: ${first.message} (and ${parsed.problems.length - 1} more line${parsed.problems.length === 2 ? "" : "s"} with the same kind of problem.)`,
+          ? `Stop ${first.line}: ${first.message}`
+          : `Stop ${first.line}: ${first.message} (and ${parsed.problems.length - 1} more stop${parsed.problems.length === 2 ? "" : "s"} with the same kind of problem.)`,
     };
   }
 
@@ -104,8 +118,11 @@ export async function saveRouteAction(
       })
     : [];
 
-  const plan = planStops(
-    parsed.stops,
+  // planRows, not planStops: the rows carry their stop ids, so a renamed stop
+  // is an update to a known row rather than a name that has vanished. That is
+  // the whole reason the editor stopped being a textarea.
+  const plan = planRows(
+    parsed.rows,
     existing.map((stop) => ({
       id: stop.id,
       name: stop.name,

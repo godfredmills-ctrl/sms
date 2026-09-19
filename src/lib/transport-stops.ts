@@ -1,14 +1,33 @@
 /**
- * Reading a bus route out of the list somebody already wrote down.
+ * The stops on a bus route.
  *
- * Stops are typed as lines, not as eleven pairs of inputs, and that decision
- * is right and stays: a route arrives on paper or in a WhatsApp message, and
- * retyping it into a grid is how it ends up not being entered at all.
+ * Two ways in, and the difference between them is identity.
  *
- *     Spintex Junction | opposite Total | 06:40 | 15:40
+ * parseRows takes the editor's rows, each carrying the id of the stop it is.
+ * That is the ordinary path and the reason the editor stopped being a
+ * textarea: given an id, correcting the spelling of a stop is an update to a
+ * known row, and the children standing there never notice.
  *
- * What was wrong was not the format. It was that the parser had no way to say
- * no.
+ * parseStops takes lines of "Spintex Junction | opposite Total | 06:40 |
+ * 15:40", which is how a route arrives, on paper or in a WhatsApp message.
+ * Those lines carry no identity at all, so they can only ever make new stops.
+ * The editor keeps them as a paste box for exactly that: getting a route in
+ * quickly, after which it is corrected as rows.
+ *
+ * ---------------------------------------------------------------------------
+ * A stop is not its name
+ * ---------------------------------------------------------------------------
+ *
+ * Stops used to be matched to existing rows by name, because lines were the
+ * only way in. Correct the spelling of "Baatsona" and the old row did not get
+ * renamed: it was a name that had vanished, so it was pushed to sequence 999
+ * and a new empty stop appeared in its place. Every child assigned to it was
+ * then waiting at a phantom stop at the end of a route nobody scrolls to.
+ * That was called a safeguard. It was a hiding place.
+ *
+ * Rows fixed it at the source. What remains is the honest residue: a stop that
+ * has genuinely been removed and still has children assigned refuses the save,
+ * names itself, and counts them.
  *
  * ---------------------------------------------------------------------------
  * A time it cannot read is not a time it should discard
@@ -20,23 +39,9 @@
  * person to find out was a parent standing at a junction.
  *
  * Nothing errored, which is the signature of every bug this codebase keeps
- * meeting: two halves that disagree, where neither complains. So a line this
- * module cannot read is reported by line number and the save is refused. A
- * school would rather retype one line than discover a blank column in June.
- *
- * ---------------------------------------------------------------------------
- * A stop is not its name
- * ---------------------------------------------------------------------------
- *
- * Stops used to be matched to existing rows by name. Correct the spelling of
- * "Baatsona" and the old row did not get renamed: it was a stop that had
- * vanished from the list, so it was pushed to the end of the route, and a new
- * empty stop appeared in its place. Every child assigned to it was now waiting
- * at a phantom stop at position 999, on a route where nobody would look.
- *
- * A textarea cannot tell a rename from a deletion, so this module does not
- * guess. It reports what would be removed and how many children stand there,
- * and the caller refuses the save rather than quietly stranding them.
+ * meeting: two halves that disagree, where neither complains. Both paths now
+ * report what they cannot read and refuse the save. A school would rather
+ * retype one stop than discover a blank column in June.
  */
 
 export type ParsedStop = {
@@ -98,18 +103,17 @@ export function parseStops(input: string): ParsedRoute {
       return;
     }
 
-    // Three fields, and the middle one is a clock time. Nobody navigates by a
+    // A short line whose second field is a clock time. Nobody navigates by a
     // landmark called "07:15", so this is a stop whose landmark was left out
     // rather than a stop with a very strange landmark.
     //
     // Worth handling rather than refusing, because it is what people actually
-    // type: the example above the box shows four fields, and a stop with no
-    // useful landmark gets written with three. Read literally, the pick-up
-    // time lands in the landmark column, the drop-off time lands in the
-    // pick-up column, and the route goes to print an hour wrong in one
-    // direction and blank in the other.
-    // Only for the short forms. Somebody who typed all four fields meant all
-    // four, even if the second one is odd.
+    // write: the example shows four fields, and a stop with no useful landmark
+    // gets written with three. Read literally, the pick-up time lands in the
+    // landmark column and the drop-off time lands in the pick-up column, so
+    // the route goes to print an hour wrong in one direction and blank in the
+    // other. Only for the short forms: somebody who typed all four fields
+    // meant all four, even if the second one is odd.
     const shifted = parts.length <= 3 && CLOCK.test(parts[1] ?? "");
 
     const [name, landmark, pickup, dropoff] = shifted
@@ -160,26 +164,6 @@ export function parseStops(input: string): ParsedRoute {
   });
 
   return { stops, problems };
-}
-
-/** Back to the one-per-line format, for the textarea when editing a route. */
-export function formatStops(
-  stops: Array<{
-    name: string;
-    landmark: string | null;
-    pickupTime: string | null;
-    dropoffTime: string | null;
-  }>,
-): string {
-  return stops
-    .map((stop) =>
-      [stop.name, stop.landmark ?? "", stop.pickupTime ?? "", stop.dropoffTime ?? ""]
-        .join(" | ")
-        // Trailing empties are noise. A stop with only a name reads as its
-        // name, not as a name followed by three bars.
-        .replace(/(\s*\|\s*)+$/, ""),
-    )
-    .join("\n");
 }
 
 // ---------------------------------------------------------------------------
@@ -251,13 +235,175 @@ export function planStops(parsed: ParsedStop[], existing: ExistingStop[]): StopP
  * Named separately from the plan so the form and the action can ask the same
  * question and get the same sentence. A screen that accepts what the action
  * refuses is a screen that loses somebody's work.
+ *
+ * `renameIsAmbiguous` is for the pasted-list path only. A list of lines has no
+ * identity in it, so a stop that is no longer on the list might have been
+ * renamed rather than removed, and the sentence has to say so. Rows carry
+ * their stop id, so a removal there is a removal and nothing else.
  */
-export function stopRefusal(plan: StopPlan): string | null {
+export function stopRefusal(
+  plan: StopPlan,
+  options: { renameIsAmbiguous?: boolean } = {},
+): string | null {
   if (plan.stranded.length === 0) return null;
 
   const names = plan.stranded
     .map((stop) => `${stop.name} (${stop.riders} ${stop.riders === 1 ? "child" : "children"})`)
     .join(", ");
 
-  return `${plan.stranded.length === 1 ? "A stop has" : `${plan.stranded.length} stops have`} been taken off the list but ${plan.stranded.length === 1 ? "still has" : "still have"} children assigned: ${names}. Move them to another stop first, or put the stop back on the list. Renaming a stop looks the same as deleting one from here, so if that is what you meant, rename it on the child's record instead.`;
+  const opening =
+    plan.stranded.length === 1
+      ? "A stop has been removed but still has children assigned"
+      : `${plan.stranded.length} stops have been removed but still have children assigned`;
+
+  const ambiguity = options.renameIsAmbiguous
+    ? " Renaming a stop looks the same as deleting one from a pasted list, so if that is what you meant, edit the stop in place instead."
+    : "";
+
+  return `${opening}: ${names}. Move them to another stop first, or put the stop back.${ambiguity}`;
+}
+
+// ---------------------------------------------------------------------------
+// Rows, which carry identity
+// ---------------------------------------------------------------------------
+
+/**
+ * A stop as the editor holds it: the same four fields, plus which stop it is.
+ *
+ * The id is the whole difference between this and a pasted line. Given it,
+ * correcting the spelling of a stop is an update to a known row, and the
+ * children standing there never notice. Without it the only honest reading of
+ * a vanished name is that the stop is gone, which is why the pasted path has
+ * to refuse what this path does without comment.
+ */
+export type StopRow = {
+  id: string | null;
+  name: string;
+  landmark: string | null;
+  pickupTime: string | null;
+  dropoffTime: string | null;
+};
+
+/**
+ * Rows out of the parallel arrays a repeated form field posts.
+ *
+ * FormData.getAll keeps document order, so the arrays line up by index and the
+ * order of the rows on screen is the order along the route. Rows with nothing
+ * in the name are dropped rather than refused: an empty row is what a half
+ * pressed "add stop" leaves behind, and it is not a mistake worth a sentence.
+ */
+export function parseRows(input: {
+  ids: string[];
+  names: string[];
+  landmarks: string[];
+  pickups: string[];
+  dropoffs: string[];
+}): ParsedRoute & { rows: StopRow[] } {
+  const rows: StopRow[] = [];
+  const stops: ParsedStop[] = [];
+  const problems: StopProblem[] = [];
+  const seen = new Map<string, number>();
+
+  const count = Math.max(
+    input.names.length,
+    input.ids.length,
+    input.landmarks.length,
+    input.pickups.length,
+    input.dropoffs.length,
+  );
+
+  for (let index = 0; index < count; index += 1) {
+    const line = index + 1;
+    const name = (input.names[index] ?? "").trim();
+    if (!name) continue;
+
+    const key = name.toLowerCase();
+    const earlier = seen.get(key);
+    if (earlier) {
+      problems.push({
+        line,
+        message: `"${name}" is already stop ${earlier} on this route. Two stops with one name cannot be told apart.`,
+      });
+      continue;
+    }
+    seen.set(key, line);
+
+    const arrival = readTime(input.pickups[index]);
+    const departure = readTime(input.dropoffs[index]);
+
+    if (arrival.bad) {
+      problems.push({
+        line,
+        message: `"${(input.pickups[index] ?? "").trim()}" is not a pick-up time. Write it as 06:40, on the 24-hour clock.`,
+      });
+      continue;
+    }
+    if (departure.bad) {
+      problems.push({
+        line,
+        message: `"${(input.dropoffs[index] ?? "").trim()}" is not a drop-off time. Write it as 15:40, on the 24-hour clock.`,
+      });
+      continue;
+    }
+
+    const landmark = (input.landmarks[index] ?? "").trim() || null;
+
+    rows.push({
+      id: (input.ids[index] ?? "").trim() || null,
+      name,
+      landmark,
+      pickupTime: arrival.value,
+      dropoffTime: departure.value,
+    });
+    stops.push({ line, name, landmark, pickupTime: arrival.value, dropoffTime: departure.value });
+  }
+
+  return { rows, stops, problems };
+}
+
+/**
+ * What saving rows would do.
+ *
+ * Unlike the pasted version this matches on the id the row carries, so a
+ * renamed stop is an update and keeps every child standing at it. A row with
+ * no id is new. An existing stop with no row is gone, deliberately, because
+ * somebody pressed remove on it.
+ *
+ * An id that no longer exists is treated as new rather than trusted. Two
+ * people editing one route is the ordinary case in a school office, and a
+ * stale id from a form opened ten minutes ago must not update a row that has
+ * since become something else.
+ */
+export function planRows(rows: StopRow[], existing: ExistingStop[]): StopPlan {
+  const known = new Map(existing.map((stop) => [stop.id, stop]));
+  const kept = new Set<string>();
+
+  const update: StopPlan["update"] = [];
+  const create: StopPlan["create"] = [];
+
+  rows.forEach((row, index) => {
+    const sequence = index + 1;
+    const stop: ParsedStop = {
+      line: sequence,
+      name: row.name,
+      landmark: row.landmark,
+      pickupTime: row.pickupTime,
+      dropoffTime: row.dropoffTime,
+    };
+
+    if (row.id && known.has(row.id)) {
+      update.push({ id: row.id, stop, sequence });
+      kept.add(row.id);
+    } else {
+      create.push({ stop, sequence });
+    }
+  });
+
+  const gone = existing.filter((stop) => !kept.has(stop.id));
+  return {
+    update,
+    create,
+    remove: gone.filter((stop) => stop.riders === 0).map((stop) => stop.id),
+    stranded: gone.filter((stop) => stop.riders > 0),
+  };
 }

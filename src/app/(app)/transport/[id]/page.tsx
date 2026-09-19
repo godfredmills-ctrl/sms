@@ -18,7 +18,6 @@ import { requirePermission, userCan } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { formatMoney } from "@/lib/money";
 import { capacityOf, directionLabel, fitnessOf, travelsOn } from "@/lib/transport";
-import { formatStops } from "@/lib/transport-stops";
 import { listName } from "@/lib/utils";
 
 import { RouteForm } from "../forms";
@@ -469,12 +468,16 @@ export default async function RoutePage({
                   description: route.description,
                   durationMins: route.durationMins,
                   feeMinor: route.feeMinor,
-                  // Rendered back into the one-per-line format the form reads,
-                  // so a stop is corrected rather than re-typed from memory.
-                  // formatStops is the same function the parser was written
-                  // against: written here and read there, the two drift, and
-                  // what the box shows stops being what saving would keep.
-                  stopsText: formatStops(route.stops),
+                  // Each row carries the id of the stop it is, so correcting a
+                  // spelling updates that stop rather than replacing it and
+                  // leaving its passengers behind.
+                  stops: route.stops.map((stop) => ({
+                    id: stop.id,
+                    name: stop.name,
+                    landmark: stop.landmark,
+                    pickupTime: stop.pickupTime,
+                    dropoffTime: stop.dropoffTime,
+                  })),
                 }}
               />
             </Card>
