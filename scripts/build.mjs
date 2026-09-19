@@ -150,6 +150,7 @@ for (const check of [
   ["migration status", "scripts/check-migration-status.ts"],
   ["reading a school register", "scripts/check-school-import.ts"],
   ["staff attendance", "scripts/check-staff-attendance.ts"],
+  ["transport stops", "scripts/check-transport-stops.ts"],
   ["boarding rules", "scripts/check-boarding.ts"],
   ["admission rules", "scripts/check-admissions.ts"],
   ["examination rules", "scripts/check-exams.ts"],

@@ -7,6 +7,7 @@ import { db } from "@/lib/db";
 import { toMinor } from "@/lib/money";
 import { normalisePhone } from "@/lib/utils";
 import { capacityOf, conflictingDirections, DIRECTIONS } from "@/lib/transport";
+import { parseStops, planStops, stopRefusal } from "@/lib/transport-stops";
 
 export type TransportState = { ok?: boolean; error?: string; message?: string };
 
@@ -76,63 +77,79 @@ export async function saveRouteAction(
     feeMinor: text(formData, "fee") ? toMinor(text(formData, "fee")) : null,
   };
 
+  // Read the stops BEFORE writing anything. A route saved with its stops
+  // refused is a half-saved route, and the person is told it failed while the
+  // code and the fee have quietly changed underneath them.
+  const parsed = parseStops(text(formData, "stops"));
+  if (parsed.problems.length) {
+    const first = parsed.problems[0];
+    return {
+      error:
+        parsed.problems.length === 1
+          ? `Line ${first.line}: ${first.message}`
+          : `Line ${first.line}: ${first.message} (and ${parsed.problems.length - 1} more line${parsed.problems.length === 2 ? "" : "s"} with the same kind of problem.)`,
+    };
+  }
+
+  // Stops that exist already, with the number of children standing at each, so
+  // the plan can tell a stop nobody uses from one that cannot be removed.
+  const existing = id
+    ? await db.transportStop.findMany({
+        where: { routeId: id },
+        select: {
+          id: true,
+          name: true,
+          _count: { select: { assignments: { where: { endedOn: null } } } },
+        },
+      })
+    : [];
+
+  const plan = planStops(
+    parsed.stops,
+    existing.map((stop) => ({
+      id: stop.id,
+      name: stop.name,
+      riders: stop._count.assignments,
+    })),
+  );
+
+  const stranded = stopRefusal(plan);
+  if (stranded) return { error: stranded };
+
   const route = id
     ? await db.transportRoute.update({ where: { id }, data, select: { id: true } })
     : await db.transportRoute.create({ data, select: { id: true } });
 
-  const lines = text(formData, "stops")
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean);
-
-  if (lines.length) {
-    const existing = await db.transportStop.findMany({
-      where: { routeId: route.id },
-      select: { id: true, name: true },
+  for (const entry of plan.update) {
+    await db.transportStop.update({
+      where: { id: entry.id },
+      data: {
+        name: entry.stop.name,
+        landmark: entry.stop.landmark,
+        pickupTime: entry.stop.pickupTime,
+        dropoffTime: entry.stop.dropoffTime,
+        sequence: entry.sequence,
+      },
     });
-    const byName = new Map(existing.map((stop) => [stop.name.toLowerCase(), stop.id]));
+  }
 
-    let sequence = 0;
-    for (const line of lines) {
-      const [stopName, landmark, pickup, dropoff] = line
-        .split("|")
-        .map((part) => part.trim());
-      if (!stopName) continue;
-      sequence += 1;
+  for (const entry of plan.create) {
+    await db.transportStop.create({
+      data: {
+        routeId: route.id,
+        name: entry.stop.name,
+        landmark: entry.stop.landmark,
+        pickupTime: entry.stop.pickupTime,
+        dropoffTime: entry.stop.dropoffTime,
+        sequence: entry.sequence,
+      },
+    });
+  }
 
-      const fields = {
-        name: stopName,
-        landmark: landmark || null,
-        pickupTime: /^([01]\d|2[0-3]):[0-5]\d$/.test(pickup ?? "") ? pickup : null,
-        dropoffTime: /^([01]\d|2[0-3]):[0-5]\d$/.test(dropoff ?? "") ? dropoff : null,
-        sequence,
-      };
-
-      const match = byName.get(stopName.toLowerCase());
-      if (match) {
-        await db.transportStop.update({ where: { id: match }, data: fields });
-        byName.delete(stopName.toLowerCase());
-      } else {
-        await db.transportStop.create({ data: { routeId: route.id, ...fields } });
-      }
-    }
-
-    // Whatever is left was not in the list this time. Removing it is only safe
-    // when nobody stands there; otherwise it is kept and pushed to the end,
-    // because a child whose stop vanished has nowhere to be picked up.
-    for (const [, stopId] of byName) {
-      const waiting = await db.transportAssignment.count({
-        where: { stopId, endedOn: null },
-      });
-      if (waiting === 0) {
-        await db.transportStop.delete({ where: { id: stopId } });
-      } else {
-        await db.transportStop.update({
-          where: { id: stopId },
-          data: { sequence: 999 },
-        });
-      }
-    }
+  // Only ever stops nobody stands at. The rest were refused above, by name,
+  // rather than hidden at the end of the route the way they used to be.
+  if (plan.remove.length) {
+    await db.transportStop.deleteMany({ where: { id: { in: plan.remove } } });
   }
 
   await db.auditLog.create({

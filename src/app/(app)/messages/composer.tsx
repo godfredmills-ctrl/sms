@@ -269,6 +269,24 @@ export function NewConversation({ people }: { people: SelectOption[] }) {
           {state.error ? <Alert tone="danger">{state.error}</Alert> : null}
           {state.ok ? <Alert tone="success">Message sent.</Alert> : null}
 
+          {/*
+            Nobody to write to is a fact about the school, not a failed search.
+            Left to the picker, it reads "No matches", which is what a broken
+            search looks like: the box says it searches staff, parents and
+            students, so an empty answer means the search is broken rather than
+            that the school has not got round to creating anybody yet. On a
+            freshly imported school this is the FIRST thing somebody tries.
+          */}
+          {people.length === 0 ? (
+            <Alert tone="info">
+              There is nobody else to write to yet. Messages here go between people who
+              can sign in, and this school has no other accounts. Pupils imported from a
+              spreadsheet are records rather than accounts: add staff under Staff, or
+              give a parent or pupil portal access from their own record, and they will
+              appear here.
+            </Alert>
+          ) : null}
+
           <Field label="To" htmlFor="recipientIds" required>
             <SearchableSelect
               id="recipientIds"
@@ -277,6 +295,11 @@ export function NewConversation({ people }: { people: SelectOption[] }) {
               required
               options={people}
               placeholder="Search staff, parents and students…"
+              emptyText={
+                people.length === 0
+                  ? "Nobody on this school has an account yet"
+                  : "No match for that name"
+              }
             />
           </Field>
 
