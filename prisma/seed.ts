@@ -31,7 +31,13 @@ import {
   rankCandidates as coverRankCandidates,
   today as coverToday,
   type Arrangement as CoverArrangement,
+  dayOf as coverDayOf,
 } from "../src/lib/cover-rules";
+import {
+  DEFAULT_EXPECTED_ARRIVAL,
+  DEFAULT_GRACE_MINUTES,
+  absencesFromLeave as staffAbsencesFromLeave,
+} from "../src/lib/staff-attendance-rules";
 import { outstandingTotal as requisitionOutstanding } from "../src/lib/requisition-rules";
 import { CRITERIA as APPRAISAL_CRITERIA } from "../src/lib/appraisal-rules";
 import {
@@ -216,6 +222,10 @@ async function main() {
   // Last of the staff seeds: it reads the year, and it wants a staff room
   // with more than the named cast in it.
   await seedAppraisals(staff, year.id);
+  // After leave, because the register has to agree with it: somebody on
+  // approved leave must not also be marked absent, and the whole point of the
+  // module is that they cannot be.
+  await seedStaffAttendance(staff, terms);
   await seedAdmissions(levels, staff, year.id, roles);
 
   console.log("\nDone.\n");
@@ -7786,5 +7796,146 @@ async function seedAppraisals(staff: StaffRow[], academicYearId: string) {
   const disputed = plans.filter((plan) => plan.status === "DISPUTED").length;
   console.log(
     `    ${created} appraisals across five states, ${disputed} not agreed by the person it is about`,
+  );
+}
+
+// -----------------------------------------------------------------------------
+// Staff attendance
+//
+// A fortnight of the sign-in book. Three things have to be true of it or the
+// screen demonstrates nothing: most people are in, a few are not, and nobody
+// on approved leave has a row at all. That last one is the module: leave is
+// derived at read time, so a teacher off sick reads as on leave whatever the
+// register says, and seeding a row for them would be seeding the bug.
+// -----------------------------------------------------------------------------
+
+async function seedStaffAttendance(staff: StaffRow[], terms: TermRow[]) {
+  console.log("  Staff attendance…");
+
+  const active = staff.filter((member) => member.status !== "RESIGNED");
+  if (active.length === 0) return;
+
+  // Everybody whose approved leave covers a day, so the register can skip
+  // them. Read the way the application reads it, through dayOf, because
+  // StaffLeave holds local midnight and a calendar day is UTC midnight.
+  const leave = await db.staffLeave.findMany({
+    where: { status: "APPROVED" },
+    select: { staffId: true, startDate: true, endDate: true, leaveType: true },
+  });
+  const absences = staffAbsencesFromLeave(leave);
+
+  const term = terms.find((entry) => entry.sequence === 1) ?? terms[0];
+  const today = coverToday();
+
+  // The fortnight behind us, weekends and days before the term began left out.
+  const days: Date[] = [];
+  for (let back = 14; back >= 1; back -= 1) {
+    const day = coverAddDays(today, -back);
+    if (coverIsWeekend(day)) continue;
+    if (term && day.getTime() < coverDayOf(term.startDate).getTime()) continue;
+    days.push(day);
+  }
+  if (days.length === 0) return;
+
+  const rows: Array<{
+    staffId: string;
+    date: Date;
+    status: "PRESENT" | "LATE" | "ABSENT" | "SICK";
+    arrivedMinutes: number | null;
+    leftMinutes: number | null;
+    minutesLate: number | null;
+    reason: string | null;
+  }> = [];
+
+  let marked = 0;
+  let late = 0;
+  let away = 0;
+  let skipped = 0;
+
+  for (const [index, day] of days.entries()) {
+    const out = coverAbsentOn(absences, day);
+
+    // The most recent day is left half taken, so the register opens on a
+    // school that has not finished marking it. A screen where everything is
+    // already done cannot show what the thing is for.
+    const partial = index === days.length - 1;
+
+    for (const [seat, member] of active.entries()) {
+      if (out.has(member.id)) {
+        skipped += 1;
+        continue;
+      }
+      if (partial && seat % 3 === 2) continue;
+
+      // Deterministic rather than random: the same demonstration twice
+      // running, and a number somebody reads off the screen on Tuesday is
+      // still there on Wednesday.
+      const roll = (seat * 7 + index * 3) % 20;
+
+      if (roll === 0) {
+        rows.push({
+          staffId: member.id,
+          date: day,
+          status: "ABSENT",
+          arrivedMinutes: null,
+          leftMinutes: null,
+          minutesLate: null,
+          reason: "No word",
+        });
+        away += 1;
+        continue;
+      }
+
+      if (roll === 1) {
+        rows.push({
+          staffId: member.id,
+          date: day,
+          status: "SICK",
+          arrivedMinutes: null,
+          leftMinutes: null,
+          minutesLate: null,
+          reason: "Telephoned in the morning",
+        });
+        away += 1;
+        continue;
+      }
+
+      if (roll < 5) {
+        // Late, by a believable amount. The school expects 07:00 with a
+        // quarter of an hour of grace, and lateness is measured against the
+        // grace, exactly as the action computes it.
+        const arrived = 7 * 60 + 20 + roll * 4;
+        rows.push({
+          staffId: member.id,
+          date: day,
+          status: "LATE",
+          arrivedMinutes: arrived,
+          leftMinutes: 15 * 60 + (seat % 5) * 6,
+          minutesLate: arrived - (DEFAULT_EXPECTED_ARRIVAL + DEFAULT_GRACE_MINUTES),
+          reason: null,
+        });
+        late += 1;
+        continue;
+      }
+
+      rows.push({
+        staffId: member.id,
+        date: day,
+        status: "PRESENT",
+        arrivedMinutes: 6 * 60 + 35 + (seat % 6) * 4,
+        leftMinutes: 15 * 60 + (seat % 7) * 5,
+        minutesLate: null,
+        reason: null,
+      });
+      marked += 1;
+    }
+  }
+
+  for (let at = 0; at < rows.length; at += 500) {
+    await db.staffAttendance.createMany({ data: rows.slice(at, at + 500) });
+  }
+
+  console.log(
+    `    ${days.length} registers, ${marked} present, ${late} late, ${away} away, ${skipped} on approved leave and left unmarked`,
   );
 }

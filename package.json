@@ -50,7 +50,8 @@
     "verify:pages": "node scripts/sweep.mjs",
     "docs:screenshots": "node scripts/screenshots.mjs",
     "school:import": "tsx --conditions=react-server scripts/import-school.ts",
-    "school:verify": "tsx --conditions=react-server scripts/verify-import.ts"
+    "school:verify": "tsx --conditions=react-server scripts/verify-import.ts",
+    "admin:add": "tsx --conditions=react-server scripts/add-admin.ts"
   },
   "prisma": {
     "seed": "tsx --conditions=react-server prisma/seed.ts"

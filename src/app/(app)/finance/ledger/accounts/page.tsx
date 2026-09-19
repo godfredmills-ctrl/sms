@@ -86,6 +86,22 @@ export default async function ChartOfAccountsPage({
                         </span>
                       </summary>
                       <div className="px-4 pb-4">
+                        {/*
+                          The only way in. /finance/ledger/accounts/[id] is a
+                          whole screen — every posting against this account,
+                          with a running balance — and nothing linked to it, so
+                          it could be reached by typing a cuid into the address
+                          bar and in no other way. The sweep found it by
+                          failing to find an id to open it with.
+                        */}
+                        <Link
+                          href={`/finance/ledger/accounts/${account.id}`}
+                          className="mb-3 inline-block text-sm text-[var(--primary)] hover:underline"
+                        >
+                          {account._count.lines
+                            ? `See all ${account._count.lines} posting${account._count.lines === 1 ? "" : "s"}`
+                            : "See this account in the ledger"}
+                        </Link>
                         <AccountForm
                           parents={options}
                           values={{
