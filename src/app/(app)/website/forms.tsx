@@ -100,9 +100,12 @@ export function SiteSettingsForm({ values }: { values: SiteValues }) {
             name="headingFont"
             clearable={false}
             defaultValue={values.headingFont}
+            // The body of the public site is Montserrat either way. This
+            // chooses whether headings break from it or match it, so the
+            // labels name the actual faces rather than describing a mood.
             options={[
-              { value: "serif", label: "Serif: classic, collegiate" },
-              { value: "sans", label: "Sans-serif: modern, plain" },
+              { value: "serif", label: "Georgia: classic, collegiate" },
+              { value: "sans", label: "Montserrat: matches the body text" },
             ]}
           />
         </Field>

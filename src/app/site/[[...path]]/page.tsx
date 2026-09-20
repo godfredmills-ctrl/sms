@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Montserrat } from "next/font/google";
 import { notFound } from "next/navigation";
 import { Facebook, Instagram, Mail, MapPin, Phone, Youtube } from "lucide-react";
 
@@ -10,6 +11,34 @@ import { VENDOR_NAME } from "@/lib/vendor";
 
 import { RenderBlock, tint, type NewsItem, type SiteTheme } from "../blocks";
 import { NewsletterForm } from "../newsletter";
+
+/**
+ * The public site sets its own typeface.
+ *
+ * Montserrat, and only out here: the admin application keeps the system font
+ * stack, because a member of staff reading a register for six hours wants the
+ * face their operating system renders best, and a parent looking at the school
+ * for the first time is looking at the school.
+ *
+ * Self-hosted by next/font rather than linked from Google. The files are
+ * fetched once at build time and served from this origin, so the page makes no
+ * third-party request, needs no preconnect, and does not show the fallback face
+ * for the first half second while a stylesheet arrives from somewhere else.
+ * It also means a school on a slow connection is not waiting on fonts.gstatic
+ * to render its own homepage.
+ *
+ * Three weights, because the site uses exactly three: regular for reading,
+ * semibold for buttons and labels, bold for headings. Every extra weight is
+ * another file a visitor downloads to see a page they may not scroll.
+ */
+const montserrat = Montserrat({
+  subsets: ["latin"],
+  weight: ["400", "600", "700"],
+  // The text is legible in the fallback face while the real one loads, rather
+  // than invisible. A school prospectus that flashes blank reads as broken.
+  display: "swap",
+  fallback: ["ui-sans-serif", "system-ui", "Segoe UI", "Roboto", "sans-serif"],
+});
 
 /**
  * A colour a school typed, or the fallback when it cannot be trusted.
@@ -204,7 +233,7 @@ export default async function PublicSitePage({
           colorScheme: "light",
         } as React.CSSProperties
       }
-      className="min-h-screen bg-white text-slate-800"
+      className={`${montserrat.className} min-h-screen bg-white text-slate-800`}
     >
       {gaId ? (
         <>
