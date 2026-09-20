@@ -89,7 +89,7 @@ export function RouteForm({ route }: { route?: RouteDraft }) {
           </Field>
         </div>
 
-        <Field label="Stops" hint="In the order the bus drives them.">
+        <Field label="Stops">
           <StopsEditor stops={route?.stops ?? []} />
         </Field>
 

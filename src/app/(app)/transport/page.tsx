@@ -319,7 +319,7 @@ export default async function TransportPage() {
             <Card>
               <CardHeader
                 title="Add a route"
-                description="One stop per line, with times."
+                description="Its stops, in the order the bus drives them."
               />
               <RouteForm />
             </Card>

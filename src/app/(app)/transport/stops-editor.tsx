@@ -31,6 +31,13 @@ import { parseStops, type StopRow } from "@/lib/transport-stops";
  *   turns it into rows, which are then corrected in place.
  */
 
+/** What a pasted route looks like, shown in the box rather than explained. */
+const PASTE_EXAMPLE = [
+  "Spintex Junction | opposite Total | 06:40 | 15:40",
+  "Baatsona | by the traffic light | 06:55 | 15:25",
+  "Tema Community 7 | 07:15 | 15:05",
+].join("\n");
+
 /** A row in the editor. The key is local and never leaves the browser. */
 type Row = StopRow & { key: string };
 
@@ -122,82 +129,118 @@ export function StopsEditor({ stops }: { stops: StopRow[] }) {
 
   return (
     <div className="space-y-2">
-      <div className="hidden gap-2 px-1 text-xs text-[var(--text-subtle)] sm:grid sm:grid-cols-[1.4fr_1.4fr_5.5rem_5.5rem_auto]">
-        <span>Stop</span>
-        <span>Landmark</span>
-        <span>Pick-up</span>
-        <span>Drop-off</span>
-        <span className="sr-only">Reorder</span>
-      </div>
+      {/*
+        Stacked, not a row of columns.
 
+        This form lives in a 22rem sidebar. Laid out as five columns it had
+        about twenty points of width for the stop name and the same for the
+        landmark, because the breakpoint that turned the columns on measures
+        the VIEWPORT and the space that matters is the CARD. A wide monitor
+        made the fields narrower, which is the wrong way round and exactly
+        what a viewport breakpoint does to a component inside a sidebar.
+
+        So each stop is a small block: the name across the top where it has
+        room to be read, the landmark under it, and the two times side by
+        side because they are short and belong together.
+      */}
       <ul className="space-y-2">
         {rows.map((row, index) => (
           <li
             key={row.key}
-            className="grid gap-2 sm:grid-cols-[1.4fr_1.4fr_5.5rem_5.5rem_auto]"
+            className="space-y-2 rounded-lg border border-[var(--border)] p-2.5"
           >
             {/* Identity travels with the row. Without it a rename is a deletion. */}
             <input type="hidden" name="stopId" value={row.id ?? ""} />
 
-            <Input
-              name="stopName"
-              value={row.name}
-              onChange={(event) => update(row.key, { name: event.target.value })}
-              placeholder="Spintex Junction"
-              aria-label={`Stop ${index + 1} name`}
-            />
-            <Input
-              name="stopLandmark"
-              value={row.landmark ?? ""}
-              onChange={(event) => update(row.key, { landmark: event.target.value || null })}
-              placeholder="opposite Total"
-              aria-label={`Stop ${index + 1} landmark`}
-            />
-            <Input
-              type="time"
-              name="stopPickup"
-              value={row.pickupTime ?? ""}
-              onChange={(event) => update(row.key, { pickupTime: event.target.value || null })}
-              aria-label={`Stop ${index + 1} pick-up time`}
-            />
-            <Input
-              type="time"
-              name="stopDropoff"
-              value={row.dropoffTime ?? ""}
-              onChange={(event) => update(row.key, { dropoffTime: event.target.value || null })}
-              aria-label={`Stop ${index + 1} drop-off time`}
-            />
+            {/*
+              The buttons get their own column rather than sharing the name's
+              row. Sharing it made the stop name narrower than the landmark
+              beneath it, which reads as though the landmark were the more
+              important of the two.
+            */}
+            <div className="flex items-start gap-1.5">
+              <span className="numeric w-4 shrink-0 pt-2 text-center text-xs text-[var(--text-subtle)]">
+                {index + 1}
+              </span>
 
-            <div className="flex items-center gap-0.5">
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                disabled={index === 0}
-                onClick={() => move(index, -1)}
-                aria-label={`Move ${row.name || `stop ${index + 1}`} earlier`}
-              >
-                <ArrowUp className="size-3.5" />
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                disabled={index === rows.length - 1}
-                onClick={() => move(index, 1)}
-                aria-label={`Move ${row.name || `stop ${index + 1}`} later`}
-              >
-                <ArrowDown className="size-3.5" />
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => remove(row.key)}
-                aria-label={`Remove ${row.name || `stop ${index + 1}`}`}
-              >
-                <X className="size-3.5" />
-              </Button>
+              <div className="min-w-0 flex-1 space-y-2">
+                <Input
+                  name="stopName"
+                  value={row.name}
+                  onChange={(event) => update(row.key, { name: event.target.value })}
+                  placeholder="Spintex Junction"
+                  aria-label={`Stop ${index + 1} name`}
+                />
+                <Input
+                  name="stopLandmark"
+                  value={row.landmark ?? ""}
+                  onChange={(event) => update(row.key, { landmark: event.target.value || null })}
+                  placeholder="Landmark: opposite Total"
+                  aria-label={`Stop ${index + 1} landmark`}
+                />
+                <div className="grid grid-cols-2 gap-2">
+                  <label className="block">
+                    <span className="mb-0.5 block text-[11px] text-[var(--text-subtle)]">
+                      Pick-up
+                    </span>
+                    <Input
+                      type="time"
+                      name="stopPickup"
+                      value={row.pickupTime ?? ""}
+                      onChange={(event) =>
+                        update(row.key, { pickupTime: event.target.value || null })
+                      }
+                      aria-label={`Stop ${index + 1} pick-up time`}
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="mb-0.5 block text-[11px] text-[var(--text-subtle)]">
+                      Drop-off
+                    </span>
+                    <Input
+                      type="time"
+                      name="stopDropoff"
+                      value={row.dropoffTime ?? ""}
+                      onChange={(event) =>
+                        update(row.key, { dropoffTime: event.target.value || null })
+                      }
+                      aria-label={`Stop ${index + 1} drop-off time`}
+                    />
+                  </label>
+                </div>
+              </div>
+
+              <div className="flex shrink-0 flex-col">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  disabled={index === 0}
+                  onClick={() => move(index, -1)}
+                  aria-label={`Move ${row.name || `stop ${index + 1}`} earlier`}
+                >
+                  <ArrowUp className="size-3.5" />
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  disabled={index === rows.length - 1}
+                  onClick={() => move(index, 1)}
+                  aria-label={`Move ${row.name || `stop ${index + 1}`} later`}
+                >
+                  <ArrowDown className="size-3.5" />
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => remove(row.key)}
+                  aria-label={`Remove ${row.name || `stop ${index + 1}`}`}
+                >
+                  <X className="size-3.5" />
+                </Button>
+              </div>
             </div>
           </li>
         ))}
@@ -227,8 +270,8 @@ export function StopsEditor({ stops }: { stops: StopRow[] }) {
       {pasting ? (
         <div className="space-y-2 rounded-lg border border-[var(--border)] p-3">
           <p className="text-xs text-[var(--text-subtle)]">
-            One stop per line, in order. Name, then landmark, pick-up and drop-off,
-            separated by a vertical bar. Anything you leave out is fine.
+            One stop per line, in order. Name, then landmark, pick-up and
+            drop-off, separated by a vertical bar. Anything you leave out is fine.
           </p>
           <textarea
             value={pasted}
@@ -238,9 +281,7 @@ export function StopsEditor({ stops }: { stops: StopRow[] }) {
             }}
             rows={4}
             className="input w-full font-mono text-xs"
-            placeholder={
-              "Spintex Junction | opposite Total | 06:40 | 15:40\nBaatsona | by the traffic light | 06:55 | 15:25\nTema Community 7 | 07:15 | 15:05"
-            }
+            placeholder={PASTE_EXAMPLE}
           />
           {pasteError ? <Alert tone="danger">{pasteError}</Alert> : null}
           <div className="flex gap-2">
@@ -263,9 +304,8 @@ export function StopsEditor({ stops }: { stops: StopRow[] }) {
       ) : null}
 
       <p className="text-xs text-[var(--text-subtle)]">
-        The order here is the order the bus drives them. A stop with children assigned
-        cannot be removed until they are moved, but renaming one is safe: the stop keeps
-        its place and its passengers.
+        A stop with children assigned cannot be removed until they are moved.
+        Renaming one is safe: it keeps its place and its passengers.
       </p>
     </div>
   );

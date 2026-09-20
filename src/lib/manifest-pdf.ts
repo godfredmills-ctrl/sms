@@ -1,6 +1,24 @@
 import "server-only";
 
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf-lib";
+// The page and the columns live in manifest-layout.ts, where the width of a
+// column is derived from where the next one starts rather than written down
+// beside it. They were written down here, and the name column claimed 210
+// points of a 198-point gap, so a long name printed over the class next to it.
+import {
+  BAND_COUNT_RIGHT,
+  BAND_TEXT_X,
+  COLUMN_X,
+  EXTRA_X,
+  MARGIN,
+  PAGE_H,
+  PAGE_W,
+  ROW_RIGHT,
+  USABLE,
+  bandTextWidth,
+  columnWidth,
+  extraWidth,
+} from "@/lib/manifest-layout";
 
 import { sanitisePdfText } from "@/lib/pdf-text";
 
@@ -18,10 +36,6 @@ import { sanitisePdfText } from "@/lib/pdf-text";
  * where someone looks when they are not reading.
  */
 
-const PAGE_W = 595.28;
-const PAGE_H = 841.89;
-const MARGIN = 40;
-const USABLE = PAGE_W - MARGIN * 2;
 
 const INK = rgb(0.06, 0.09, 0.16);
 const MUTED = rgb(0.42, 0.47, 0.56);
@@ -222,8 +236,8 @@ export async function renderManifestPdf(input: Manifest): Promise<Buffer> {
         color: urgent ? rgb(0.99, 0.93, 0.86) : rgb(0.95, 0.96, 0.97),
         ...(urgent ? { borderColor: ALERT, borderWidth: 0.75 } : {}),
       });
-      page.drawText(truncate(clean(text), bold, 10, USABLE - 90), {
-        x: MARGIN + 8,
+      page.drawText(truncate(clean(text), bold, 10, bandTextWidth()), {
+        x: BAND_TEXT_X,
         y: y - 13,
         size: 10,
         font: bold,
@@ -231,7 +245,7 @@ export async function renderManifestPdf(input: Manifest): Promise<Buffer> {
       });
       const count = `${stop.children.length}`;
       page.drawText(count, {
-        x: MARGIN + USABLE - 8 - bold.widthOfTextAtSize(count, 10),
+        x: BAND_COUNT_RIGHT - bold.widthOfTextAtSize(count, 10),
         y: y - 13,
         size: 10,
         font: bold,
@@ -265,7 +279,7 @@ export async function renderManifestPdf(input: Manifest): Promise<Buffer> {
 
       // The tick box: this sheet gets marked with a biro, twice a day.
       page.drawRectangle({
-        x: MARGIN + 6,
+        x: COLUMN_X.tick,
         y: y - 2,
         width: 10,
         height: 10,
@@ -273,16 +287,16 @@ export async function renderManifestPdf(input: Manifest): Promise<Buffer> {
         borderWidth: 0.75,
       });
 
-      page.drawText(truncate(clean(child.name), bold, 10, 210), {
-        x: MARGIN + 24,
+      page.drawText(truncate(clean(child.name), bold, 10, columnWidth("name")), {
+        x: COLUMN_X.name,
         y,
         size: 10,
         font: bold,
         color: INK,
       });
 
-      page.drawText(truncate(clean(child.className), regular, 9, 84), {
-        x: MARGIN + 230,
+      page.drawText(truncate(clean(child.className), regular, 9, columnWidth("className")), {
+        x: COLUMN_X.className,
         y,
         size: 9,
         font: regular,
@@ -293,13 +307,13 @@ export async function renderManifestPdf(input: Manifest): Promise<Buffer> {
       // whatever is left — so a long name is shortened and the phone survives
       // whole. The other way round loses the digits, which is the one thing
       // on this sheet somebody needs at the roadside.
-      const contactLeft = MARGIN + 322;
-      let nameWidth = MARGIN + USABLE - contactLeft;
+      const contactLeft = COLUMN_X.contact;
+      let nameWidth = ROW_RIGHT - contactLeft;
       if (child.guardianPhone) {
         const phone = clean(child.guardianPhone);
         const phoneWidth = regular.widthOfTextAtSize(phone, 9);
         page.drawText(phone, {
-          x: MARGIN + USABLE - phoneWidth,
+          x: ROW_RIGHT - phoneWidth,
           y,
           size: 9,
           font: regular,
@@ -327,8 +341,8 @@ export async function renderManifestPdf(input: Manifest): Promise<Buffer> {
         .filter(Boolean)
         .join("  ·  ");
       if (extra) {
-        page.drawText(truncate(clean(extra), regular, 8, USABLE - 30), {
-          x: MARGIN + 24,
+        page.drawText(truncate(clean(extra), regular, 8, extraWidth()), {
+          x: EXTRA_X,
           y,
           size: 8,
           font: regular,
